@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#58cc02">
+<title>天路闖關｜聖經版多鄰國</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- 場景飄浮裝飾 -->
+  <div id="decor"></div>
+
+  <!-- 頂部狀態列 -->
+  <header id="topbar">
+    <button id="btn-home" class="icon-btn" title="回書卷地圖">🏠</button>
+    <div class="stat" id="stat-streak" title="連續天數">🔥 <b>0</b></div>
+    <div class="stat" id="stat-xp" title="經驗值">⭐ <b>0</b></div>
+    <div class="stat" id="stat-hearts" title="愛心">❤️ <b>3</b></div>
+    <button id="btn-board" class="icon-btn" title="排行榜">🏆</button>
+    <button id="btn-custom" class="icon-btn" title="打扮：場景與夥伴">🎨</button>
+    <button id="btn-user" class="icon-btn" title="登入 / 帳號">👤</button>
+  </header>
+
+  <!-- 畫面 1：書卷地圖 -->
+  <main id="screen-books" class="screen">
+    <h1 class="app-title">📖 天路闖關</h1>
+    <p class="app-sub">每天幾分鐘，把聖經讀進生命裡</p>
+    <div class="home-mascot" id="home-mascot" title="點我換夥伴">🕊️</div>
+
+    <!-- 登入提示（未登入時顯示） -->
+    <div class="login-banner hidden" id="login-banner">
+      <span>☁️ 登入後進度存雲端，換手機不會消失</span>
+      <button id="btn-login-banner">用 Google 登入</button>
+    </div>
+
+    <!-- 打扮面板 -->
+    <div class="custom-panel hidden" id="custom-panel">
+      <h3>🏞️ 選擇場景</h3>
+      <div class="chip-row" id="scene-row"></div>
+      <h3>🐾 選擇夥伴</h3>
+      <div class="chip-row" id="mascot-row"></div>
+      <p class="mascot-verse" id="mascot-verse"></p>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="nt">新約</button>
+      <button class="tab" data-tab="ot">舊約</button>
+    </div>
+    <div id="book-grid" class="book-grid"></div>
+  </main>
+
+  <!-- 畫面 2：章節關卡路徑 -->
+  <main id="screen-chapters" class="screen hidden">
+    <div class="book-header">
+      <button class="back-btn" id="btn-back-books">←</button>
+      <h2 id="chapter-title">馬可福音</h2>
+    </div>
+    <div id="chapter-path"></div>
+  </main>
+
+  <!-- 畫面 3：關卡進行中 -->
+  <main id="screen-lesson" class="screen hidden">
+    <div class="lesson-top">
+      <button class="icon-btn" id="btn-quit">✕</button>
+      <div class="progress-track"><div id="lesson-progress" class="progress-fill"></div></div>
+      <div class="lesson-hearts" id="lesson-hearts">❤️❤️❤️</div>
+    </div>
+    <div id="question-area"></div>
+    <div id="feedback-bar" class="feedback-bar hidden">
+      <div id="feedback-text"></div>
+      <button id="btn-report" class="report-btn" title="這題怪怪的？回報給牧師">🚩 回報這題</button>
+      <button id="btn-next" class="big-btn">繼續</button>
+    </div>
+    <div class="lesson-bottom">
+      <button id="btn-check" class="big-btn" disabled>確定</button>
+    </div>
+  </main>
+
+  <!-- 畫面 4：結算 -->
+  <main id="screen-result" class="screen hidden">
+    <div class="result-box" id="result-box"></div>
+  </main>
+
+  <!-- 畫面 5：排行榜 -->
+  <main id="screen-board" class="screen hidden">
+    <div class="book-header">
+      <button class="back-btn" id="btn-back-board">←</button>
+      <h2>🏆 排行榜</h2>
+      <button class="icon-btn" id="btn-nickname" title="修改排行榜暱稱">✏️</button>
+    </div>
+    <div class="tabs">
+      <button class="tab active" data-board="week">本週</button>
+      <button class="tab" data-board="total">總榜</button>
+    </div>
+    <div id="board-list"></div>
+  </main>
+
+
+  <!-- Firebase（雲端登入與進度同步；載入失敗時 App 仍可離線遊玩） -->
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  <script src="js/cloud.js"></script>
+  <script src="js/questions.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,650 @@
+// 天路闖關 — 主程式（畫面切換、遊戲流程、進度/經驗值/連續天數）
+(function () {
+  const $ = (sel) => document.querySelector(sel);
+  const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const OT_COUNT = 39;
+  const BOOK_EMOJI = {
+    GEN: '🌍', EXO: '🌊', LEV: '🕯️', NUM: '🏕️', DEU: '📜', JOS: '🎺', JDG: '⚔️', RUT: '🌾',
+    '1SA': '👑', '2SA': '🏰', '1KI': '🏛️', '2KI': '🔥', '1CH': '📖', '2CH': '📖', EZR: '🧱',
+    NEH: '🧱', EST: '👸', JOB: '🌪️', PSA: '🎵', PRO: '💡', ECC: '⏳', SNG: '🌹', ISA: '🕊️',
+    JER: '💧', LAM: '😢', EZK: '👁️', DAN: '🦁', HOS: '💔', JOL: '🦗', AMO: '⚖️', OBA: '⛰️',
+    JON: '🐋', MIC: '🌄', NAM: '🌊', HAB: '❓', ZEP: '🔎', HAG: '🏗️', ZEC: '🐎', MAL: '✉️',
+    MAT: '👑', MRK: '🦁', LUK: '🩺', JHN: '🦅', ACT: '🔥', ROM: '⚖️', '1CO': '💌', '2CO': '💌',
+    GAL: '🕊️', EPH: '🛡️', PHP: '😊', COL: '👔', '1TH': '⏰', '2TH': '⏰', '1TI': '🧑‍🏫',
+    '2TI': '🏃', TIT: '🏝️', PHM: '🤝', HEB: '⛪', JAS: '🪞', '1PE': '🪨', '2PE': '🪨',
+    '1JN': '❤️', '2JN': '💌', '3JN': '💌', JUD: '🛡️', REV: '🌅',
+  };
+
+  // ===== 場景與夥伴 =====
+  const SCENES = {
+    meadow: { name: '青草地', emoji: '🌿', decor: ['🌾', '🌼', '🐑', '🦋', '🌻'] },
+    galilee: { name: '加利利海', emoji: '🌊', decor: ['⛵', '🐟', '🌊', '🕊️', '🐚'] },
+    desert: { name: '曠野日出', emoji: '🏜️', decor: ['🌵', '🐫', '☀️', '⛺', '🦂'] },
+    night: { name: '星夜應許', emoji: '🌌', decor: ['⭐', '🌙', '✨', '☁️', '💫'] },
+  };
+  const MASCOTS = {
+    dove: { name: '小鴿子', emoji: '🕊️', verse: '「鴿子嘴裏叼着一個新擰下來的橄欖葉子」— 創世記 8:11' },
+    fish: { name: '小魚', emoji: '🐟', verse: '「我們這裏只有五個餅、兩條魚」— 馬太福音 14:17' },
+    hippo: { name: '小河馬', emoji: '🦛', verse: '「你且觀看河馬…牠的氣力在腰間」— 約伯記 40:15-16' },
+    ant: { name: '小螞蟻', emoji: '🐜', verse: '「懶惰人哪，你去察看螞蟻的動作就可得智慧」— 箴言 6:6' },
+  };
+
+  // ===== 進度資料（localStorage，Step 3 會改接雲端）=====
+  const store = {
+    load() {
+      try { return JSON.parse(localStorage.getItem('bibleduo') || '{}'); }
+      catch { return {}; }
+    },
+    save(d) {
+      localStorage.setItem('bibleduo', JSON.stringify(d));
+      CloudSync.save(d); // 有登入就同步到雲端（沒登入時是空操作）
+    },
+  };
+  let state = Object.assign({ xp: 0, streak: 0, lastPlay: '', done: {}, scene: 'meadow', mascot: 'dove', nickname: '', weekXp: 0, weekKey: '' }, store.load());
+  // done: { MRK: [1,2,3] } 已完成章
+
+  const mascot = () => MASCOTS[state.mascot] || MASCOTS.dove;
+
+  // ===== 場景套用與飄浮裝飾 =====
+  function applyScene() {
+    const scene = SCENES[state.scene] ? state.scene : 'meadow';
+    document.documentElement.dataset.scene = scene;
+    const decor = document.querySelector('#decor');
+    decor.innerHTML = '';
+    const items = SCENES[scene].decor;
+    for (let i = 0; i < 10; i++) {
+      const s = document.createElement('span');
+      s.className = 'decor-item';
+      s.textContent = items[i % items.length];
+      s.style.left = `${(i * 37 + 8) % 92}%`;
+      s.style.top = `${(i * 23 + 12) % 85}%`;
+      s.style.animationDelay = `${(i * 0.9) % 6}s`;
+      s.style.fontSize = `${1.1 + (i % 3) * 0.5}rem`;
+      decor.appendChild(s);
+    }
+    document.querySelector('#home-mascot').textContent = mascot().emoji;
+  }
+
+  // ===== 打扮面板 =====
+  function renderCustomPanel() {
+    const sceneRow = document.querySelector('#scene-row');
+    sceneRow.innerHTML = '';
+    for (const [key, sc] of Object.entries(SCENES)) {
+      const chip = document.createElement('button');
+      chip.className = 'pick-chip' + (state.scene === key ? ' active' : '');
+      chip.innerHTML = `<span class="p-emoji">${sc.emoji}</span><span class="p-name">${sc.name}</span>`;
+      chip.onclick = () => { state.scene = key; store.save(state); applyScene(); renderCustomPanel(); };
+      sceneRow.appendChild(chip);
+    }
+    const mascotRow = document.querySelector('#mascot-row');
+    mascotRow.innerHTML = '';
+    for (const [key, m] of Object.entries(MASCOTS)) {
+      const chip = document.createElement('button');
+      chip.className = 'pick-chip' + (state.mascot === key ? ' active' : '');
+      chip.innerHTML = `<span class="p-emoji">${m.emoji}</span><span class="p-name">${m.name}</span>`;
+      chip.onclick = () => { state.mascot = key; store.save(state); applyScene(); renderCustomPanel(); };
+      mascotRow.appendChild(chip);
+    }
+    document.querySelector('#mascot-verse').textContent = mascot().verse;
+  }
+  function toggleCustomPanel() {
+    document.querySelector('#custom-panel').classList.toggle('hidden');
+    renderCustomPanel();
+  }
+  document.querySelector('#btn-custom').onclick = toggleCustomPanel;
+
+  // ===== 彩帶（完美通關）=====
+  function throwConfetti() {
+    const pieces = ['🎉', '⭐', '✨', '🎊', mascot().emoji];
+    for (let i = 0; i < 24; i++) {
+      const c = document.createElement('span');
+      c.className = 'confetti';
+      c.textContent = pieces[i % pieces.length];
+      c.style.left = `${Math.random() * 96}%`;
+      c.style.animationDuration = `${1.6 + Math.random() * 1.6}s`;
+      c.style.animationDelay = `${Math.random() * 0.5}s`;
+      document.body.appendChild(c);
+      setTimeout(() => c.remove(), 4000);
+    }
+  }
+
+  // 日期一律用本地時區（台灣晚上若用 UTC 會差一天）
+  const pad = (n) => String(n).padStart(2, '0');
+  const localDate = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  function today() { return localDate(new Date()); }
+  function weekKeyOf() { // 本週週一的日期，當作「這一週」的鑰匙
+    const d = new Date();
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    return localDate(d);
+  }
+  function ensureWeek() { // 跨週時歸零本週經驗值（Step 6 排行榜用）
+    const wk = weekKeyOf();
+    if (state.weekKey !== wk) { state.weekKey = wk; state.weekXp = 0; }
+  }
+  function bumpStreak() {
+    const t = today();
+    if (state.lastPlay === t) return;
+    const y = localDate(new Date(Date.now() - 86400000));
+    state.streak = state.lastPlay === y ? state.streak + 1 : 1;
+    state.lastPlay = t;
+  }
+  function renderTopbar() {
+    $('#stat-streak b').textContent = state.streak;
+    $('#stat-xp b').textContent = state.xp;
+    $('#stat-hearts b').textContent = lesson ? lesson.hearts : 3;
+  }
+
+  // ===== 音效（簡單合成音）=====
+  let audioCtx = null;
+  function beep(freqs, dur = 0.12) {
+    try {
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      freqs.forEach((f, i) => {
+        const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+        o.frequency.value = f; o.type = 'sine';
+        g.gain.setValueAtTime(0.18, audioCtx.currentTime + i * dur);
+        g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + (i + 1) * dur);
+        o.connect(g).connect(audioCtx.destination);
+        o.start(audioCtx.currentTime + i * dur); o.stop(audioCtx.currentTime + (i + 1) * dur);
+      });
+    } catch { /* 靜音也不影響遊戲 */ }
+  }
+  const sndGood = () => beep([660, 880]);
+  const sndBad = () => beep([330, 220], 0.15);
+  const sndWin = () => beep([523, 659, 784, 1047], 0.14);
+
+  // ===== 資料載入 =====
+  let bookIndex = null;
+  const bookCache = {};
+  async function loadIndex() {
+    const res = await fetch('data/index.json');
+    bookIndex = (await res.json()).books;
+  }
+  async function loadBook(id) {
+    if (!bookCache[id]) {
+      const res = await fetch(`data/books/${id}.json`);
+      bookCache[id] = await res.json();
+    }
+    return bookCache[id];
+  }
+
+  // 理解題題庫（尚未生成的書卷會回傳 null，遊戲照常只出熟讀題）
+  const compCache = {};
+  async function loadComp(id) {
+    if (!(id in compCache)) {
+      try {
+        const res = await fetch(`data/comprehension/${id}.json`);
+        compCache[id] = res.ok ? await res.json() : null;
+      } catch { compCache[id] = null; }
+    }
+    return compCache[id];
+  }
+  const shuffleArr = (a) => a.slice().sort(() => Math.random() - 0.5);
+
+  // ===== 畫面切換 =====
+  function show(id) {
+    for (const s of document.querySelectorAll('.screen')) s.classList.add('hidden');
+    $(id).classList.remove('hidden');
+    window.scrollTo(0, 0);
+  }
+
+  // ===== 畫面 1：書卷地圖 =====
+  let currentTab = 'nt';
+  function renderBooks() {
+    const grid = $('#book-grid');
+    grid.innerHTML = '';
+    const list = currentTab === 'ot' ? bookIndex.slice(0, OT_COUNT) : bookIndex.slice(OT_COUNT);
+    for (const b of list) {
+      const doneCh = (state.done[b.id] || []).length;
+      const tile = document.createElement('button');
+      tile.className = 'book-tile' + (doneCh >= b.chapters ? ' done' : '');
+      tile.innerHTML = `<div class="b-emoji">${BOOK_EMOJI[b.id] || '📖'}</div>
+        <div class="b-name">${b.name}</div>
+        <div class="b-prog">${doneCh}/${b.chapters} 章</div>
+        <div class="b-bar"><i style="width:${Math.round((doneCh / b.chapters) * 100)}%"></i></div>`;
+      tile.onclick = () => openBook(b.id);
+      grid.appendChild(tile);
+    }
+  }
+  for (const tab of document.querySelectorAll('.tab')) {
+    tab.onclick = () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      currentTab = tab.dataset.tab;
+      renderBooks();
+    };
+  }
+
+  // ===== 畫面 2：章節路徑 =====
+  let currentBook = null;
+  async function openBook(id) {
+    currentBook = await loadBook(id);
+    $('#chapter-title').textContent = currentBook.name;
+    const path = $('#chapter-path');
+    path.innerHTML = '';
+    const done = state.done[id] || [];
+    const maxUnlocked = done.length ? Math.max(...done) + 1 : 1;
+    for (let c = 1; c <= currentBook.chapters.length; c++) {
+      const node = document.createElement('button');
+      const isDone = done.includes(c);
+      const locked = c > maxUnlocked;
+      node.className = 'chapter-node' + (isDone ? ' done' : locked ? ' locked' : c === maxUnlocked ? ' next' : '');
+      node.innerHTML = `<div>${isDone ? '⭐' : locked ? '🔒' : c}</div><div class="n-label">第 ${c} 章</div>`;
+      if (!locked) node.onclick = () => startLesson(c);
+      path.appendChild(node);
+    }
+    show('#screen-chapters');
+  }
+  $('#btn-back-books').onclick = () => { renderBooks(); show('#screen-books'); };
+  $('#btn-home').onclick = () => { lesson = null; renderTopbar(); renderBooks(); show('#screen-books'); };
+
+  // ===== 畫面 3：關卡 =====
+  let lesson = null;
+  async function startLesson(chapterNum) {
+    const qs = QuestionFactory.generateLesson(currentBook, chapterNum);
+    if (qs.length < 2) { alert('這一章太短，暫時無法出題，先挑別章吧！'); return; }
+    // 有理解題的章節：中段插一題、結尾放一題
+    const comp = await loadComp(currentBook.id);
+    const cqs = (comp && comp.questions && comp.questions[String(chapterNum)]) || [];
+    const compQs = cqs.slice(0, 2).map((c) => ({
+      type: 'comp', ref: c.basis, q: c.q, answer: c.answer, basis: c.basis,
+      options: shuffleArr(c.options),
+    }));
+    if (compQs[0]) qs.splice(Math.floor(qs.length / 2), 0, compQs[0]);
+    if (compQs[1]) qs.push(compQs[1]);
+    lesson = { chapterNum, qs, i: 0, hearts: 3, wrong: 0, xp: 0 };
+    renderTopbar();
+    show('#screen-lesson');
+    renderQuestion();
+  }
+  $('#btn-quit').onclick = () => {
+    if (confirm('確定要離開嗎？這一關的進度不會保留。')) {
+      lesson = null; renderTopbar(); show('#screen-chapters'); openBook(currentBook.id);
+    }
+  };
+
+  let currentAnswerGetter = null; // 回傳 {ok, correctText} 或 null（尚未作答完）
+
+  function renderQuestion() {
+    const q = lesson.qs[lesson.i];
+    $('#lesson-progress').style.width = `${(lesson.i / lesson.qs.length) * 100}%`;
+    $('#lesson-hearts').textContent = '❤️'.repeat(lesson.hearts) + '🖤'.repeat(3 - lesson.hearts);
+    $('#btn-check').disabled = true;
+    $('#feedback-bar').classList.add('hidden');
+    $('#btn-check').classList.remove('hidden');
+    const rb = $('#btn-report');
+    rb.disabled = false;
+    rb.textContent = '🚩 回報這題';
+    const area = $('#question-area');
+    area.innerHTML = '';
+    if (q.type === 'fill') renderFill(q, area);
+    if (q.type === 'order') renderOrder(q, area);
+    if (q.type === 'match') renderMatch(q, area);
+    if (q.type === 'next') renderNext(q, area);
+    if (q.type === 'comp') renderComp(q, area);
+  }
+
+  // --- 題型 1 & 4：選擇題共用 ---
+  function renderChoices(q, area, titleHTML) {
+    area.innerHTML = titleHTML;
+    const box = document.createElement('div');
+    box.className = 'choices';
+    let selected = null;
+    for (const opt of q.options) {
+      const btn = document.createElement('button');
+      btn.className = 'choice';
+      btn.textContent = opt;
+      btn.onclick = () => {
+        box.querySelectorAll('.choice').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        selected = { text: opt, el: btn };
+        $('#btn-check').disabled = false;
+      };
+      box.appendChild(btn);
+    }
+    area.appendChild(box);
+    currentAnswerGetter = () => {
+      if (!selected) return null;
+      const ok = selected.text === q.answer;
+      selected.el.classList.add(ok ? 'correct' : 'wrong');
+      if (!ok) box.querySelectorAll('.choice').forEach(b => { if (b.textContent === q.answer) b.classList.add('correct'); });
+      return { ok, correctText: q.answer, note: q.basis ? `📖 ${q.basis}` : '' };
+    };
+  }
+  function renderComp(q, area) {
+    renderChoices(q, area, `
+      <div class="q-type">💡 讀懂了嗎</div>
+      <div class="q-ref">${q.ref}</div>
+      <div class="q-title">${q.q}</div>`);
+  }
+  function renderFill(q, area) {
+    renderChoices(q, area, `
+      <div class="q-type">📝 經文填空</div>
+      <div class="q-ref">${q.ref}</div>
+      <div class="q-passage">${q.display.replace('____', '<span class="blank">？</span>')}</div>`);
+  }
+  function renderNext(q, area) {
+    renderChoices(q, area, `
+      <div class="q-type">🔗 接下句</div>
+      <div class="q-ref">${q.ref}</div>
+      <div class="q-passage">${q.head}<span class="blank">……</span></div>`);
+  }
+
+  // --- 題型 2：排順序 ---
+  function renderOrder(q, area) {
+    area.innerHTML = `
+      <div class="q-type">🧩 把經文排回正確順序</div>
+      <div class="q-ref">${q.ref}</div>
+      <div class="order-target" id="order-target"></div>`;
+    const pool = document.createElement('div');
+    pool.className = 'order-pool';
+    const target = () => $('#order-target');
+    const placed = [];
+    for (const piece of q.pieces) {
+      const chip = document.createElement('button');
+      chip.className = 'chip';
+      chip.textContent = piece;
+      chip.onclick = () => {
+        if (chip.classList.contains('used')) return;
+        chip.classList.add('used');
+        const t = document.createElement('button');
+        t.className = 'chip';
+        t.textContent = piece;
+        t.onclick = () => { // 從答案區移回
+          t.remove();
+          placed.splice(placed.indexOf(t), 1);
+          chip.classList.remove('used');
+          $('#btn-check').disabled = placed.length !== q.pieces.length;
+        };
+        target().appendChild(t);
+        placed.push(t);
+        $('#btn-check').disabled = placed.length !== q.pieces.length;
+      };
+      pool.appendChild(chip);
+    }
+    area.appendChild(pool);
+    currentAnswerGetter = () => {
+      if (placed.length !== q.pieces.length) return null;
+      const ok = placed.map(t => t.textContent).join('') === q.answer.join('');
+      return { ok, correctText: q.answer.join('') };
+    };
+  }
+
+  // --- 題型 3：配對 ---
+  function renderMatch(q, area) {
+    area.innerHTML = `
+      <div class="q-type">🃏 上下句配對</div>
+      <div class="q-ref">${q.ref}</div>`;
+    const grid = document.createElement('div');
+    grid.className = 'pairs';
+    const items = [];
+    q.pairs.forEach((p, i) => {
+      items.push({ text: p.left, key: i, side: 'L' });
+      items.push({ text: p.right, key: i, side: 'R' });
+    });
+    let mistakes = 0, matched = 0, sel = null;
+    // 左排在左欄、右排在右欄，各自打亂
+    const lefts = items.filter(x => x.side === 'L').sort(() => Math.random() - 0.5);
+    const rights = items.filter(x => x.side === 'R').sort(() => Math.random() - 0.5);
+    const ordered = [];
+    for (let i = 0; i < 4; i++) ordered.push(lefts[i], rights[i]);
+    for (const it of ordered) {
+      const btn = document.createElement('button');
+      btn.className = 'pair-btn';
+      btn.textContent = it.text;
+      btn.onclick = () => {
+        if (btn.classList.contains('matched')) return;
+        if (!sel) { sel = { it, btn }; btn.classList.add('selected'); return; }
+        if (sel.btn === btn) { btn.classList.remove('selected'); sel = null; return; }
+        if (sel.it.key === it.key && sel.it.side !== it.side) {
+          sel.btn.classList.add('matched'); btn.classList.add('matched');
+          sel.btn.classList.remove('selected');
+          matched++;
+          sndGood();
+          if (matched === 4) { $('#btn-check').disabled = false; checkAnswer(mistakes === 0 ? true : 'soft'); }
+        } else {
+          mistakes++;
+          btn.classList.add('shake'); sel.btn.classList.add('shake');
+          sndBad();
+          const a = sel.btn, b = btn;
+          setTimeout(() => { a.classList.remove('shake', 'selected'); b.classList.remove('shake'); }, 350);
+        }
+        sel = null;
+      };
+      grid.appendChild(btn);
+    }
+    area.appendChild(grid);
+    currentAnswerGetter = () => null; // 配對題自動判定，不用確定鈕
+    $('#btn-check').classList.add('hidden');
+  }
+
+  // ===== 判分與回饋 =====
+  $('#btn-check').onclick = () => {
+    const result = currentAnswerGetter && currentAnswerGetter();
+    if (!result) return;
+    checkAnswer(result.ok, result.correctText, result.note);
+  };
+  function checkAnswer(ok, correctText, note) {
+    const fb = $('#feedback-bar');
+    fb.classList.remove('hidden', 'good', 'bad');
+    const noteHtml = note ? `<br><small>${escapeHtml(note)}</small>` : '';
+    if (ok === true) {
+      fb.classList.add('good');
+      $('#feedback-text').innerHTML = `<span class="fb-mascot">${mascot().emoji}</span><span>${pickPraise()}${noteHtml}</span>`;
+      lesson.xp += 10;
+      sndGood();
+    } else if (ok === 'soft') { // 配對題有配錯但完成
+      fb.classList.add('good');
+      $('#feedback-text').innerHTML = `<span class="fb-mascot">${mascot().emoji}</span><span>完成配對！（中途有配錯，這題不加分）</span>`;
+    } else {
+      fb.classList.add('bad');
+      $('#feedback-text').innerHTML = `<span class="fb-mascot">💭</span><span>正確答案：${escapeHtml(correctText)}${noteHtml}</span>`;
+      lesson.hearts--;
+      lesson.wrong++;
+      sndBad();
+      renderTopbar();
+      $('#lesson-hearts').textContent = '❤️'.repeat(lesson.hearts) + '🖤'.repeat(3 - lesson.hearts);
+    }
+    $('#btn-check').classList.add('hidden');
+  }
+  const PRAISES = ['太棒了！', '答對了！🎉', '哇，你是讀經高手！', '正確！繼續保持！', '阿們，就是這句！'];
+  function pickPraise() { return PRAISES[Math.floor(Math.random() * PRAISES.length)]; }
+
+  $('#btn-next').onclick = () => {
+    if (lesson.hearts <= 0) { failLesson(); return; }
+    lesson.i++;
+    if (lesson.i >= lesson.qs.length) { winLesson(); return; }
+    renderQuestion();
+  };
+
+  // ===== 結算 =====
+  function winLesson() {
+    const perfect = lesson.wrong === 0;
+    const bonus = perfect ? 20 : 0;
+    const gained = lesson.xp + bonus;
+    state.xp += gained;
+    ensureWeek();
+    state.weekXp += gained;
+    bumpStreak();
+    const done = state.done[currentBook.id] || (state.done[currentBook.id] = []);
+    if (!done.includes(lesson.chapterNum)) done.push(lesson.chapterNum);
+    store.save(state);
+    sndWin();
+    if (perfect) throwConfetti();
+    $('#result-box').innerHTML = `
+      <div class="r-emoji">${mascot().emoji}${perfect ? '🏆' : '🎉'}</div>
+      <h2>${perfect ? '完美通關！' : '過關！'}</h2>
+      <p>${currentBook.name} 第 ${lesson.chapterNum} 章</p>
+      <div class="result-stats">
+        <div class="r-stat">＋${gained}<span>經驗值${bonus ? '（含完美 +20）' : ''}</span></div>
+        <div class="r-stat">🔥 ${state.streak}<span>連續天數</span></div>
+      </div>
+      <button class="big-btn" id="btn-continue">繼續</button>`;
+    $('#btn-continue').onclick = () => { lesson = null; renderTopbar(); openBook(currentBook.id); };
+    lessonEndCommon();
+  }
+  function failLesson() {
+    $('#result-box').innerHTML = `
+      <div class="r-emoji">${mascot().emoji}💔</div>
+      <h2>愛心用完了</h2>
+      <p>沒關係，讀經不是比賽，${mascot().name}陪你再試一次！</p>
+      <div class="result-stats">
+        <div class="r-stat">${lesson.qs.length} 題中的第 ${lesson.i + 1} 題<span>這次走到</span></div>
+      </div>
+      <button class="big-btn" id="btn-retry">再挑戰一次</button>`;
+    const ch = lesson.chapterNum;
+    $('#btn-retry').onclick = () => startLesson(ch);
+    lessonEndCommon();
+  }
+  function lessonEndCommon() {
+    renderTopbar();
+    show('#screen-result');
+  }
+
+  // ===== 帳號與雲端同步 =====
+  let currentUser = null;
+
+  // 本機與雲端進度合併：完成章取聯集、經驗值與連續天數取較高者、外觀以雲端為準
+  function mergeStates(local, cloud) {
+    if (!cloud) return local;
+    const done = {};
+    for (const k of new Set([...Object.keys(local.done || {}), ...Object.keys(cloud.done || {})])) {
+      done[k] = [...new Set([...(local.done?.[k] || []), ...(cloud.done?.[k] || [])])].sort((a, b) => a - b);
+    }
+    return {
+      xp: Math.max(local.xp || 0, cloud.xp || 0),
+      streak: Math.max(local.streak || 0, cloud.streak || 0),
+      lastPlay: (local.lastPlay || '') > (cloud.lastPlay || '') ? local.lastPlay : (cloud.lastPlay || ''),
+      done,
+      scene: cloud.scene || local.scene,
+      mascot: cloud.mascot || local.mascot,
+    };
+  }
+
+  function renderUserUi() {
+    const btn = $('#btn-user');
+    const banner = $('#login-banner');
+    if (currentUser) {
+      btn.innerHTML = currentUser.photo
+        ? `<img src="${currentUser.photo}" alt="頭像" style="width:26px;height:26px;border-radius:50%;vertical-align:middle;">`
+        : '😊';
+      btn.title = `${currentUser.name}（點擊可登出）`;
+      banner.classList.add('hidden');
+    } else {
+      btn.textContent = '👤';
+      btn.title = '登入 / 帳號';
+      banner.classList.remove('hidden');
+    }
+  }
+  $('#btn-user').onclick = () => {
+    if (!currentUser) { CloudSync.login(); return; }
+    if (confirm(`要登出 ${currentUser.name} 嗎？\n（進度已存在雲端，登出後本機仍可離線遊玩）`)) CloudSync.logout();
+  };
+  document.addEventListener('click', (e) => {
+    if (e.target && e.target.id === 'btn-login-banner') CloudSync.login();
+  });
+
+  CloudSync.init((userInfo, cloudState) => {
+    currentUser = userInfo;
+    if (userInfo) {
+      state = Object.assign(state, mergeStates(state, cloudState));
+      store.save(state); // 合併結果回寫本機＋雲端
+      applyScene();
+    }
+    renderUserUi();
+    renderTopbar();
+    if (bookIndex) renderBooks();
+  });
+
+  // ===== 排行榜 =====
+  let boardMode = 'week';
+  async function renderBoard() {
+    const list = $('#board-list');
+    list.innerHTML = '<p class="board-hint">載入中…</p>';
+    let rows = [];
+    try { rows = await CloudSync.fetchBoard(boardMode, weekKeyOf()); }
+    catch (e) { console.warn('排行榜載入失敗', e); list.innerHTML = '<p class="board-hint">排行榜載入失敗，請檢查網路後再試。</p>'; return; }
+    list.innerHTML = '';
+    if (!rows.length) {
+      list.innerHTML = '<p class="board-hint">榜上還空無一人——快去闖一關搶頭香！</p>';
+    } else {
+      const my = CloudSync.uid();
+      const medals = ['🥇', '🥈', '🥉'];
+      rows.forEach((r, i) => {
+        const row = document.createElement('div');
+        row.className = 'board-row' + (r.uid === my ? ' me' : '');
+        const m = MASCOTS[r.mascot] || MASCOTS.dove;
+        row.innerHTML = `<span class="b-rank">${medals[i] || i + 1}</span>
+          <span class="b-mascot">${m.emoji}</span>
+          <span class="b-nick">${escapeHtml(r.nick || '無名小卒')}${r.uid === my ? '（我）' : ''}</span>
+          <span class="b-xp">⭐ ${boardMode === 'week' ? (r.weekXp || 0) : (r.xp || 0)}</span>`;
+        list.appendChild(row);
+      });
+    }
+    if (!CloudSync.isLoggedIn()) {
+      const p = document.createElement('p');
+      p.className = 'board-hint';
+      p.textContent = '登入後過關，你的名字就會出現在榜上！';
+      list.appendChild(p);
+    }
+  }
+  $('#btn-board').onclick = () => { show('#screen-board'); renderBoard(); };
+  $('#btn-back-board').onclick = () => { renderBooks(); show('#screen-books'); };
+  for (const tab of document.querySelectorAll('[data-board]')) {
+    tab.onclick = () => {
+      document.querySelectorAll('[data-board]').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      boardMode = tab.dataset.board;
+      renderBoard();
+    };
+  }
+  $('#btn-nickname').onclick = () => {
+    if (!CloudSync.isLoggedIn()) { alert('先登入才能設定排行榜暱稱喔！'); return; }
+    const nick = prompt('排行榜上顯示的暱稱（最多 12 字，留空則用 Google 名字）：', state.nickname || '');
+    if (nick === null) return;
+    state.nickname = nick.trim().slice(0, 12);
+    store.save(state);
+    $('#board-list').innerHTML = '<p class="board-hint">暱稱已更新，同步中…</p>';
+    setTimeout(renderBoard, 1500); // 等雲端寫入完成再刷新
+  };
+
+  // ===== 回報題目 =====
+  $('#btn-report').onclick = async () => {
+    if (!CloudSync.isLoggedIn()) { alert('先登入才能回報題目喔！'); return; }
+    const q = lesson && lesson.qs[lesson.i];
+    if (!q) return;
+    const note = prompt('這題哪裡怪怪的？（可留空直接送出）', '');
+    if (note === null) return;
+    const btn = $('#btn-report');
+    btn.disabled = true;
+    btn.textContent = '回報中…';
+    try {
+      await CloudSync.sendReport({
+        book: currentBook.id,
+        chapter: lesson.chapterNum,
+        type: q.type,
+        ref: q.ref || '',
+        question: (q.q || q.display || q.head || (q.pieces || []).join('／') || '').slice(0, 200),
+        answer: (Array.isArray(q.answer) ? q.answer.join('') : (q.answer || '')).slice(0, 200),
+        note: note.trim().slice(0, 300),
+      });
+      btn.textContent = '✅ 已回報，謝謝你！';
+    } catch (e) {
+      console.warn('回報失敗', e);
+      btn.textContent = '🚩 回報失敗，稍後再試';
+      btn.disabled = false;
+    }
+  };
+
+  // 測試用鉤子（自動化驗證流程時讀取關卡狀態）
+  window.__bd = { get lesson() { return lesson; }, get state() { return state; }, mergeStates, renderBoard };
+
+  // ===== 啟動 =====
+  (async function init() {
+    applyScene();
+    $('#home-mascot').onclick = toggleCustomPanel;
+    await loadIndex();
+    renderTopbar();
+    renderBooks();
+  })();
+})();
