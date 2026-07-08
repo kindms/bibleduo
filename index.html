@@ -17,7 +17,7 @@
     <button id="btn-home" class="icon-btn" title="回書卷地圖">🏠</button>
     <div class="stat" id="stat-streak" title="連續天數">🔥 <b>0</b></div>
     <div class="stat" id="stat-xp" title="經驗值">⭐ <b>0</b></div>
-    <div class="stat" id="stat-hearts" title="愛心">❤️ <b>3</b></div>
+    <div class="stat" id="stat-hearts" title="愛心">❤️ <b>5</b></div>
     <button id="btn-board" class="icon-btn" title="排行榜">🏆</button>
     <button id="btn-custom" class="icon-btn" title="打扮：場景與夥伴">🎨</button>
     <button id="btn-user" class="icon-btn" title="登入 / 帳號">👤</button>
@@ -65,7 +65,7 @@
     <div class="lesson-top">
       <button class="icon-btn" id="btn-quit">✕</button>
       <div class="progress-track"><div id="lesson-progress" class="progress-fill"></div></div>
-      <div class="lesson-hearts" id="lesson-hearts">❤️❤️❤️</div>
+      <div class="lesson-hearts" id="lesson-hearts">❤️❤️❤️❤️❤️</div>
     </div>
     <div id="question-area"></div>
     <div id="feedback-bar" class="feedback-bar hidden">
@@ -97,6 +97,19 @@
     <div id="board-list"></div>
   </main>
 
+
+  <!-- 讀經回血視窗（愛心用完時彈出） -->
+  <div id="revive-overlay" class="revive-overlay hidden">
+    <div class="revive-card">
+      <div class="revive-head">💔 愛心用完了</div>
+      <p class="revive-sub">別急，讀完這一章就回一顆愛心，繼續闖關！</p>
+      <div class="revive-passage" id="revive-passage"></div>
+      <div class="revive-actions">
+        <button id="btn-revive-read" class="big-btn" disabled>🙏 我讀完了，＋1 ❤️</button>
+        <button id="btn-revive-quit" class="ghost-btn">先結束這一關</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Firebase（雲端登入與進度同步；載入失敗時 App 仍可離線遊玩） -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>

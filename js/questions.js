@@ -22,6 +22,15 @@
 
   // 用瀏覽器內建中文斷詞，確保挖空的是「真正的詞」而不是跨詞碎片
   const STOP = new Set(['因為', '所以', '但是', '如此', '這樣', '甚麼', '什麼', '他們', '你們', '我們', '這些', '那些', '於是', '就是', '不是', '有人', '一個', '一切', '並且', '或者', '乃是', '自己', '若是', '凡事', '而且']);
+  // 含虛詞／代名詞的字，出現就代表這是「他說、我在、就把、還不、我不是」這類碎片，不適合當填空答案或干擾選項
+  const FUNC_CHARS = new Set([...'我你他她祂牠它們了的之其麼嗎呢吧罷就還尚且也乃並而若但卻雖這那所把將被則如此便故豈何焉矣哉']);
+  // 是否為「有意義的實詞」：2~4 字、不在停用詞、且不含虛詞字
+  function isContentWord(w) {
+    if (w.length < 2 || w.length > 4) return false;
+    if (STOP.has(w)) return false;
+    for (const c of w) if (FUNC_CHARS.has(c)) return false;
+    return true;
+  }
   const segmenter = (typeof Intl !== 'undefined' && Intl.Segmenter)
     ? new Intl.Segmenter('zh-Hant', { granularity: 'word' })
     : null;
@@ -35,7 +44,7 @@
   function pickBlankWord(text) {
     const ws = segmentWords(text);
     if (!ws || !ws.length) return null;
-    const good = ws.filter(w => w.length >= 2 && w.length <= 4 && !STOP.has(w));
+    const good = ws.filter(isContentWord);
     if (!good.length) return null;
     // 偏好 2~3 字的實詞
     return pick(good);
@@ -46,7 +55,7 @@
     const words = new Set();
     for (const v of verses) {
       const ws = segmentWords(v) || [];
-      for (const w of ws) if (w.length === len && !STOP.has(w)) words.add(w);
+      for (const w of ws) if (w.length === len && isContentWord(w)) words.add(w);
     }
     return [...words];
   }
@@ -80,8 +89,12 @@
 
   // 題型 2：把經文語塊排回正確順序
   function makeOrder(book, ch, verses, vi) {
+    // 含「〔或作：…〕」譯註的節切出來會很碎（甚至只剩引號），直接跳過
+    if (/[〔〕]/.test(verses[vi])) return null;
     const clauses = splitClauses(verses[vi]);
     if (clauses.length < 3 || clauses.length > 7) return null;
+    // 每個語塊都要有實際文字（至少 2 個中文字），排除像「」這種只有標點的碎塊
+    if (clauses.some(c => (c.match(/[一-鿿]/g) || []).length < 2)) return null;
     // 全部語塊都不同才能判分
     if (new Set(clauses).size !== clauses.length) return null;
     let shuffled = shuffle(clauses);

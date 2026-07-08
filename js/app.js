@@ -3,6 +3,8 @@
   const $ = (sel) => document.querySelector(sel);
   const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const OT_COUNT = 39;
+  const MAX_HEARTS = 5; // 每關愛心數（答錯扣一顆，用完可讀經回血）
+  const heartStr = (h) => '❤️'.repeat(h) + '🖤'.repeat(MAX_HEARTS - h);
   const BOOK_EMOJI = {
     GEN: '🌍', EXO: '🌊', LEV: '🕯️', NUM: '🏕️', DEU: '📜', JOS: '🎺', JDG: '⚔️', RUT: '🌾',
     '1SA': '👑', '2SA': '🏰', '1KI': '🏛️', '2KI': '🔥', '1CH': '📖', '2CH': '📖', EZR: '🧱',
@@ -131,7 +133,7 @@
   function renderTopbar() {
     $('#stat-streak b').textContent = state.streak;
     $('#stat-xp b').textContent = state.xp;
-    $('#stat-hearts b').textContent = lesson ? lesson.hearts : 3;
+    $('#stat-hearts b').textContent = lesson ? lesson.hearts : MAX_HEARTS;
   }
 
   // ===== 音效（簡單合成音）=====
@@ -252,7 +254,7 @@
     }));
     if (compQs[0]) qs.splice(Math.floor(qs.length / 2), 0, compQs[0]);
     if (compQs[1]) qs.push(compQs[1]);
-    lesson = { chapterNum, qs, i: 0, hearts: 3, wrong: 0, xp: 0 };
+    lesson = { chapterNum, qs, i: 0, hearts: MAX_HEARTS, wrong: 0, xp: 0 };
     renderTopbar();
     show('#screen-lesson');
     renderQuestion();
@@ -268,7 +270,7 @@
   function renderQuestion() {
     const q = lesson.qs[lesson.i];
     $('#lesson-progress').style.width = `${(lesson.i / lesson.qs.length) * 100}%`;
-    $('#lesson-hearts').textContent = '❤️'.repeat(lesson.hearts) + '🖤'.repeat(3 - lesson.hearts);
+    $('#lesson-hearts').textContent = heartStr(lesson.hearts);
     $('#btn-check').disabled = true;
     $('#feedback-bar').classList.add('hidden');
     $('#btn-check').classList.remove('hidden');
@@ -443,18 +445,49 @@
       lesson.wrong++;
       sndBad();
       renderTopbar();
-      $('#lesson-hearts').textContent = '❤️'.repeat(lesson.hearts) + '🖤'.repeat(3 - lesson.hearts);
+      $('#lesson-hearts').textContent = heartStr(lesson.hearts);
     }
     $('#btn-check').classList.add('hidden');
   }
   const PRAISES = ['太棒了！', '答對了！🎉', '哇，你是讀經高手！', '正確！繼續保持！', '阿們，就是這句！'];
   function pickPraise() { return PRAISES[Math.floor(Math.random() * PRAISES.length)]; }
 
-  $('#btn-next').onclick = () => {
-    if (lesson.hearts <= 0) { failLesson(); return; }
+  function advanceLesson() {
     lesson.i++;
     if (lesson.i >= lesson.qs.length) { winLesson(); return; }
     renderQuestion();
+  }
+  $('#btn-next').onclick = () => {
+    if (lesson.hearts <= 0) { offerRevive(); return; } // 愛心用完：先給讀經回血的機會
+    advanceLesson();
+  };
+
+  // ===== 讀經回血：愛心用完時讀完本章 +1 愛心，繼續闖關 =====
+  function offerRevive() {
+    const verses = currentBook.chapters[lesson.chapterNum - 1] || [];
+    const box = $('#revive-passage');
+    box.innerHTML = `<h4>${escapeHtml(currentBook.name)} 第 ${lesson.chapterNum} 章</h4>` +
+      verses.map((v, i) => `<p class="rv-verse"><b>${i + 1}</b> ${escapeHtml(v)}</p>`).join('');
+    const readBtn = $('#btn-revive-read');
+    readBtn.disabled = true;
+    // 捲到底（或內容短到不需捲動）就解鎖按鈕，確保真的讀過
+    const check = () => {
+      if (box.scrollTop + box.clientHeight >= box.scrollHeight - 8) readBtn.disabled = false;
+    };
+    box.onscroll = check;
+    $('#revive-overlay').classList.remove('hidden');
+    box.scrollTop = 0; // 顯示後才重設，避免同章重複回血時保留舊捲動位置卡在底部
+    setTimeout(check, 1500); // 短章不需捲動時自動解鎖
+  }
+  $('#btn-revive-read').onclick = () => {
+    $('#revive-overlay').classList.add('hidden');
+    lesson.hearts = Math.min(MAX_HEARTS, lesson.hearts + 1);
+    renderTopbar();
+    advanceLesson();
+  };
+  $('#btn-revive-quit').onclick = () => {
+    $('#revive-overlay').classList.add('hidden');
+    failLesson();
   };
 
   // ===== 結算 =====

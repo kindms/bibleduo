@@ -340,3 +340,35 @@ main, header { position: relative; z-index: 1; }
 @keyframes fall {
   to { transform: translateY(110vh) rotate(720deg); }
 }
+
+/* 讀經回血視窗 */
+.revive-overlay {
+  position: fixed; inset: 0; z-index: 40;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, .55); padding: 16px;
+}
+.revive-overlay.hidden { display: none; }
+.revive-card {
+  width: 100%; max-width: 520px; max-height: 90vh;
+  display: flex; flex-direction: column;
+  background: var(--card); border: 2px solid var(--card-line);
+  border-radius: 20px; padding: 18px; box-shadow: 0 10px 40px rgba(0, 0, 0, .3);
+}
+.revive-head { font-size: 1.3rem; font-weight: bold; color: var(--text); text-align: center; }
+.revive-sub { font-size: .95rem; color: var(--text-light); text-align: center; margin: 6px 0 12px; }
+.revive-passage {
+  flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  background: var(--bg-soft, rgba(0, 0, 0, .03));
+  border: 2px solid var(--card-line); border-radius: 14px;
+  padding: 12px 14px; margin-bottom: 14px;
+}
+.revive-passage h4 { font-size: 1.05rem; color: var(--primary-dark); margin-bottom: 8px; }
+.revive-passage .rv-verse { font-size: 1.02rem; line-height: 1.85; color: var(--text); margin-bottom: 4px; }
+.revive-passage .rv-verse b { color: var(--text-light); font-size: .8rem; margin-right: 4px; }
+.revive-actions { display: flex; flex-direction: column; gap: 10px; }
+.ghost-btn {
+  width: 100%; padding: 12px; font-size: 1rem; font-weight: bold; cursor: pointer;
+  border: 2px solid var(--card-line); border-radius: 14px;
+  background: transparent; color: var(--text-light);
+}
+.ghost-btn:active { transform: translateY(2px); }
