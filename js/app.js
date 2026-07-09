@@ -254,7 +254,7 @@
     }));
     if (compQs[0]) qs.splice(Math.floor(qs.length / 2), 0, compQs[0]);
     if (compQs[1]) qs.push(compQs[1]);
-    lesson = { chapterNum, qs, i: 0, hearts: MAX_HEARTS, wrong: 0, xp: 0 };
+    lesson = { chapterNum, qs, i: 0, hearts: MAX_HEARTS, wrong: 0, xp: 0, wrongQs: [], inRetest: false };
     renderTopbar();
     show('#screen-lesson');
     renderQuestion();
@@ -284,6 +284,12 @@
     if (q.type === 'match') renderMatch(q, area);
     if (q.type === 'next') renderNext(q, area);
     if (q.type === 'comp') renderComp(q, area);
+    if (lesson.inRetest) { // 複習輪：題目上方掛個提示徽章
+      const badge = document.createElement('div');
+      badge.className = 'retest-badge';
+      badge.textContent = '🔁 錯題複習中 · 答錯不扣愛心';
+      area.prepend(badge);
+    }
   }
 
   // --- 題型 1 & 4：選擇題共用 ---
@@ -427,25 +433,30 @@
     checkAnswer(result.ok, result.correctText, result.note);
   };
   function checkAnswer(ok, correctText, note) {
+    const q = lesson.qs[lesson.i];
     const fb = $('#feedback-bar');
     fb.classList.remove('hidden', 'good', 'bad');
     const noteHtml = note ? `<br><small>${escapeHtml(note)}</small>` : '';
     if (ok === true) {
       fb.classList.add('good');
       $('#feedback-text').innerHTML = `<span class="fb-mascot">${mascot().emoji}</span><span>${pickPraise()}${noteHtml}</span>`;
-      lesson.xp += 10;
+      if (!lesson.inRetest) lesson.xp += 10; // 複習輪不重複給經驗值
       sndGood();
     } else if (ok === 'soft') { // 配對題有配錯但完成
       fb.classList.add('good');
       $('#feedback-text').innerHTML = `<span class="fb-mascot">${mascot().emoji}</span><span>完成配對！（中途有配錯，這題不加分）</span>`;
     } else {
       fb.classList.add('bad');
-      $('#feedback-text').innerHTML = `<span class="fb-mascot">💭</span><span>正確答案：${escapeHtml(correctText)}${noteHtml}</span>`;
-      lesson.hearts--;
-      lesson.wrong++;
+      const retestNote = lesson.inRetest ? '（複習輪不扣愛心）' : '';
+      $('#feedback-text').innerHTML = `<span class="fb-mascot">💭</span><span>正確答案：${escapeHtml(correctText)}${escapeHtml(retestNote)}${noteHtml}</span>`;
       sndBad();
-      renderTopbar();
-      $('#lesson-hearts').textContent = heartStr(lesson.hearts);
+      if (!lesson.inRetest) { // 正式輪答錯：扣愛心、記下錯題供之後複習
+        lesson.hearts--;
+        lesson.wrong++;
+        lesson.wrongQs.push(q);
+        renderTopbar();
+        $('#lesson-hearts').textContent = heartStr(lesson.hearts);
+      }
     }
     $('#btn-check').classList.add('hidden');
   }
@@ -454,12 +465,30 @@
 
   function advanceLesson() {
     lesson.i++;
-    if (lesson.i >= lesson.qs.length) { winLesson(); return; }
+    if (lesson.i >= lesson.qs.length) {
+      // 正式輪跑完、且有答錯的題目 → 進入錯題再測驗；否則直接結算
+      if (!lesson.inRetest && lesson.wrongQs.length) { startRetest(); return; }
+      winLesson(); return;
+    }
     renderQuestion();
   }
   $('#btn-next').onclick = () => {
     if (lesson.hearts <= 0) { offerRevive(); return; } // 愛心用完：先給讀經回血的機會
     advanceLesson();
+  };
+
+  // ===== 錯題再測驗：正式輪結束後把答錯的題目再練一次（答錯不扣愛心）=====
+  function startRetest() {
+    lesson.inRetest = true;
+    lesson.qs = lesson.wrongQs.slice();
+    lesson.i = 0;
+    $('#retest-sub').textContent = `把剛才答錯的 ${lesson.qs.length} 題再練一次；這一輪答錯不扣愛心！`;
+    $('#feedback-bar').classList.add('hidden');
+    $('#retest-overlay').classList.remove('hidden');
+  }
+  $('#btn-retest-start').onclick = () => {
+    $('#retest-overlay').classList.add('hidden');
+    renderQuestion();
   };
 
   // ===== 讀經回血：愛心用完時讀完本章 +1 愛心，繼續闖關 =====
@@ -508,6 +537,7 @@
       <div class="r-emoji">${mascot().emoji}${perfect ? '🏆' : '🎉'}</div>
       <h2>${perfect ? '完美通關！' : '過關！'}</h2>
       <p>${currentBook.name} 第 ${lesson.chapterNum} 章</p>
+      ${lesson.inRetest ? '<p class="retest-done">🔁 已完成錯題複習</p>' : ''}
       <div class="result-stats">
         <div class="r-stat">＋${gained}<span>經驗值${bonus ? '（含完美 +20）' : ''}</span></div>
         <div class="r-stat">🔥 ${state.streak}<span>連續天數</span></div>

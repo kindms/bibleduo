@@ -211,14 +211,14 @@ main, header { position: relative; z-index: 1; }
   height: 100%; width: 0%; border-radius: 8px; transition: width .35s;
   background: linear-gradient(90deg, var(--primary), var(--primary-dark));
 }
-.lesson-hearts { font-size: .95rem; letter-spacing: -2px; }
+.lesson-hearts { font-size: 1.05rem; letter-spacing: -2px; white-space: nowrap; }
 
 #question-area { flex: 1; }
-.q-type { color: var(--text-light); font-size: .85rem; font-weight: bold; margin-bottom: 6px; }
-.q-ref { color: var(--select); font-size: .85rem; font-weight: bold; margin-bottom: 12px; }
+.q-type { color: var(--text-light); font-size: .95rem; font-weight: bold; margin-bottom: 6px; }
+.q-ref { color: var(--select); font-size: .95rem; font-weight: bold; margin-bottom: 12px; }
 .q-passage {
   background: var(--card); border: 2px solid var(--card-line); border-radius: 16px;
-  padding: 14px; font-size: 1.12rem; line-height: 1.9; margin-bottom: 16px;
+  padding: 15px; font-size: 1.28rem; line-height: 2; margin-bottom: 16px;
   box-shadow: 0 3px 12px rgba(0, 0, 0, .05);
 }
 .q-passage .blank {
@@ -230,7 +230,7 @@ main, header { position: relative; z-index: 1; }
 .choices { display: flex; flex-direction: column; gap: 10px; }
 .choice {
   background: var(--card); border: 2px solid var(--card-line); border-bottom-width: 4px;
-  border-radius: 14px; padding: 13px 14px; font-size: 1.05rem; text-align: left;
+  border-radius: 14px; padding: 15px 16px; font-size: 1.18rem; text-align: left;
   cursor: pointer; line-height: 1.6;
 }
 .choice.selected { border-color: var(--select); background: var(--select-bg); color: var(--select); font-weight: bold; }
@@ -246,7 +246,7 @@ main, header { position: relative; z-index: 1; }
 .order-pool { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip {
   background: var(--card); border: 2px solid var(--card-line); border-bottom-width: 4px;
-  border-radius: 12px; padding: 9px 12px; font-size: 1.02rem; cursor: pointer;
+  border-radius: 12px; padding: 11px 14px; font-size: 1.12rem; cursor: pointer;
 }
 .chip:active { transform: translateY(2px); }
 .chip.used { visibility: hidden; }
@@ -256,7 +256,7 @@ main, header { position: relative; z-index: 1; }
 .pairs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .pair-btn {
   background: var(--card); border: 2px solid var(--card-line); border-bottom-width: 4px;
-  border-radius: 14px; padding: 12px 10px; font-size: .98rem; cursor: pointer; line-height: 1.5;
+  border-radius: 14px; padding: 13px 11px; font-size: 1.08rem; cursor: pointer; line-height: 1.5;
 }
 .pair-btn.selected { border-color: var(--select); background: var(--select-bg); }
 .pair-btn.matched { border-color: #58cc02; visibility: hidden; }
@@ -264,7 +264,13 @@ main, header { position: relative; z-index: 1; }
 @keyframes shake { 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
 
 /* 底部按鈕與回饋 */
-.lesson-bottom { padding: 14px 0 20px; }
+/* 「確定」鈕釘在畫面底部，手機上不必捲動就能按到 */
+.lesson-bottom {
+  position: sticky; bottom: 0; z-index: 15;
+  margin: 0 -16px; padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  background: var(--topbar); backdrop-filter: blur(6px);
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, .06);
+}
 .big-btn {
   width: 100%; padding: 15px; font-size: 1.15rem; font-weight: bold; cursor: pointer;
   border: none; border-radius: 16px; color: #fff;
@@ -280,7 +286,7 @@ main, header { position: relative; z-index: 1; }
 }
 .feedback-bar .big-btn { max-width: 488px; }
 #feedback-text {
-  width: 100%; max-width: 488px; font-weight: bold; font-size: 1.05rem; line-height: 1.6;
+  width: 100%; max-width: 488px; font-weight: bold; font-size: 1.12rem; line-height: 1.6;
   display: flex; align-items: center; gap: 10px;
 }
 #feedback-text .fb-mascot { font-size: 2rem; animation: hop .5s; }
@@ -372,3 +378,12 @@ main, header { position: relative; z-index: 1; }
   background: transparent; color: var(--text-light);
 }
 .ghost-btn:active { transform: translateY(2px); }
+
+/* 錯題再測驗 */
+.retest-card { max-height: none; }
+.retest-badge {
+  display: inline-block; background: var(--select-bg); color: var(--select);
+  font-size: .85rem; font-weight: bold; padding: 6px 14px;
+  border-radius: 999px; margin-bottom: 12px;
+}
+.retest-done { color: var(--select); font-weight: bold; font-size: .92rem; margin: -4px 0 0; }
