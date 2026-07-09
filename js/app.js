@@ -187,6 +187,8 @@
   function show(id) {
     for (const s of document.querySelectorAll('.screen')) s.classList.add('hidden');
     $(id).classList.remove('hidden');
+    // 場景/夥伴只在首頁能選，所以 🎨 鈕只在首頁出現，避免其他畫面按了沒反應
+    $('#btn-custom').classList.toggle('hidden', id !== '#screen-books');
     window.scrollTo(0, 0);
   }
 
@@ -383,21 +385,23 @@
   function renderMatch(q, area) {
     area.innerHTML = `
       <div class="q-type">🃏 上下句配對</div>
-      <div class="q-ref">${q.ref}</div>`;
-    const grid = document.createElement('div');
-    grid.className = 'pairs';
+      <div class="q-ref">${q.ref}</div>
+      <div class="q-hint">點左邊的「上句」，再點右邊對應的「下句」，把 4 對經文配起來。</div>`;
+    const wrap = document.createElement('div');
+    wrap.className = 'pairs-2col';
+    const colL = document.createElement('div'); colL.className = 'pair-col';
+    const colR = document.createElement('div'); colR.className = 'pair-col';
+    colL.innerHTML = '<div class="pair-head">上句</div>';
+    colR.innerHTML = '<div class="pair-head">下句</div>';
     const items = [];
     q.pairs.forEach((p, i) => {
       items.push({ text: p.left, key: i, side: 'L' });
       items.push({ text: p.right, key: i, side: 'R' });
     });
     let mistakes = 0, matched = 0, sel = null;
-    // 左排在左欄、右排在右欄，各自打亂
     const lefts = items.filter(x => x.side === 'L').sort(() => Math.random() - 0.5);
     const rights = items.filter(x => x.side === 'R').sort(() => Math.random() - 0.5);
-    const ordered = [];
-    for (let i = 0; i < 4; i++) ordered.push(lefts[i], rights[i]);
-    for (const it of ordered) {
+    function makeBtn(it) {
       const btn = document.createElement('button');
       btn.className = 'pair-btn';
       btn.textContent = it.text;
@@ -420,9 +424,12 @@
         }
         sel = null;
       };
-      grid.appendChild(btn);
+      return btn;
     }
-    area.appendChild(grid);
+    lefts.forEach((it) => colL.appendChild(makeBtn(it)));
+    rights.forEach((it) => colR.appendChild(makeBtn(it)));
+    wrap.append(colL, colR);
+    area.appendChild(wrap);
     currentAnswerGetter = () => null; // 配對題自動判定，不用確定鈕
     $('#lesson-bottom').classList.add('hidden');
   }
@@ -717,11 +724,12 @@
   };
 
   // 測試用鉤子（自動化驗證流程時讀取關卡狀態）
-  window.__bd = { get lesson() { return lesson; }, get state() { return state; }, mergeStates, renderBoard };
+  window.__bd = { get lesson() { return lesson; }, get state() { return state; }, mergeStates, renderBoard, renderQuestion };
 
   // ===== 啟動 =====
   (async function init() {
     applyScene();
+    renderCustomPanel(); // 打扮面板首頁預設展開，先把場景/夥伴選項渲染出來
     $('#home-mascot').onclick = toggleCustomPanel;
     await loadIndex();
     renderTopbar();

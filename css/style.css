@@ -221,6 +221,15 @@ main, header { position: relative; z-index: 1; }
   padding: 16px; font-size: 1.42rem; line-height: 2.05; margin-bottom: 16px;
   box-shadow: 0 3px 12px rgba(0, 0, 0, .05);
 }
+/* 問答題（理解題）的題目：帶左側色條的外框，跟白色答案卡明顯區隔 */
+.q-title {
+  background: var(--card); border: 2px solid var(--card-line); border-left: 6px solid var(--select);
+  border-radius: 14px; padding: 15px 16px; margin-bottom: 20px;
+  font-size: 1.3rem; line-height: 1.7; font-weight: bold; color: var(--text);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, .05);
+}
+/* 配對題操作說明 */
+.q-hint { color: var(--text-light); font-size: 1rem; line-height: 1.5; margin-bottom: 14px; }
 .q-passage .blank {
   display: inline-block; min-width: 64px; border-bottom: 3px solid var(--select);
   text-align: center; color: var(--select); font-weight: bold; margin: 0 2px;
@@ -252,8 +261,17 @@ main, header { position: relative; z-index: 1; }
 .chip.used { visibility: hidden; }
 .order-target .chip { border-color: var(--select); }
 
-/* 配對題 */
+/* 配對題：上句／下句各成一欄，欄位有標題與淡色底，區隔清楚 */
 .pairs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.pairs-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }
+.pair-col {
+  display: flex; flex-direction: column; gap: 10px;
+  background: var(--select-bg); border-radius: 16px; padding: 10px 8px;
+}
+.pair-head {
+  text-align: center; font-weight: bold; color: var(--select);
+  font-size: 1rem; padding-bottom: 2px;
+}
 .pair-btn {
   background: var(--card); border: 2px solid var(--card-line); border-bottom-width: 4px;
   border-radius: 14px; padding: 14px 11px; font-size: 1.16rem; cursor: pointer; line-height: 1.5;
