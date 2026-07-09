@@ -274,6 +274,7 @@
     $('#btn-check').disabled = true;
     $('#feedback-bar').classList.add('hidden');
     $('#btn-check').classList.remove('hidden');
+    $('#lesson-bottom').classList.remove('hidden'); // 顯示「確定」列（緊貼選項下方）
     const rb = $('#btn-report');
     rb.disabled = false;
     rb.textContent = '🚩 回報這題';
@@ -423,7 +424,7 @@
     }
     area.appendChild(grid);
     currentAnswerGetter = () => null; // 配對題自動判定，不用確定鈕
-    $('#btn-check').classList.add('hidden');
+    $('#lesson-bottom').classList.add('hidden');
   }
 
   // ===== 判分與回饋 =====
@@ -458,7 +459,7 @@
         $('#lesson-hearts').textContent = heartStr(lesson.hearts);
       }
     }
-    $('#btn-check').classList.add('hidden');
+    $('#lesson-bottom').classList.add('hidden'); // 收起「確定」列，改由回饋條顯示「繼續」
   }
   const PRAISES = ['太棒了！', '答對了！🎉', '哇，你是讀經高手！', '正確！繼續保持！', '阿們，就是這句！'];
   function pickPraise() { return PRAISES[Math.floor(Math.random() * PRAISES.length)]; }
@@ -635,12 +636,14 @@
       const medals = ['🥇', '🥈', '🥉'];
       rows.forEach((r, i) => {
         const row = document.createElement('div');
-        row.className = 'board-row' + (r.uid === my ? ' me' : '');
+        const isMe = r.uid === my;
+        row.className = 'board-row' + (isMe ? ' me' : '');
         const m = MASCOTS[r.mascot] || MASCOTS.dove;
         row.innerHTML = `<span class="b-rank">${medals[i] || i + 1}</span>
           <span class="b-mascot">${m.emoji}</span>
-          <span class="b-nick">${escapeHtml(r.nick || '無名小卒')}${r.uid === my ? '（我）' : ''}</span>
+          <span class="b-nick">${escapeHtml(r.nick || '無名小卒')}${isMe ? ' <span class="b-editme">✏️改名</span>' : ''}</span>
           <span class="b-xp">⭐ ${boardMode === 'week' ? (r.weekXp || 0) : (r.xp || 0)}</span>`;
+        if (isMe) row.onclick = openNameEditor; // 點自己那一列即可改名
         list.appendChild(row);
       });
     }
@@ -648,6 +651,11 @@
       const p = document.createElement('p');
       p.className = 'board-hint';
       p.textContent = '登入後過關，你的名字就會出現在榜上！';
+      list.appendChild(p);
+    } else {
+      const p = document.createElement('p');
+      p.className = 'board-hint';
+      p.innerHTML = '想換個名字？點右上角 ✏️、或點你自己那一列就能改。';
       list.appendChild(p);
     }
   }
@@ -661,15 +669,24 @@
       renderBoard();
     };
   }
-  $('#btn-nickname').onclick = () => {
-    if (!CloudSync.isLoggedIn()) { alert('先登入才能設定排行榜暱稱喔！'); return; }
-    const nick = prompt('排行榜上顯示的暱稱（最多 12 字，留空則用 Google 名字）：', state.nickname || '');
-    if (nick === null) return;
-    state.nickname = nick.trim().slice(0, 12);
+  // ===== 排行榜顯示名字（App 內輸入視窗，取代瀏覽器跳出框）=====
+  function openNameEditor() {
+    if (!CloudSync.isLoggedIn()) { alert('先登入才能設定排行榜名字喔！'); return; }
+    const input = $('#name-input');
+    input.value = state.nickname || (currentUser && currentUser.name) || '';
+    $('#name-overlay').classList.remove('hidden');
+    setTimeout(() => { input.focus(); input.select(); }, 60);
+  }
+  $('#btn-nickname').onclick = openNameEditor;
+  $('#btn-name-cancel').onclick = () => $('#name-overlay').classList.add('hidden');
+  $('#btn-name-save').onclick = () => {
+    state.nickname = $('#name-input').value.trim().slice(0, 12);
     store.save(state);
-    $('#board-list').innerHTML = '<p class="board-hint">暱稱已更新，同步中…</p>';
+    $('#name-overlay').classList.add('hidden');
+    $('#board-list').innerHTML = '<p class="board-hint">名字已更新，同步中…</p>';
     setTimeout(renderBoard, 1500); // 等雲端寫入完成再刷新
   };
+  $('#name-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#btn-name-save').click(); });
 
   // ===== 回報題目 =====
   $('#btn-report').onclick = async () => {

@@ -73,7 +73,7 @@
       <button id="btn-report" class="report-btn" title="這題怪怪的？回報給牧師">🚩 回報這題</button>
       <button id="btn-next" class="big-btn">繼續</button>
     </div>
-    <div class="lesson-bottom">
+    <div class="lesson-bottom" id="lesson-bottom">
       <button id="btn-check" class="big-btn" disabled>確定</button>
     </div>
   </main>
@@ -118,6 +118,19 @@
       <p class="revive-sub" id="retest-sub">把剛才答錯的題目再練一次；這一輪答錯不扣愛心！</p>
       <div class="revive-actions">
         <button id="btn-retest-start" class="big-btn">開始複習</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 排行榜顯示名字設定視窗 -->
+  <div id="name-overlay" class="revive-overlay hidden">
+    <div class="revive-card retest-card">
+      <div class="revive-head">✏️ 排行榜顯示名字</div>
+      <p class="revive-sub">別人在排行榜上會看到這個名字（最多 12 字）</p>
+      <input id="name-input" class="name-input" type="text" maxlength="12" placeholder="輸入你的名字" autocomplete="off">
+      <div class="revive-actions">
+        <button id="btn-name-save" class="big-btn">儲存</button>
+        <button id="btn-name-cancel" class="ghost-btn">取消</button>
       </div>
     </div>
   </div>
