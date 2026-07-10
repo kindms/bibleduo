@@ -42,7 +42,7 @@
       CloudSync.save(d); // 有登入就同步到雲端（沒登入時是空操作）
     },
   };
-  let state = Object.assign({ xp: 0, streak: 0, lastPlay: '', done: {}, scene: 'meadow', mascot: 'dove', nickname: '', weekXp: 0, weekKey: '' }, store.load());
+  let state = Object.assign({ xp: 0, streak: 0, lastPlay: '', done: {}, scene: 'meadow', mascot: 'dove', nickname: '', weekXp: 0, weekKey: '', muted: false }, store.load());
   // done: { MRK: [1,2,3] } 已完成章
 
   const mascot = () => MASCOTS[state.mascot] || MASCOTS.dove;
@@ -139,6 +139,7 @@
   // ===== 音效（簡單合成音）=====
   let audioCtx = null;
   function beep(freqs, dur = 0.12) {
+    if (state.muted) return; // 靜音開關
     try {
       audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
       freqs.forEach((f, i) => {
@@ -154,17 +155,27 @@
   const sndGood = () => beep([660, 880]);
   const sndBad = () => beep([330, 220], 0.15);
   const sndWin = () => beep([523, 659, 784, 1047], 0.14);
+  // 靜音開關（在關卡畫面右上，偏好記在本機）
+  function renderMute() { $('#btn-mute').textContent = state.muted ? '🔇' : '🔊'; }
+  $('#btn-mute').onclick = () => {
+    state.muted = !state.muted;
+    store.save(state);
+    renderMute();
+    if (!state.muted) sndGood(); // 開回音效時給個聲音確認
+  };
 
   // ===== 資料載入 =====
   let bookIndex = null;
   const bookCache = {};
   async function loadIndex() {
     const res = await fetch('data/index.json');
+    if (!res.ok) throw new Error('index ' + res.status);
     bookIndex = (await res.json()).books;
   }
   async function loadBook(id) {
     if (!bookCache[id]) {
       const res = await fetch(`data/books/${id}.json`);
+      if (!res.ok) throw new Error(id + ' ' + res.status);
       bookCache[id] = await res.json();
     }
     return bookCache[id];
@@ -222,7 +233,14 @@
   // ===== 畫面 2：章節路徑 =====
   let currentBook = null;
   async function openBook(id) {
-    currentBook = await loadBook(id);
+    let book;
+    try { book = await loadBook(id); }
+    catch (e) {
+      console.warn('載入經文失敗', e);
+      alert('網路不穩，經文載入失敗了。請檢查網路後再點一次。');
+      return;
+    }
+    currentBook = book;
     $('#chapter-title').textContent = currentBook.name;
     const path = $('#chapter-path');
     path.innerHTML = '';
@@ -256,13 +274,17 @@
     }));
     if (compQs[0]) qs.splice(Math.floor(qs.length / 2), 0, compQs[0]);
     if (compQs[1]) qs.push(compQs[1]);
-    lesson = { chapterNum, qs, i: 0, hearts: MAX_HEARTS, wrong: 0, xp: 0, wrongQs: [], inRetest: false };
+    lesson = { chapterNum, qs, i: 0, hearts: MAX_HEARTS, wrong: 0, xp: 0, wrongQs: [], inRetest: false, awarded: false };
     renderTopbar();
     show('#screen-lesson');
     renderQuestion();
   }
   $('#btn-quit').onclick = () => {
-    if (confirm('確定要離開嗎？這一關的進度不會保留。')) {
+    // 錯題複習階段過關成績已經保存，離開不會白打；正式輪離開才會失去進度
+    const msg = lesson && lesson.inRetest
+      ? '過關成績已經保存了！要跳過剩下的錯題複習嗎?'
+      : '確定要離開嗎？這一關的進度不會保留。';
+    if (confirm(msg)) {
       lesson = null; renderTopbar(); show('#screen-chapters'); openBook(currentBook.id);
     }
   };
@@ -474,8 +496,8 @@
   function advanceLesson() {
     lesson.i++;
     if (lesson.i >= lesson.qs.length) {
-      // 正式輪跑完、且有答錯的題目 → 進入錯題再測驗；否則直接結算
-      if (!lesson.inRetest && lesson.wrongQs.length) { startRetest(); return; }
+      // 正式輪跑完、且有答錯的題目 → 先記錄過關成績，再進錯題複習（複習中途離開也不會白打）
+      if (!lesson.inRetest && lesson.wrongQs.length) { awardWin(); startRetest(); return; }
       winLesson(); return;
     }
     renderQuestion();
@@ -490,7 +512,8 @@
     lesson.inRetest = true;
     lesson.qs = lesson.wrongQs.slice();
     lesson.i = 0;
-    $('#retest-sub').textContent = `把剛才答錯的 ${lesson.qs.length} 題再練一次；這一輪答錯不扣愛心！`;
+    renderTopbar(); // 過關成績剛記帳完，讓經驗值立即反映在狀態列
+    $('#retest-sub').textContent = `過關成績已保存！把剛才答錯的 ${lesson.qs.length} 題再練一次，答錯不扣愛心。`;
     $('#feedback-bar').classList.add('hidden');
     $('#retest-overlay').classList.remove('hidden');
   }
@@ -528,26 +551,33 @@
   };
 
   // ===== 結算 =====
-  function winLesson() {
-    const perfect = lesson.wrong === 0;
-    const bonus = perfect ? 20 : 0;
-    const gained = lesson.xp + bonus;
-    state.xp += gained;
+  // 過關記帳（只做一次）：發經驗值、記完成章、更新連續天數。與結算畫面分開，
+  // 這樣進錯題複習前就能先保存成績，複習中途離開也不會白打。
+  function awardWin() {
+    if (lesson.awarded) return;
+    lesson.awarded = true;
+    lesson.perfect = lesson.wrong === 0;
+    const bonus = lesson.perfect ? 20 : 0;
+    lesson.gained = lesson.xp + bonus;
+    state.xp += lesson.gained;
     ensureWeek();
-    state.weekXp += gained;
+    state.weekXp += lesson.gained;
     bumpStreak();
     const done = state.done[currentBook.id] || (state.done[currentBook.id] = []);
     if (!done.includes(lesson.chapterNum)) done.push(lesson.chapterNum);
     store.save(state);
+  }
+  function winLesson() {
+    awardWin();
     sndWin();
-    if (perfect) throwConfetti();
+    if (lesson.perfect) throwConfetti();
     $('#result-box').innerHTML = `
-      <div class="r-emoji">${mascot().emoji}${perfect ? '🏆' : '🎉'}</div>
-      <h2>${perfect ? '完美通關！' : '過關！'}</h2>
+      <div class="r-emoji">${mascot().emoji}${lesson.perfect ? '🏆' : '🎉'}</div>
+      <h2>${lesson.perfect ? '完美通關！' : '過關！'}</h2>
       <p>${currentBook.name} 第 ${lesson.chapterNum} 章</p>
       ${lesson.inRetest ? '<p class="retest-done">🔁 已完成錯題複習</p>' : ''}
       <div class="result-stats">
-        <div class="r-stat">＋${gained}<span>經驗值${bonus ? '（含完美 +20）' : ''}</span></div>
+        <div class="r-stat">＋${lesson.gained}<span>經驗值${lesson.perfect ? '（含完美 +20）' : ''}</span></div>
         <div class="r-stat">🔥 ${state.streak}<span>連續天數</span></div>
       </div>
       <button class="big-btn" id="btn-continue">繼續</button>`;
@@ -582,6 +612,10 @@
     for (const k of new Set([...Object.keys(local.done || {}), ...Object.keys(cloud.done || {})])) {
       done[k] = [...new Set([...(local.done?.[k] || []), ...(cloud.done?.[k] || [])])].sort((a, b) => a - b);
     }
+    // 本週經驗值：只認「本週」的分數取較高者，避免換裝置登入時被新裝置的 0 分蓋掉
+    const wk = weekKeyOf();
+    const localWeek = local.weekKey === wk ? (local.weekXp || 0) : 0;
+    const cloudWeek = cloud.weekKey === wk ? (cloud.weekXp || 0) : 0;
     return {
       xp: Math.max(local.xp || 0, cloud.xp || 0),
       streak: Math.max(local.streak || 0, cloud.streak || 0),
@@ -589,6 +623,9 @@
       done,
       scene: cloud.scene || local.scene,
       mascot: cloud.mascot || local.mascot,
+      nickname: cloud.nickname || local.nickname || '', // 換裝置時保留自己取的排行榜名字
+      weekKey: wk,
+      weekXp: Math.max(localWeek, cloudWeek),
     };
   }
 
@@ -730,8 +767,21 @@
   (async function init() {
     applyScene();
     renderCustomPanel(); // 打扮面板首頁預設展開，先把場景/夥伴選項渲染出來
+    renderMute();
     $('#home-mascot').onclick = toggleCustomPanel;
-    await loadIndex();
+    try { await loadIndex(); }
+    catch (e) { // 網路不穩時給白話提示＋重試鈕，不要留白畫面
+      console.warn('載入書卷目錄失敗', e);
+      $('#book-grid').innerHTML = `
+        <div class="net-error">
+          <div class="ne-emoji">📡</div>
+          <p>網路好像不太穩，書卷目錄載入失敗了。</p>
+          <button class="big-btn" id="btn-retry-load">重新載入</button>
+        </div>`;
+      $('#btn-retry-load').onclick = () => location.reload();
+      renderTopbar();
+      return;
+    }
     renderTopbar();
     renderBooks();
   })();

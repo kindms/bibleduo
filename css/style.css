@@ -418,3 +418,12 @@ main, header { position: relative; z-index: 1; }
 .name-input:focus { outline: none; border-color: var(--select); }
 .board-row.me { cursor: pointer; }
 .b-editme { font-size: .72rem; color: var(--select); font-weight: bold; margin-left: 4px; white-space: nowrap; }
+
+/* 網路失敗提示 */
+.net-error {
+  grid-column: 1 / -1; text-align: center; padding: 30px 16px;
+  background: var(--card); border: 2px solid var(--card-line); border-radius: 16px;
+  color: var(--text); font-weight: bold;
+}
+.net-error .ne-emoji { font-size: 3rem; margin-bottom: 8px; }
+.net-error p { margin: 0 0 16px; }

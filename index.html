@@ -6,6 +6,12 @@
 <meta name="theme-color" content="#58cc02">
 <title>天路闖關｜聖經版多鄰國</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📖</text></svg>">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="天路闖關">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -66,6 +72,7 @@
       <button class="icon-btn" id="btn-quit">✕</button>
       <div class="progress-track"><div id="lesson-progress" class="progress-fill"></div></div>
       <div class="lesson-hearts" id="lesson-hearts">❤️❤️❤️❤️❤️</div>
+      <button class="icon-btn" id="btn-mute" title="音效開關">🔊</button>
     </div>
     <div id="question-area"></div>
     <div id="feedback-bar" class="feedback-bar hidden">
@@ -142,5 +149,11 @@
   <script src="js/cloud.js"></script>
   <script src="js/questions.js"></script>
   <script src="js/app.js"></script>
+  <script>
+    // 註冊 Service Worker：讓 App 可安裝到主畫面、離線也能玩
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch((e) => console.warn('SW 註冊失敗（不影響遊戲）', e));
+    }
+  </script>
 </body>
 </html>

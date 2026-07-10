@@ -44,7 +44,9 @@
   function pickBlankWord(text) {
     const ws = segmentWords(text);
     if (!ws || !ws.length) return null;
-    const good = ws.filter(isContentWord);
+    // 只挑「整節恰好出現一次」的實詞：出現兩次會讓答案留在題目裡露餡，
+    // 也避免挖到別的詞內部（如挑「以色列」卻挖到「以色列人」的前三字）
+    const good = ws.filter(w => isContentWord(w) && text.split(w).length === 2);
     if (!good.length) return null;
     // 偏好 2~3 字的實詞
     return pick(good);
