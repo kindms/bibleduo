@@ -174,6 +174,47 @@ main, header { position: relative; z-index: 1; }
 .feat .feat-emoji { font-size: 1.7rem; }
 .feat b { font-size: 1rem; color: var(--text); }
 .feat small { font-size: .75rem; color: var(--text-light); }
+.feat-wide { grid-column: 1 / -1; flex-direction: row; justify-content: center; gap: 12px; }
+.feat-wide .feat-wide-text { display: flex; flex-direction: column; align-items: flex-start; }
+
+/* 🐋約拿冒險（故事模式） */
+.story-ch {
+  width: 100%; display: flex; align-items: center; gap: 12px; cursor: pointer;
+  background: var(--card); border: 2px solid var(--card-line); border-bottom-width: 4px;
+  border-radius: 16px; padding: 14px; margin-bottom: 10px; text-align: left;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, .05);
+}
+.story-ch:active { transform: translateY(2px); }
+.story-ch.locked { background: var(--node-locked); border-style: dashed; cursor: not-allowed; color: var(--text-light); }
+.story-ch.done { border-color: #eab308; box-shadow: 0 3px 12px rgba(234, 179, 8, .3); }
+.story-ch-emoji { font-size: 1.7rem; flex-shrink: 0; }
+.story-ch-name { font-weight: bold; font-size: 1.05rem; color: var(--text); flex: 1; }
+.story-ch.locked .story-ch-name { color: var(--text-light); }
+.story-ch-sub { font-size: .78rem; color: var(--text-light); white-space: nowrap; }
+.story-title { margin: 0; font-size: 1.05rem; color: var(--text); flex: 1; text-align: center; }
+.story-stage {
+  position: relative; height: 150px; border-radius: 18px; margin-bottom: 12px;
+  background: linear-gradient(180deg, rgba(255,255,255,.35), rgba(255,255,255,.08));
+  border: 2px solid var(--card-line);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  overflow: hidden;
+}
+.story-bg { font-size: 4rem; animation: float 5s ease-in-out infinite; }
+.story-loc {
+  font-size: .85rem; font-weight: bold; color: var(--text-light);
+  background: var(--card); border-radius: 999px; padding: 3px 12px;
+}
+.story-box {
+  background: var(--card); border: 2px solid var(--card-line); border-radius: 18px;
+  padding: 16px; min-height: 170px; cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .08);
+}
+.story-who { font-weight: bold; color: var(--select); font-size: 1rem; margin-bottom: 6px; }
+.story-narr { font-size: 1.15rem; line-height: 1.85; color: var(--text); margin: 0 0 8px; }
+.story-say { font-size: 1.2rem; line-height: 1.85; color: var(--text); margin: 0 0 8px; font-weight: bold; }
+.story-tap { text-align: right; font-size: .8rem; color: var(--text-light); margin: 0; animation: tapblink 1.4s ease-in-out infinite; }
+@keyframes tapblink { 0%, 100% { opacity: .4; } 50% { opacity: 1; } }
+.story-opts { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
 
 /* 拼圖畫面 */
 .puzzle-hint { color: var(--text-light); font-size: .95rem; line-height: 1.6; margin: 0 0 14px; }

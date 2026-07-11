@@ -230,6 +230,8 @@
     const best = (state.stats && state.stats.sprintBest) || 0;
     $('#sprint-best').textContent = best ? `最佳 ${best} 分` : '60 秒限時挑戰';
     $('#badge-count').textContent = `${earnedBadges().length}/${BADGES.length}`;
+    const sDone = ((state.story || {}).JON || []).length;
+    $('#story-progress').textContent = sDone >= 4 ? '已完結，可重播 ⭐' : sDone ? `故事模式・進度 ${sDone}/4 章` : '故事模式・跟先知走一趟！';
   }
   for (const tab of document.querySelectorAll('.tab')) {
     tab.onclick = () => {
@@ -1148,6 +1150,7 @@
     { emoji: '🃏', name: '記憶王', desc: '完成 3 局經文翻牌', test: s => ((s.stats || {}).flipWins || 0) >= 3 },
     { emoji: '📅', name: '複習達人', desc: '完成 10 次錯題複習', test: s => ((s.stats || {}).reviewsDone || 0) >= 10 },
     { emoji: '🎤', name: '朗讀勇士', desc: '開口讀經成功 20 次', test: s => ((s.stats || {}).readOk || 0) >= 20 },
+    { emoji: '🐋', name: '約拿同行者', desc: '完成約拿冒險全 4 章', test: s => (((s.story || {}).JON) || []).length >= 4 },
   ];
   const earnedBadges = () => BADGES.filter(b => b.test(state));
   function renderBadges() {
@@ -1165,6 +1168,151 @@
   }
   $('#btn-badges').onclick = () => { renderBadges(); show('#screen-badges'); };
   $('#btn-back-badges').onclick = () => { renderBooks(); show('#screen-books'); };
+
+  // ===== 🐋 約拿冒險（故事模式）=====
+  let story = null;      // { ch, i }：進行中的章與場景進度
+  let storyData = null;  // data/story/JON.json 的內容
+  async function loadStory() {
+    if (!storyData) {
+      const res = await fetch('data/story/JON.json');
+      if (!res.ok) throw new Error('story ' + res.status);
+      storyData = await res.json();
+    }
+    return storyData;
+  }
+  const storyDone = () => (state.story && state.story.JON) || [];
+  async function openStoryList() {
+    try { await loadStory(); }
+    catch (e) { console.warn('故事載入失敗', e); alert('網路不穩，故事載入失敗了，請再試一次。'); return; }
+    const list = $('#story-chapters');
+    list.innerHTML = '';
+    const done = storyDone();
+    storyData.chapters.forEach((c, i) => {
+      const unlocked = i === 0 || done.includes(i - 1);
+      const node = document.createElement('button');
+      node.className = 'story-ch' + (done.includes(i) ? ' done' : unlocked ? '' : ' locked');
+      node.innerHTML = `<span class="story-ch-emoji">${done.includes(i) ? '⭐' : unlocked ? c.emoji : '🔒'}</span>
+        <span class="story-ch-name">第 ${i + 1} 章・${c.title}</span>
+        <span class="story-ch-sub">${done.includes(i) ? '已完成，可重播' : unlocked ? '點我開始' : '完成上一章解鎖'}</span>`;
+      if (unlocked) node.onclick = () => startStoryCh(i);
+      list.appendChild(node);
+    });
+    show('#screen-story-list');
+  }
+  function startStoryCh(i) {
+    story = { ch: i, i: 0 };
+    $('#story-title').textContent = `第 ${i + 1} 章・${storyData.chapters[i].title}`;
+    $('#story-bg').textContent = '';
+    $('#story-loc').textContent = '';
+    show('#screen-story');
+    renderScene();
+  }
+  function renderScene() {
+    const scenes = storyData.chapters[story.ch].scenes;
+    if (story.i >= scenes.length) { endStoryCh(); return; }
+    const s = scenes[story.i];
+    const box = $('#story-box');
+    const advance = () => { box.onclick = null; story.i++; renderScene(); };
+    if (s.t === 'bg') { // 換場景（不佔一步）
+      $('#story-bg').textContent = s.bg;
+      $('#story-loc').textContent = s.label || '';
+      story.i++;
+      renderScene();
+      return;
+    }
+    if (s.t === 'narr') {
+      box.innerHTML = `<p class="story-narr">${escapeHtml(s.text)}</p><p class="story-tap">▼ 點一下繼續</p>`;
+      box.onclick = advance;
+    } else if (s.t === 'say') {
+      box.innerHTML = `<div class="story-who">${s.emoji} ${escapeHtml(s.who)}</div>
+        <p class="story-say">${escapeHtml(s.text)}</p><p class="story-tap">▼ 點一下繼續</p>`;
+      box.onclick = advance;
+    } else if (s.t === 'choice') { // 抉擇：沒有對錯，回一句回應
+      box.onclick = null;
+      box.innerHTML = `<p class="story-narr">🤔 ${escapeHtml(s.q)}</p>`;
+      const wrap = document.createElement('div');
+      wrap.className = 'story-opts';
+      s.opts.forEach((o) => {
+        const b = document.createElement('button');
+        b.className = 'choice';
+        b.textContent = o.text;
+        b.onclick = () => {
+          box.innerHTML = `<p class="story-narr">💬 ${escapeHtml(o.reply)}</p><p class="story-tap">▼ 點一下繼續</p>`;
+          box.onclick = advance;
+        };
+        wrap.appendChild(b);
+      });
+      box.appendChild(wrap);
+    } else if (s.t === 'q') { // 小考驗：答錯不懲罰，看完正解繼續
+      box.onclick = null;
+      box.innerHTML = `<p class="story-narr">📖 小考驗：${escapeHtml(s.q)}</p>`;
+      const wrap = document.createElement('div');
+      wrap.className = 'story-opts';
+      shuffleArr(s.opts).forEach((optText) => {
+        const b = document.createElement('button');
+        b.className = 'choice';
+        b.textContent = optText;
+        b.onclick = () => {
+          const ok = optText === s.answer;
+          wrap.querySelectorAll('.choice').forEach((x) => {
+            x.disabled = true;
+            if (x.textContent === s.answer) x.classList.add('correct');
+          });
+          if (!ok) b.classList.add('wrong');
+          (ok ? sndGood : sndBad)();
+          const p = document.createElement('p');
+          p.className = 'story-narr';
+          p.textContent = (ok ? pickPraise() : `正確答案：${s.answer}`) + (s.basis ? `　📖 ${s.basis}` : '');
+          box.appendChild(p);
+          const tap = document.createElement('p');
+          tap.className = 'story-tap';
+          tap.textContent = '▼ 點一下繼續';
+          box.appendChild(tap);
+          box.onclick = advance;
+        };
+        wrap.appendChild(b);
+      });
+      box.appendChild(wrap);
+    }
+  }
+  function endStoryCh() {
+    const chIdx = story.ch;
+    story = null;
+    if (!state.story) state.story = {};
+    const done = state.story.JON || (state.story.JON = []);
+    const first = !done.includes(chIdx);
+    if (first) {
+      done.push(chIdx);
+      state.xp += 30;
+      ensureWeek();
+      state.weekXp += 30;
+      bumpStreak();
+      store.save(state);
+      sndWin();
+    }
+    const all = done.length === storyData.chapters.length;
+    if (first && all) throwConfetti();
+    $('#result-box').innerHTML = `
+      <div class="r-emoji">🐋${all ? '🏆' : '⭐'}</div>
+      <h2>${all ? '約拿冒險完結！' : `第 ${chIdx + 1} 章完成！`}</h2>
+      <p>${all ? '神的愛比我們想的更寬！' : '故事還沒完，繼續往下走…'}</p>
+      ${first ? '<div class="result-stats"><div class="r-stat">＋30<span>經驗值</span></div></div>' : '<p class="board-hint">（重播章節不重複給經驗值）</p>'}
+      <button class="big-btn" id="btn-continue">${all ? '回故事選單' : '下一章 →'}</button>
+      <button class="ghost-btn" id="btn-story-home">回首頁</button>`;
+    $('#btn-continue').onclick = () => {
+      renderTopbar();
+      if (!all && chIdx + 1 < storyData.chapters.length) { startStoryCh(chIdx + 1); return; }
+      openStoryList();
+    };
+    $('#btn-story-home').onclick = () => { renderTopbar(); renderBooks(); show('#screen-books'); };
+    renderTopbar();
+    show('#screen-result');
+  }
+  $('#btn-story').onclick = () => openStoryList();
+  $('#btn-back-story').onclick = () => { renderBooks(); show('#screen-books'); };
+  $('#btn-story-quit').onclick = () => {
+    if (confirm('要離開故事嗎？這一章要從頭開始喔。')) { story = null; openStoryList(); }
+  };
 
   $('#btn-review-start').onclick = () => startReviewLesson();
   function startReviewLesson() {
@@ -1275,6 +1423,7 @@
       review: mergeReview(local.review, cloud.review),
       puzzles: { beatitudes: [...new Set([...(local.puzzles?.beatitudes || []), ...(cloud.puzzles?.beatitudes || [])])] },
       stats: mergeStats(local.stats, cloud.stats),
+      story: { JON: [...new Set([...((local.story || {}).JON || []), ...((cloud.story || {}).JON || [])])] },
     };
   }
   // 計數器合併：每個欄位取較大值（兩邊各玩各的都不吃虧）

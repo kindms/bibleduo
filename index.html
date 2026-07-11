@@ -52,7 +52,8 @@
       <button class="feat" id="btn-puzzle"><span class="feat-emoji">🧩</span><b>八福拼圖</b><small id="puzzle-progress">已收集 0/8</small></button>
       <button class="feat" id="btn-sprint"><span class="feat-emoji">⚡</span><b>金句衝刺</b><small id="sprint-best">60 秒限時挑戰</small></button>
       <button class="feat" id="btn-flip"><span class="feat-emoji">🃏</span><b>經文翻牌</b><small>上下句配對記憶</small></button>
-      <button class="feat" id="btn-badges"><span class="feat-emoji">🏅</span><b>成就徽章</b><small id="badge-count">0/14</small></button>
+      <button class="feat" id="btn-badges"><span class="feat-emoji">🏅</span><b>成就徽章</b><small id="badge-count">0/15</small></button>
+      <button class="feat feat-wide" id="btn-story"><span class="feat-emoji">🐋</span><span class="feat-wide-text"><b>約拿冒險</b><small id="story-progress">故事模式・跟先知走一趟！</small></span></button>
     </div>
 
     <!-- 打扮面板（首頁預設展開，點 🎨 才收起） -->
@@ -131,6 +132,29 @@
     </div>
     <p class="puzzle-hint">翻開兩張牌，找出同一節經文的「上句＋下句」，全部配對就完成！<span id="flip-ref" class="flip-ref"></span></p>
     <div class="flip-grid" id="flip-grid"></div>
+  </main>
+
+  <!-- 畫面：🐋約拿冒險（章節選單） -->
+  <main id="screen-story-list" class="screen hidden">
+    <div class="book-header">
+      <button class="back-btn" id="btn-back-story">←</button>
+      <h2>🐋 約拿冒險</h2>
+    </div>
+    <p class="puzzle-hint">跟著約拿走一趟：場景、對話、抉擇、小考驗——體驗這卷「先知逃跑記」！每章完成 +30 經驗值。</p>
+    <div id="story-chapters"></div>
+  </main>
+
+  <!-- 畫面：🐋約拿冒險（故事進行中） -->
+  <main id="screen-story" class="screen hidden">
+    <div class="lesson-top">
+      <button class="icon-btn" id="btn-story-quit">✕</button>
+      <h3 id="story-title" class="story-title"></h3>
+    </div>
+    <div class="story-stage">
+      <div class="story-bg" id="story-bg">🌊</div>
+      <div class="story-loc" id="story-loc"></div>
+    </div>
+    <div class="story-box" id="story-box"></div>
   </main>
 
   <!-- 畫面：🏅成就徽章 -->
