@@ -225,13 +225,10 @@
       grid.appendChild(tile);
     }
     renderReviewBanner(); // 首頁同步刷新「今日複習」橫幅
-    const got = (state.puzzles && state.puzzles.beatitudes) || [];
-    $('#puzzle-progress').textContent = got.length === 8 ? '已完成 ✨' : `已收集 ${got.length}/8`;
+    // 八福拼圖、約拿冒險的進度顯示改到各自書卷的章節頁（bookFeatureNode）
     const best = (state.stats && state.stats.sprintBest) || 0;
     $('#sprint-best').textContent = best ? `最佳 ${best} 分` : '60 秒限時挑戰';
     $('#badge-count').textContent = `${earnedBadges().length}/${BADGES.length}`;
-    const sDone = ((state.story || {}).JON || []).length;
-    $('#story-progress').textContent = sDone >= 4 ? '已完結，可重播 ⭐' : sDone ? `故事模式・進度 ${sDone}/4 章` : '故事模式・跟先知走一趟！';
   }
   for (const tab of document.querySelectorAll('.tab')) {
     tab.onclick = () => {
@@ -254,6 +251,11 @@
     }
     currentBook = book;
     $('#chapter-title').textContent = currentBook.name;
+    // 書卷專屬玩法：八福拼圖放馬太、約拿冒險放約拿書，顯示在章節頁頂端
+    const slot = $('#book-feature-slot');
+    slot.innerHTML = '';
+    const feat = bookFeatureNode(id);
+    if (feat) slot.appendChild(feat);
     const path = $('#chapter-path');
     path.innerHTML = '';
     const done = state.done[id] || [];
@@ -268,6 +270,26 @@
       path.appendChild(node);
     }
     show('#screen-chapters');
+  }
+  // 產生某書卷頂端的「專屬玩法」入口（沒有就回傳 null）
+  function bookFeatureNode(id) {
+    if (id === 'MAT') {
+      const got = ((state.puzzles && state.puzzles.beatitudes) || []).length;
+      const btn = document.createElement('button');
+      btn.className = 'book-feature';
+      btn.innerHTML = `<span class="bf-emoji">🧩</span><span class="bf-text"><b>天國八福拼圖</b><small>${got === 8 ? '已完成 ✨ 點我看金句卡' : `馬太 5:3-10・已收集 ${got}/8`}</small></span><span class="bf-arrow">›</span>`;
+      btn.onclick = () => { renderPuzzle(); show('#screen-puzzle'); };
+      return btn;
+    }
+    if (id === 'JON') {
+      const sDone = ((state.story && state.story.JON) || []).length;
+      const btn = document.createElement('button');
+      btn.className = 'book-feature';
+      btn.innerHTML = `<span class="bf-emoji">🐋</span><span class="bf-text"><b>約拿冒險（故事模式）</b><small>${sDone >= 4 ? '已完結，可重播 ⭐' : sDone ? `進度 ${sDone}/4 章` : '跟著先知走一趟！'}</small></span><span class="bf-arrow">›</span>`;
+      btn.onclick = () => openStoryList();
+      return btn;
+    }
+    return null;
   }
   $('#btn-back-books').onclick = () => { renderBooks(); show('#screen-books'); };
   $('#btn-home').onclick = () => {
@@ -926,8 +948,8 @@
     $('#btn-continue').onclick = () => { lesson = null; renderTopbar(); renderPuzzle(); show('#screen-puzzle'); };
     lessonEndCommon();
   }
-  $('#btn-puzzle').onclick = () => { renderPuzzle(); show('#screen-puzzle'); };
-  $('#btn-back-puzzle').onclick = () => { renderBooks(); show('#screen-books'); };
+  // 八福拼圖從馬太福音章節頁進入，返回也回馬太
+  $('#btn-back-puzzle').onclick = () => openBook('MAT');
 
   // ===== ⚡金句衝刺（60 秒限時連答）=====
   let sprint = null;
@@ -1308,8 +1330,8 @@
     renderTopbar();
     show('#screen-result');
   }
-  $('#btn-story').onclick = () => openStoryList();
-  $('#btn-back-story').onclick = () => { renderBooks(); show('#screen-books'); };
+  // 約拿冒險從約拿書章節頁進入，返回也回約拿書
+  $('#btn-back-story').onclick = () => openBook('JON');
   $('#btn-story-quit').onclick = () => {
     if (confirm('要離開故事嗎？這一章要從頭開始喔。')) { story = null; openStoryList(); }
   };
