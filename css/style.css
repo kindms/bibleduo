@@ -317,6 +317,24 @@ main, header { position: relative; z-index: 1; }
 .type-input.correct { border-color: #58cc02; background: #e8f9dc; }
 .type-input.wrong { border-color: #ff4b4b; background: #ffe3e3; }
 
+/* 朗讀題（開口讀經） */
+.read-box { display: flex; flex-direction: column; align-items: center; gap: 14px; padding-top: 6px; }
+.mic-btn {
+  width: 96px; height: 96px; border-radius: 50%; border: none; cursor: pointer; font-size: 2.6rem;
+  background: var(--primary); color: #fff;
+  box-shadow: 0 5px 0 var(--primary-dark), 0 8px 18px rgba(0, 0, 0, .15);
+}
+.mic-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 var(--primary-dark); }
+.mic-btn.listening { animation: micpulse 1.2s ease-in-out infinite; background: #ff4b4b; box-shadow: 0 5px 0 #d33131; }
+@keyframes micpulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+.read-status {
+  text-align: center; color: var(--text); font-size: 1.05rem; line-height: 1.6;
+  min-height: 1.6em; font-weight: bold; margin: 0;
+}
+.read-textarea { resize: none; width: 100%; }
+.read-box .ghost-btn { width: auto; padding: 10px 16px; font-size: .95rem; }
+.read-box .big-btn { width: 100%; }
+
 /* 配對題：上句／下句各成一欄，欄位有標題與淡色底，區隔清楚 */
 .pairs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .pairs-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }

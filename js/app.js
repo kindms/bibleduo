@@ -319,6 +319,7 @@
     if (q.type === 'comp') renderComp(q, area);
     if (q.type === 'tf') renderTF(q, area);
     if (q.type === 'typefill') renderTypeFill(q, area);
+    if (q.type === 'read') renderRead(q, area);
     if (lesson.inRetest || lesson.isReview) { // 複習：題目上方掛個提示徽章
       const badge = document.createElement('div');
       badge.className = 'retest-badge';
@@ -404,6 +405,101 @@
         correctText: q.answer ? '⭕ 這句是正確的' : '❌ 這句被改過了',
         note: q.answer === false ? `原文：${q.original}` : '',
       };
+    };
+  }
+
+  // --- 題型 7：開口讀經 ---
+  // 比對前先只留中文字（標點、空白、數字都不計較），再算編輯距離相似度
+  function normalizeCJK(s) { return String(s).replace(/[^一-鿿㐀-䶿]/g, ''); }
+  function similarity(a, b) {
+    a = normalizeCJK(a); b = normalizeCJK(b);
+    if (!a.length || !b.length) return 0;
+    let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+    for (let i = 1; i <= a.length; i++) {
+      const cur = [i];
+      for (let j = 1; j <= b.length; j++) {
+        cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      }
+      prev = cur;
+    }
+    return 1 - prev[b.length] / Math.max(a.length, b.length);
+  }
+  function renderRead(q, area) {
+    area.innerHTML = `
+      <div class="q-type">🎤 開口讀經：大聲唸出這節經文</div>
+      <div class="q-ref">${q.ref}</div>
+      <div class="q-passage">${escapeHtml(q.text)}</div>
+      <div class="read-box" id="read-box"></div>`;
+    $('#lesson-bottom').classList.add('hidden'); // 自動判分，不用確定鈕
+    currentAnswerGetter = () => null;
+    const box = $('#read-box');
+
+    // 打字備援：環境不便朗讀、不支援語音、或權限被拒時
+    function typingMode(msg) {
+      box.innerHTML = msg ? `<p class="read-status">${escapeHtml(msg)}</p>` : '';
+      const tip = document.createElement('p');
+      tip.className = 'read-status';
+      tip.textContent = '把上面這節經文照著打一遍（標點可省略）：';
+      const input = document.createElement('textarea');
+      input.className = 'type-input read-textarea';
+      input.rows = 3;
+      input.placeholder = '在這裡輸入經文…';
+      const btn = document.createElement('button');
+      btn.className = 'big-btn';
+      btn.textContent = '送出';
+      btn.disabled = true;
+      input.oninput = () => { btn.disabled = !input.value.trim(); };
+      btn.onclick = () => {
+        const sim = similarity(input.value, q.text);
+        input.disabled = true; btn.disabled = true;
+        if (sim >= 0.9) checkAnswer(true, null, `抄寫完成！相似度 ${Math.round(sim * 100)}%`);
+        else checkAnswer(false, q.text, '（朗讀操練不扣愛心）');
+      };
+      box.append(tip, input, btn);
+      input.focus();
+    }
+
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { typingMode('這台裝置不支援語音辨識，改用打字模式：'); return; }
+
+    box.innerHTML = `
+      <button class="mic-btn" id="btn-mic" title="開始朗讀">🎤</button>
+      <p class="read-status" id="read-status">點麥克風，大聲唸出上面的經文！</p>
+      <button class="ghost-btn" id="btn-read-type">⌨️ 環境不方便唸？改用打字</button>`;
+    $('#btn-read-type').onclick = () => typingMode();
+    const micBtn = $('#btn-mic');
+    const status = $('#read-status');
+    let rec = null, listening = false;
+    micBtn.onclick = () => {
+      if (listening) { try { rec.stop(); } catch { /* 已停止 */ } return; }
+      rec = new SR();
+      rec.lang = 'zh-TW';
+      rec.interimResults = false;
+      rec.maxAlternatives = 5;
+      rec.onresult = (e) => {
+        const alts = [...e.results[0]].map(a => a.transcript);
+        let best = 0, bestText = alts[0] || '';
+        for (const t of alts) { const s = similarity(t, q.text); if (s > best) { best = s; bestText = t; } }
+        if (best >= 0.65) {
+          checkAnswer(true, null, `辨識到「${bestText}」，相似度 ${Math.round(best * 100)}%`);
+        } else {
+          status.textContent = `聽到「${bestText || '（沒聽清楚）'}」，相似度 ${Math.round(best * 100)}%——再唸一次試試！`;
+        }
+      };
+      rec.onerror = (e) => {
+        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+          typingMode('麥克風權限沒開（或這台裝置不支援），改用打字模式：');
+        } else {
+          status.textContent = '沒聽清楚或網路不穩——再點一次麥克風，不行就改用打字。';
+        }
+      };
+      rec.onend = () => { listening = false; micBtn.classList.remove('listening'); };
+      try {
+        rec.start();
+        listening = true;
+        micBtn.classList.add('listening');
+        status.textContent = '👂 聽你唸…（唸完會自動辨識）';
+      } catch { typingMode('語音服務啟動失敗，改用打字模式：'); }
     };
   }
 
@@ -588,7 +684,7 @@
       if (lesson.isReview) { // 間隔複習答錯：退回明天再考
         bumpReviewItem(lesson.reviewItems[lesson.i], false);
         store.save(state);
-      } else if (!lesson.inRetest) { // 正式輪答錯：扣愛心、記下錯題供之後複習
+      } else if (!lesson.inRetest && q.type !== 'read') { // 正式輪答錯：扣愛心、記下錯題供之後複習（朗讀操練除外）
         lesson.hearts--;
         lesson.wrong++;
         lesson.wrongQs.push(q);
@@ -951,7 +1047,7 @@
         chapter: lesson.chapterNum,
         type: q.type,
         ref: q.ref || '',
-        question: (q.q || q.display || q.head || q.statement || (q.pieces || []).join('／') || '').slice(0, 200),
+        question: (q.q || q.display || q.head || q.statement || q.text || (q.pieces || []).join('／') || '').slice(0, 200),
         answer: (Array.isArray(q.answer) ? q.answer.join('') : (q.answer || '')).slice(0, 200),
         note: note.trim().slice(0, 300),
       });
@@ -964,7 +1060,7 @@
   };
 
   // 測試用鉤子（自動化驗證流程時讀取關卡狀態）
-  window.__bd = { get lesson() { return lesson; }, get state() { return state; }, mergeStates, renderBoard, renderQuestion };
+  window.__bd = { get lesson() { return lesson; }, get state() { return state; }, mergeStates, renderBoard, renderQuestion, similarity };
 
   // ===== 啟動 =====
   (async function init() {

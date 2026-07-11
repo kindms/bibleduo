@@ -190,6 +190,13 @@
     };
   }
 
+  // 題型 7：開口讀經（挑 10~32 字的短節朗讀；語音辨識與比對在 app.js）
+  function makeRead(book, ch, verses, vi) {
+    const text = verses[vi];
+    if (text.length < 10 || text.length > 32) return null;
+    return { type: 'read', ref: `${book.name} ${ch}:${vi + 1}`, text };
+  }
+
   // 產生一關的題目（預設 8 題，題型輪替；短章出不了某題型時自動換備用題型）
   function generateLesson(book, chapterNum, count = 8) {
     const verses = book.chapters[chapterNum - 1];
@@ -197,10 +204,18 @@
     const qs = [];
     const usedVi = new Set();
     const seen = new Set(); // 防止同一題出兩次
-    const makers = ['fill', 'order', 'tf', 'next', 'match', 'typefill', 'order', 'fill'];
+    const makers = ['fill', 'order', 'tf', 'next', 'match', 'typefill', 'read', 'fill'];
 
     function tryMake(kind) {
       if (kind === 'match') return makeMatch(book, chapterNum, verses, shuffle(usable));
+      if (kind === 'read') { // 朗讀題直接從長度合適的節裡挑
+        const cands = usable.filter(i => !usedVi.has(i) && verses[i].length >= 10 && verses[i].length <= 32);
+        if (!cands.length) return null;
+        const rvi = pick(cands);
+        const rq = makeRead(book, chapterNum, verses, rvi);
+        if (rq) usedVi.add(rvi);
+        return rq;
+      }
       const fresh = usable.filter(i => !usedVi.has(i));
       const vi = pick(fresh.length ? fresh : usable);
       if (vi === undefined) return null;
@@ -210,6 +225,7 @@
       if (kind === 'next') q = makeNext(book, chapterNum, verses, vi);
       if (kind === 'tf') q = makeTF(book, chapterNum, verses, vi);
       if (kind === 'typefill') q = makeTypeFill(book, chapterNum, verses, vi);
+      if (kind === 'read') q = makeRead(book, chapterNum, verses, vi);
       if (q) usedVi.add(vi);
       return q;
     }
@@ -217,7 +233,7 @@
     let tries = 0;
     while (qs.length < count && tries++ < 100) {
       const preferred = makers[qs.length % makers.length];
-      const kinds = [preferred, ...['fill', 'order', 'next', 'match', 'tf', 'typefill'].filter(k => k !== preferred)];
+      const kinds = [preferred, ...['fill', 'order', 'next', 'match', 'tf', 'typefill', 'read'].filter(k => k !== preferred)];
       for (const kind of kinds) {
         const q = tryMake(kind);
         if (!q) continue;
