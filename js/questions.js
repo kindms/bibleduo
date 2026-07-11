@@ -261,5 +261,25 @@
     return null;
   }
 
-  window.QuestionFactory = { generateLesson, generateVerseQuestion };
+  // 經文翻牌用：從一章抓 count 對「上句/下句」（長度限制讓卡片放得下）
+  function generatePairs(book, chapterNum, count = 6) {
+    const verses = book.chapters[chapterNum - 1];
+    const pairs = [];
+    const seenL = new Set(), seenR = new Set();
+    for (const vi of shuffle(verses.map((v, i) => i))) {
+      const clauses = splitClauses(verses[vi]);
+      if (clauses.length < 2) continue;
+      const mid = Math.ceil(clauses.length / 2);
+      const left = clauses.slice(0, mid).join('');
+      const right = clauses.slice(mid).join('');
+      if (left.length < 4 || right.length < 4 || left.length > 18 || right.length > 18) continue;
+      if (seenL.has(left) || seenR.has(right)) continue;
+      seenL.add(left); seenR.add(right);
+      pairs.push({ left, right });
+      if (pairs.length === count) break;
+    }
+    return pairs;
+  }
+
+  window.QuestionFactory = { generateLesson, generateVerseQuestion, generatePairs };
 })();

@@ -44,6 +44,7 @@
   };
   let state = Object.assign({ xp: 0, streak: 0, lastPlay: '', done: {}, scene: 'meadow', mascot: 'dove', nickname: '', weekXp: 0, weekKey: '', muted: false, review: [], puzzles: { beatitudes: [] } }, store.load());
   if (!state.puzzles) state.puzzles = { beatitudes: [] }; // 舊存檔補欄位
+  if (!state.stats) state.stats = {}; // 各種計數器（衝刺最高分、翻牌次數、複習次數、朗讀成功數…），徽章用
   // review: 錯題間隔複習佇列 [{key, q, book, due, stage}]；答錯隔天到期，答對依 1→3→7 天延後，對滿三次畢業移除
   // done: { MRK: [1,2,3] } 已完成章
 
@@ -225,7 +226,10 @@
     }
     renderReviewBanner(); // 首頁同步刷新「今日複習」橫幅
     const got = (state.puzzles && state.puzzles.beatitudes) || [];
-    $('#puzzle-progress').textContent = got.length === 8 ? '已完成！點我欣賞金句卡 ✨' : `已收集 ${got.length}/8 片`;
+    $('#puzzle-progress').textContent = got.length === 8 ? '已完成 ✨' : `已收集 ${got.length}/8`;
+    const best = (state.stats && state.stats.sprintBest) || 0;
+    $('#sprint-best').textContent = best ? `最佳 ${best} 分` : '60 秒限時挑戰';
+    $('#badge-count').textContent = `${earnedBadges().length}/${BADGES.length}`;
   }
   for (const tab of document.querySelectorAll('.tab')) {
     tab.onclick = () => {
@@ -264,7 +268,10 @@
     show('#screen-chapters');
   }
   $('#btn-back-books').onclick = () => { renderBooks(); show('#screen-books'); };
-  $('#btn-home').onclick = () => { lesson = null; renderTopbar(); renderBooks(); show('#screen-books'); };
+  $('#btn-home').onclick = () => {
+    stopSprintTimer(); sprint = null; flip = null; // 從小遊戲直接回家要停計時器
+    lesson = null; renderTopbar(); renderBooks(); show('#screen-books');
+  };
 
   // ===== 畫面 3：關卡 =====
   let lesson = null;
@@ -683,6 +690,7 @@
       } else if (!lesson.inRetest) {
         lesson.xp += 10; // 錯題再測驗不重複給經驗值
       }
+      if (q.type === 'read') state.stats.readOk = (state.stats.readOk || 0) + 1; // 朗讀徽章計數
       sndGood();
     } else if (ok === 'soft') { // 配對題有配錯但完成
       fb.classList.add('good');
@@ -919,6 +927,245 @@
   $('#btn-puzzle').onclick = () => { renderPuzzle(); show('#screen-puzzle'); };
   $('#btn-back-puzzle').onclick = () => { renderBooks(); show('#screen-books'); };
 
+  // ===== ⚡金句衝刺（60 秒限時連答）=====
+  let sprint = null;
+  function pickPlayedBookId() {
+    const played = Object.keys(state.done).filter(id => (state.done[id] || []).length);
+    return played.length ? played[Math.floor(Math.random() * played.length)] : 'MAT';
+  }
+  async function startSprint() {
+    let book;
+    try { book = await loadBook(pickPlayedBookId()); }
+    catch { alert('網路不穩，載入經文失敗了，請再試一次。'); return; }
+    // 從隨機章節湊一批「點選就能答」的快答題
+    const qs = [];
+    let guard = 0;
+    while (qs.length < 40 && guard++ < 30) {
+      const ch = 1 + Math.floor(Math.random() * book.chapters.length);
+      for (const q of QuestionFactory.generateLesson(book, ch, 8)) {
+        if (['fill', 'tf', 'next'].includes(q.type)) qs.push(q);
+      }
+    }
+    if (qs.length < 10) { alert('這卷書湊不出快答題，先多闖幾關再來！'); return; }
+    sprint = { qs: shuffleArr(qs), i: 0, score: 0, combo: 0, bestCombo: 0, correct: 0, total: 0, timeLeft: 60, timer: null, answered: false };
+    show('#screen-sprint');
+    $('#sprint-time').textContent = '60';
+    $('#sprint-timer-fill').style.width = '100%';
+    renderSprintQ();
+    sprint.timer = setInterval(() => {
+      if (!sprint) return;
+      sprint.timeLeft--;
+      $('#sprint-time').textContent = sprint.timeLeft;
+      $('#sprint-timer-fill').style.width = `${(sprint.timeLeft / 60) * 100}%`;
+      if (sprint.timeLeft <= 0) endSprint();
+    }, 1000);
+  }
+  function stopSprintTimer() { if (sprint && sprint.timer) clearInterval(sprint.timer); }
+  function renderSprintQ() {
+    const q = sprint.qs[sprint.i % sprint.qs.length];
+    $('#sprint-score').textContent = sprint.score;
+    $('#sprint-combo').textContent = sprint.combo > 1 ? `🔥 連對 x${sprint.combo}` : '';
+    let stem = '';
+    if (q.type === 'fill') stem = q.display.replace('____', '<span class="blank">？</span>');
+    if (q.type === 'next') stem = `${q.head}<span class="blank">……</span>`;
+    if (q.type === 'tf') stem = escapeHtml(q.statement);
+    const area = $('#sprint-area');
+    area.innerHTML = `<div class="q-ref">${q.ref}</div><div class="q-passage sprint-passage">${stem}</div>`;
+    const box = document.createElement('div');
+    box.className = q.type === 'tf' ? 'tf-row' : 'choices';
+    const opts = q.type === 'tf'
+      ? [{ label: '⭕ 正確', val: true }, { label: '❌ 有錯', val: false }]
+      : q.options.map(o => ({ label: o, val: o }));
+    const btns = [];
+    for (const o of opts) {
+      const btn = document.createElement('button');
+      btn.className = q.type === 'tf' ? 'tf-btn tf-mini' : 'choice';
+      btn.textContent = o.label;
+      btn.onclick = () => answerSprint(q, o, btn, btns, opts);
+      btns.push(btn);
+      box.appendChild(btn);
+    }
+    area.appendChild(box);
+  }
+  function answerSprint(q, opt, btn, btns, opts) {
+    if (!sprint || sprint.answered) return;
+    sprint.answered = true;
+    sprint.total++;
+    const ok = opt.val === q.answer;
+    btn.classList.add(ok ? 'correct' : 'wrong');
+    if (ok) {
+      sprint.combo++;
+      sprint.correct++;
+      sprint.bestCombo = Math.max(sprint.bestCombo, sprint.combo);
+      sprint.score += 10 + Math.min(10, (sprint.combo - 1) * 2); // 連對加成，單題最多 20 分
+      sndGood();
+    } else {
+      sprint.combo = 0;
+      const rightIdx = opts.findIndex(o => o.val === q.answer);
+      if (rightIdx >= 0) btns[rightIdx].classList.add('correct');
+      sndBad();
+    }
+    setTimeout(() => {
+      if (!sprint) return;
+      sprint.answered = false;
+      sprint.i++;
+      renderSprintQ();
+    }, ok ? 350 : 900);
+  }
+  function endSprint() {
+    stopSprintTimer();
+    const s = sprint;
+    sprint = null;
+    const gained = Math.min(40, s.correct * 2); // 封頂避免刷分
+    state.xp += gained;
+    ensureWeek();
+    state.weekXp += gained;
+    bumpStreak();
+    state.stats.sprintPlays = (state.stats.sprintPlays || 0) + 1;
+    const newBest = s.score > (state.stats.sprintBest || 0);
+    if (newBest) state.stats.sprintBest = s.score;
+    store.save(state);
+    sndWin();
+    if (newBest && s.score > 0) throwConfetti();
+    $('#result-box').innerHTML = `
+      <div class="r-emoji">⚡${newBest && s.score > 0 ? '🏆' : ''}</div>
+      <h2>衝刺結束！</h2>
+      <p>${newBest && s.score > 0 ? '新紀錄！' : `最佳紀錄 ${state.stats.sprintBest || 0} 分`}</p>
+      <div class="result-stats">
+        <div class="r-stat">${s.score}<span>本場分數</span></div>
+        <div class="r-stat">${s.correct}/${s.total}<span>答對題數</span></div>
+        <div class="r-stat">🔥${s.bestCombo}<span>最長連對</span></div>
+      </div>
+      <div class="result-stats"><div class="r-stat">＋${gained}<span>經驗值</span></div></div>
+      <button class="big-btn" id="btn-sprint-again">再衝一次 ⚡</button>
+      <button class="ghost-btn" id="btn-continue">回首頁</button>`;
+    $('#btn-sprint-again').onclick = () => startSprint();
+    $('#btn-continue').onclick = () => { renderTopbar(); renderBooks(); show('#screen-books'); };
+    renderTopbar();
+    show('#screen-result');
+  }
+  $('#btn-sprint').onclick = () => startSprint();
+  $('#btn-sprint-quit').onclick = () => { stopSprintTimer(); sprint = null; renderBooks(); show('#screen-books'); };
+
+  // ===== 🃏經文翻牌（上下句配對記憶）=====
+  let flip = null;
+  async function startFlip() {
+    let book;
+    try { book = await loadBook(pickPlayedBookId()); }
+    catch { alert('網路不穩，載入經文失敗了，請再試一次。'); return; }
+    let pairs = null, ref = '';
+    for (let t = 0; t < 15 && !pairs; t++) {
+      const ch = 1 + Math.floor(Math.random() * book.chapters.length);
+      const p = QuestionFactory.generatePairs(book, ch, 6);
+      if (p.length === 6) { pairs = p; ref = `（${book.name} ${ch} 章）`; }
+    }
+    if (!pairs) { alert('這卷書湊不出牌組，再點一次換一卷試試！'); return; }
+    const cards = [];
+    pairs.forEach((p, i) => {
+      cards.push({ key: i, text: p.left });
+      cards.push({ key: i, text: p.right });
+    });
+    flip = { cards: shuffleArr(cards), matched: 0, moves: 0, sel: null, lock: false, ref };
+    renderFlip();
+    show('#screen-flip');
+  }
+  function renderFlip() {
+    $('#flip-ref').textContent = flip.ref;
+    $('#flip-moves').textContent = flip.moves;
+    const grid = $('#flip-grid');
+    grid.innerHTML = '';
+    flip.cards.forEach((c) => {
+      const card = document.createElement('button');
+      card.className = 'flip-card';
+      card.innerHTML = `<span class="flip-inner"><span class="flip-face flip-front">📖</span><span class="flip-face flip-back"></span></span>`;
+      card.querySelector('.flip-back').textContent = c.text;
+      card.onclick = () => flipCard(c, card);
+      grid.appendChild(card);
+    });
+  }
+  function flipCard(c, el) {
+    if (!flip || flip.lock || el.classList.contains('open') || el.classList.contains('done')) return;
+    el.classList.add('open');
+    if (!flip.sel) { flip.sel = { c, el }; return; }
+    flip.moves++;
+    $('#flip-moves').textContent = flip.moves;
+    const a = flip.sel;
+    flip.sel = null;
+    if (a.c.key === c.key) { // 配對成功
+      a.el.classList.add('done'); el.classList.add('done');
+      flip.matched++;
+      sndGood();
+      if (flip.matched === 6) setTimeout(endFlip, 500);
+    } else {
+      flip.lock = true;
+      sndBad();
+      setTimeout(() => { a.el.classList.remove('open'); el.classList.remove('open'); flip.lock = false; }, 750);
+    }
+  }
+  function endFlip() {
+    const moves = flip.moves;
+    flip = null;
+    const gained = 20;
+    state.xp += gained;
+    ensureWeek();
+    state.weekXp += gained;
+    bumpStreak();
+    state.stats.flipWins = (state.stats.flipWins || 0) + 1;
+    store.save(state);
+    sndWin();
+    $('#result-box').innerHTML = `
+      <div class="r-emoji">🃏🎉</div>
+      <h2>全部配對完成！</h2>
+      <p>${moves <= 9 ? '記憶力驚人！' : '經文又更熟了一點！'}</p>
+      <div class="result-stats">
+        <div class="r-stat">${moves}<span>使用步數</span></div>
+        <div class="r-stat">＋${gained}<span>經驗值</span></div>
+      </div>
+      <button class="big-btn" id="btn-flip-again">再玩一局 🃏</button>
+      <button class="ghost-btn" id="btn-continue">回首頁</button>`;
+    $('#btn-flip-again').onclick = () => startFlip();
+    $('#btn-continue').onclick = () => { renderTopbar(); renderBooks(); show('#screen-books'); };
+    renderTopbar();
+    show('#screen-result');
+  }
+  $('#btn-flip').onclick = () => startFlip();
+  $('#btn-back-flip').onclick = () => { flip = null; renderBooks(); show('#screen-books'); };
+
+  // ===== 🏅成就徽章 =====
+  const countBooksDone = (s) => !bookIndex ? 0 : bookIndex.filter(b => (s.done[b.id] || []).length >= b.chapters).length;
+  const BADGES = [
+    { emoji: '🌱', name: '起步', desc: '完成第一章', test: s => Object.values(s.done || {}).some(a => a.length > 0) },
+    { emoji: '🔥', name: '三日之火', desc: '連續 3 天讀經', test: s => s.streak >= 3 },
+    { emoji: '🎇', name: '七日恆心', desc: '連續 7 天讀經', test: s => s.streak >= 7 },
+    { emoji: '🌋', name: '烈焰不熄', desc: '連續 30 天讀經', test: s => s.streak >= 30 },
+    { emoji: '⭐', name: '起星', desc: '累積 500 經驗值', test: s => s.xp >= 500 },
+    { emoji: '🌟', name: '星光燦爛', desc: '累積 2,000 經驗值', test: s => s.xp >= 2000 },
+    { emoji: '💫', name: '滿天星斗', desc: '累積 10,000 經驗值', test: s => s.xp >= 10000 },
+    { emoji: '📖', name: '讀完一卷', desc: '完成一整卷書', test: s => countBooksDone(s) >= 1 },
+    { emoji: '📚', name: '五卷達人', desc: '完成 5 卷書', test: s => countBooksDone(s) >= 5 },
+    { emoji: '🧩', name: '八福收藏家', desc: '集滿天國八福拼圖', test: s => ((s.puzzles || {}).beatitudes || []).length >= 8 },
+    { emoji: '⚡', name: '衝刺高手', desc: '金句衝刺單場 100 分', test: s => ((s.stats || {}).sprintBest || 0) >= 100 },
+    { emoji: '🃏', name: '記憶王', desc: '完成 3 局經文翻牌', test: s => ((s.stats || {}).flipWins || 0) >= 3 },
+    { emoji: '📅', name: '複習達人', desc: '完成 10 次錯題複習', test: s => ((s.stats || {}).reviewsDone || 0) >= 10 },
+    { emoji: '🎤', name: '朗讀勇士', desc: '開口讀經成功 20 次', test: s => ((s.stats || {}).readOk || 0) >= 20 },
+  ];
+  const earnedBadges = () => BADGES.filter(b => b.test(state));
+  function renderBadges() {
+    const grid = $('#badge-grid');
+    grid.innerHTML = '';
+    for (const b of BADGES) {
+      const got = b.test(state);
+      const tile = document.createElement('div');
+      tile.className = 'badge-tile' + (got ? ' got' : '');
+      tile.innerHTML = `<span class="badge-emoji">${got ? b.emoji : '🔒'}</span>
+        <span class="badge-name">${b.name}</span>
+        <span class="badge-desc">${b.desc}</span>`;
+      grid.appendChild(tile);
+    }
+  }
+  $('#btn-badges').onclick = () => { renderBadges(); show('#screen-badges'); };
+  $('#btn-back-badges').onclick = () => { renderBooks(); show('#screen-books'); };
+
   $('#btn-review-start').onclick = () => startReviewLesson();
   function startReviewLesson() {
     const due = dueReviews().slice(0, 10);
@@ -938,6 +1185,7 @@
     ensureWeek();
     state.weekXp += gained;
     bumpStreak();
+    state.stats.reviewsDone = (state.stats.reviewsDone || 0) + 1; // 徽章計數
     store.save(state);
     sndWin();
     const left = dueReviews().length;
@@ -1026,7 +1274,16 @@
       weekXp: Math.max(localWeek, cloudWeek),
       review: mergeReview(local.review, cloud.review),
       puzzles: { beatitudes: [...new Set([...(local.puzzles?.beatitudes || []), ...(cloud.puzzles?.beatitudes || [])])] },
+      stats: mergeStats(local.stats, cloud.stats),
     };
+  }
+  // 計數器合併：每個欄位取較大值（兩邊各玩各的都不吃虧）
+  function mergeStats(local, cloud) {
+    const out = { ...(cloud || {}) };
+    for (const [k, v] of Object.entries(local || {})) {
+      out[k] = Math.max(out[k] || 0, v || 0);
+    }
+    return out;
   }
   // 複習佇列合併：以雲端為主，補上雲端沒有的本機錯題
   function mergeReview(local, cloud) {
@@ -1173,7 +1430,7 @@
   };
 
   // 測試用鉤子（自動化驗證流程時讀取關卡狀態）
-  window.__bd = { get lesson() { return lesson; }, get state() { return state; }, mergeStates, renderBoard, renderQuestion, similarity };
+  window.__bd = { get lesson() { return lesson; }, get state() { return state; }, get sprint() { return sprint; }, get flip() { return flip; }, mergeStates, renderBoard, renderQuestion, similarity };
 
   // ===== 啟動 =====
   (async function init() {

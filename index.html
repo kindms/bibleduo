@@ -47,12 +47,13 @@
       <button id="btn-review-start">開始複習</button>
     </div>
 
-    <!-- 拼圖入口 -->
-    <button class="puzzle-entry" id="btn-puzzle">
-      <span class="pz-emoji">🧩</span>
-      <span class="pz-text"><b>天國八福拼圖</b><small id="puzzle-progress">已收集 0/8 片</small></span>
-      <span class="pz-arrow">›</span>
-    </button>
+    <!-- 挑戰與收集區 -->
+    <div class="feature-grid">
+      <button class="feat" id="btn-puzzle"><span class="feat-emoji">🧩</span><b>八福拼圖</b><small id="puzzle-progress">已收集 0/8</small></button>
+      <button class="feat" id="btn-sprint"><span class="feat-emoji">⚡</span><b>金句衝刺</b><small id="sprint-best">60 秒限時挑戰</small></button>
+      <button class="feat" id="btn-flip"><span class="feat-emoji">🃏</span><b>經文翻牌</b><small>上下句配對記憶</small></button>
+      <button class="feat" id="btn-badges"><span class="feat-emoji">🏅</span><b>成就徽章</b><small id="badge-count">0/14</small></button>
+    </div>
 
     <!-- 打扮面板（首頁預設展開，點 🎨 才收起） -->
     <div class="custom-panel" id="custom-panel">
@@ -107,6 +108,38 @@
     <p class="puzzle-hint" id="puzzle-hint">點一片 🔒 拼圖來挑戰，答對就能收集（答錯不扣愛心）。集滿 8 片拼出完整的八福金句卡！</p>
     <div class="puzzle-grid" id="puzzle-grid"></div>
     <div class="puzzle-complete hidden" id="puzzle-complete"></div>
+  </main>
+
+  <!-- 畫面：⚡金句衝刺 -->
+  <main id="screen-sprint" class="screen hidden">
+    <div class="lesson-top">
+      <button class="icon-btn" id="btn-sprint-quit">✕</button>
+      <div class="progress-track"><div id="sprint-timer-fill" class="progress-fill sprint-fill"></div></div>
+      <div class="sprint-stat">⏱ <b id="sprint-time">60</b></div>
+      <div class="sprint-stat">⭐ <b id="sprint-score">0</b></div>
+    </div>
+    <div class="sprint-combo" id="sprint-combo"></div>
+    <div id="sprint-area"></div>
+  </main>
+
+  <!-- 畫面：🃏經文翻牌 -->
+  <main id="screen-flip" class="screen hidden">
+    <div class="book-header">
+      <button class="back-btn" id="btn-back-flip">←</button>
+      <h2>🃏 經文翻牌</h2>
+      <span class="flip-moves-label">步數 <b id="flip-moves">0</b></span>
+    </div>
+    <p class="puzzle-hint">翻開兩張牌，找出同一節經文的「上句＋下句」，全部配對就完成！<span id="flip-ref" class="flip-ref"></span></p>
+    <div class="flip-grid" id="flip-grid"></div>
+  </main>
+
+  <!-- 畫面：🏅成就徽章 -->
+  <main id="screen-badges" class="screen hidden">
+    <div class="book-header">
+      <button class="back-btn" id="btn-back-badges">←</button>
+      <h2>🏅 成就徽章</h2>
+    </div>
+    <div class="badge-grid" id="badge-grid"></div>
   </main>
 
   <!-- 畫面 4：結算 -->

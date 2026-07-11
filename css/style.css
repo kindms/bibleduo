@@ -162,19 +162,18 @@ main, header { position: relative; z-index: 1; }
 }
 .review-banner button:active { opacity: .8; }
 
-/* 拼圖入口卡（首頁） */
-.puzzle-entry {
-  width: 100%; display: flex; align-items: center; gap: 12px; cursor: pointer;
+/* 挑戰與收集區（首頁 2×2） */
+.feature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+.feat {
+  display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer;
   background: var(--card); border: 2px solid var(--card-line); border-bottom-width: 4px;
-  border-radius: 16px; padding: 12px 14px; margin-bottom: 14px; text-align: left;
+  border-radius: 16px; padding: 12px 8px;
   box-shadow: 0 3px 10px rgba(0, 0, 0, .05);
 }
-.puzzle-entry:active { transform: translateY(2px); border-bottom-width: 2px; }
-.puzzle-entry .pz-emoji { font-size: 1.8rem; }
-.puzzle-entry .pz-text { flex: 1; display: flex; flex-direction: column; }
-.puzzle-entry .pz-text b { font-size: 1.05rem; color: var(--text); }
-.puzzle-entry .pz-text small { font-size: .8rem; color: var(--text-light); }
-.puzzle-entry .pz-arrow { font-size: 1.6rem; color: var(--text-light); }
+.feat:active { transform: translateY(2px); border-bottom-width: 2px; }
+.feat .feat-emoji { font-size: 1.7rem; }
+.feat b { font-size: 1rem; color: var(--text); }
+.feat small { font-size: .75rem; color: var(--text-light); }
 
 /* 拼圖畫面 */
 .puzzle-hint { color: var(--text-light); font-size: .95rem; line-height: 1.6; margin: 0 0 14px; }
@@ -194,6 +193,59 @@ main, header { position: relative; z-index: 1; }
 .pz-tile-label { font-weight: bold; font-size: 1.02rem; }
 .pz-tile-sub { font-size: .78rem; color: var(--text-light); }
 .pz-tile.owned .pz-tile-sub { color: #ca8a04; font-weight: bold; }
+
+/* ⚡金句衝刺 */
+.sprint-stat { font-weight: bold; font-size: 1rem; white-space: nowrap; }
+.sprint-stat b { color: #d99e00; }
+.sprint-fill { background: linear-gradient(90deg, #ff9600, #ff4b4b); }
+.sprint-combo { text-align: center; min-height: 1.5em; font-weight: bold; color: #ff9600; font-size: 1.05rem; margin-bottom: 6px; }
+.sprint-passage { font-size: 1.25rem; line-height: 1.8; padding: 13px; margin-bottom: 12px; }
+.tf-btn.tf-mini { font-size: 1.2rem; padding: 14px 10px; flex-direction: row; justify-content: center; }
+
+/* 🃏經文翻牌 */
+.flip-moves-label { margin-left: auto; font-size: .9rem; color: var(--text-light); font-weight: bold; }
+.flip-ref { color: var(--select); }
+.flip-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding-bottom: 30px; }
+.flip-card {
+  aspect-ratio: 3 / 4; border: none; background: none; padding: 0; cursor: pointer;
+  perspective: 600px;
+}
+.flip-inner {
+  position: relative; width: 100%; height: 100%; display: block;
+  transform-style: preserve-3d; transition: transform .35s;
+}
+.flip-card.open .flip-inner, .flip-card.done .flip-inner { transform: rotateY(180deg); }
+.flip-face {
+  position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 12px; padding: 6px;
+}
+.flip-front {
+  background: var(--primary); color: #fff; font-size: 1.8rem;
+  box-shadow: 0 3px 0 var(--primary-dark);
+}
+.flip-back {
+  background: var(--card); border: 2px solid var(--select);
+  transform: rotateY(180deg);
+  font-size: .8rem; line-height: 1.35; color: var(--text); font-weight: bold;
+  text-align: center; overflow: hidden;
+}
+.flip-card.done .flip-back { border-color: #58cc02; background: #e8f9dc; color: #3f9803; }
+
+/* 🏅成就徽章 */
+.badge-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding-bottom: 30px; }
+.badge-tile {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center;
+  background: var(--node-locked); border: 2px dashed var(--node-locked-shadow);
+  border-radius: 16px; padding: 14px 8px; color: var(--text-light);
+}
+.badge-tile.got {
+  background: var(--card); border: 2px solid #eab308; border-bottom-width: 4px;
+  box-shadow: 0 3px 12px rgba(234, 179, 8, .3); color: var(--text);
+}
+.badge-emoji { font-size: 2rem; }
+.badge-name { font-weight: bold; font-size: 1rem; }
+.badge-desc { font-size: .76rem; color: var(--text-light); line-height: 1.4; }
 
 /* 集滿的八福金句卡 */
 .bcard {
@@ -481,6 +533,7 @@ main, header { position: relative; z-index: 1; }
   box-shadow: 0 3px 10px rgba(0, 0, 0, .05);
 }
 .r-stat span { display: block; font-size: .75rem; color: var(--text-light); font-weight: normal; }
+.result-box .ghost-btn { margin-top: 10px; }
 
 /* 彩帶（完美通關） */
 .confetti {
