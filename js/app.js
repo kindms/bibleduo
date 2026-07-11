@@ -363,42 +363,73 @@
       <div class="q-passage">${q.head}<span class="blank">……</span></div>`);
   }
 
-  // --- 題型 2：排順序 ---
+  // --- 題型 2：排順序（按住把手拖曳排序）---
   function renderOrder(q, area) {
     area.innerHTML = `
       <div class="q-type">🧩 把經文排回正確順序</div>
       <div class="q-ref">${q.ref}</div>
-      <div class="order-target" id="order-target"></div>`;
-    const pool = document.createElement('div');
-    pool.className = 'order-pool';
-    const target = () => $('#order-target');
-    const placed = [];
+      <div class="q-hint">按住 ⠿ 上下拖曳，把句子排成正確順序，排好按「確定」。</div>
+      <div class="sort-list" id="sort-list"></div>`;
+    const list = $('#sort-list');
     for (const piece of q.pieces) {
-      const chip = document.createElement('button');
-      chip.className = 'chip';
-      chip.textContent = piece;
-      chip.onclick = () => {
-        if (chip.classList.contains('used')) return;
-        chip.classList.add('used');
-        const t = document.createElement('button');
-        t.className = 'chip';
-        t.textContent = piece;
-        t.onclick = () => { // 從答案區移回
-          t.remove();
-          placed.splice(placed.indexOf(t), 1);
-          chip.classList.remove('used');
-          $('#btn-check').disabled = placed.length !== q.pieces.length;
-        };
-        target().appendChild(t);
-        placed.push(t);
-        $('#btn-check').disabled = placed.length !== q.pieces.length;
-      };
-      pool.appendChild(chip);
+      const row = document.createElement('div');
+      row.className = 'sort-item';
+      const handle = document.createElement('span');
+      handle.className = 'sort-handle';
+      handle.textContent = '⠿';
+      const text = document.createElement('span');
+      text.className = 'sort-text';
+      text.textContent = piece;
+      row.append(handle, text);
+      list.appendChild(row);
     }
-    area.appendChild(pool);
+    // 指標事件拖曳（手機觸控與滑鼠通吃）；只有把手能拖，其他地方保留給頁面捲動
+    let drag = null;
+    list.addEventListener('pointerdown', (e) => {
+      const handle = e.target.closest('.sort-handle');
+      if (!handle) return;
+      e.preventDefault();
+      const item = handle.closest('.sort-item');
+      try { item.setPointerCapture(e.pointerId); } catch { /* 測試環境的合成事件沒有真 pointerId */ }
+      drag = { item, y: e.clientY };
+      item.classList.add('dragging');
+    });
+    list.addEventListener('pointermove', (e) => {
+      if (!drag) return;
+      e.preventDefault();
+      const { item } = drag;
+      item.style.transform = `translateY(${e.clientY - drag.y}px)`;
+      // 越過鄰近卡片的「中線」才交換位置（往下拖要過下面那張的中線、往上同理）
+      const center = item.getBoundingClientRect().top + item.offsetHeight / 2;
+      for (const sib of [...list.children]) {
+        if (sib === item) continue;
+        const r = sib.getBoundingClientRect();
+        if (center <= r.top || center >= r.bottom) continue;
+        const sibIsBelow = !!(item.compareDocumentPosition(sib) & Node.DOCUMENT_POSITION_FOLLOWING);
+        if (sibIsBelow && center > r.top + r.height / 2) {
+          list.insertBefore(item, sib.nextSibling);
+        } else if (!sibIsBelow && center < r.top + r.height / 2) {
+          list.insertBefore(item, sib);
+        } else {
+          break; // 還沒過中線，先不動
+        }
+        drag.y = e.clientY; // 換位後重設基準，卡片跟著手指繼續走
+        item.style.transform = '';
+        break;
+      }
+    });
+    const endDrag = () => {
+      if (!drag) return;
+      drag.item.style.transform = '';
+      drag.item.classList.remove('dragging');
+      drag = null;
+      $('#btn-check').disabled = false; // 動過就能按確定
+    };
+    list.addEventListener('pointerup', endDrag);
+    list.addEventListener('pointercancel', endDrag);
     currentAnswerGetter = () => {
-      if (placed.length !== q.pieces.length) return null;
-      const ok = placed.map(t => t.textContent).join('') === q.answer.join('');
+      const order = [...list.querySelectorAll('.sort-text')].map(el => el.textContent);
+      const ok = order.join('') === q.answer.join('');
       return { ok, correctText: q.answer.join('') };
     };
   }

@@ -256,20 +256,27 @@ main, header { position: relative; z-index: 1; }
 .choice.correct { border-color: #58cc02; background: #e8f9dc; color: #3f9803; font-weight: bold; }
 .choice.wrong { border-color: #ff4b4b; background: #ffe3e3; color: #e03131; }
 
-/* 排序題 */
-.order-target {
-  min-height: 88px; background: var(--card); border: 2px dashed var(--card-line);
-  border-radius: 16px; padding: 10px; margin-bottom: 14px;
-  display: flex; flex-wrap: wrap; gap: 8px; align-content: flex-start;
-}
-.order-pool { display: flex; flex-wrap: wrap; gap: 8px; }
-.chip {
+/* 排序題（按住把手拖曳排序） */
+.sort-list { display: flex; flex-direction: column; gap: 10px; }
+.sort-item {
+  display: flex; align-items: center; gap: 8px;
   background: var(--card); border: 2px solid var(--card-line); border-bottom-width: 4px;
-  border-radius: 12px; padding: 12px 15px; font-size: 1.22rem; cursor: pointer;
+  border-radius: 14px; padding: 12px 12px 12px 6px;
+  font-size: 1.22rem; line-height: 1.5;
+  user-select: none; -webkit-user-select: none;
 }
-.chip:active { transform: translateY(2px); }
-.chip.used { visibility: hidden; }
-.order-target .chip { border-color: var(--select); }
+.sort-item .sort-handle {
+  touch-action: none; /* 把手上的觸控保留給拖曳，不觸發頁面捲動 */
+  cursor: grab; flex-shrink: 0;
+  font-size: 1.3rem; color: var(--text-light);
+  padding: 8px 10px; border-radius: 10px;
+}
+.sort-item .sort-handle:active { cursor: grabbing; background: var(--card-line); }
+.sort-item.dragging {
+  border-color: var(--select); background: var(--select-bg);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, .18);
+  position: relative; z-index: 5;
+}
 
 /* 配對題：上句／下句各成一欄，欄位有標題與淡色底，區隔清楚 */
 .pairs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
