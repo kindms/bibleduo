@@ -581,7 +581,15 @@
         <div class="r-stat">🔥 ${state.streak}<span>連續天數</span></div>
       </div>
       <button class="big-btn" id="btn-continue">繼續</button>`;
-    $('#btn-continue').onclick = () => { lesson = null; renderTopbar(); openBook(currentBook.id); };
+    // 過關後跳排行榜：馬上看到自己的名次爬升；從排行榜返回會回到剛剛的章節路徑
+    $('#btn-continue').onclick = () => {
+      boardReturnTo = currentBook.id;
+      lesson = null;
+      renderTopbar();
+      show('#screen-board');
+      $('#board-list').innerHTML = '<p class="board-hint">⭐ 成績同步中…</p>';
+      setTimeout(renderBoard, 1200); // 等雲端寫入完成再抓榜，避免看到舊分數
+    };
     lessonEndCommon();
   }
   function failLesson() {
@@ -666,6 +674,7 @@
 
   // ===== 排行榜 =====
   let boardMode = 'week';
+  let boardReturnTo = null; // 過關跳進排行榜時記住書卷 ID，返回時回章節路徑而不是首頁
   async function renderBoard() {
     const list = $('#board-list');
     list.innerHTML = '<p class="board-hint">載入中…</p>';
@@ -703,8 +712,11 @@
       list.appendChild(p);
     }
   }
-  $('#btn-board').onclick = () => { show('#screen-board'); renderBoard(); };
-  $('#btn-back-board').onclick = () => { renderBooks(); show('#screen-books'); };
+  $('#btn-board').onclick = () => { boardReturnTo = null; show('#screen-board'); renderBoard(); };
+  $('#btn-back-board').onclick = () => {
+    if (boardReturnTo) { const id = boardReturnTo; boardReturnTo = null; openBook(id); return; }
+    renderBooks(); show('#screen-books');
+  };
   for (const tab of document.querySelectorAll('[data-board]')) {
     tab.onclick = () => {
       document.querySelectorAll('[data-board]').forEach(t => t.classList.remove('active'));
