@@ -247,5 +247,19 @@
     return qs;
   }
 
-  window.QuestionFactory = { generateLesson };
+  // 針對指定經節出一題（拼圖挑戰用）：在四種題型中隨機挑一種能出的
+  function generateVerseQuestion(book, chapterNum, verseIdx) {
+    const verses = book.chapters[chapterNum - 1];
+    for (const kind of shuffle(['fill', 'tf', 'next', 'typefill'])) {
+      let q = null;
+      if (kind === 'fill') q = makeFill(book, chapterNum, verses, verseIdx);
+      if (kind === 'tf') q = makeTF(book, chapterNum, verses, verseIdx);
+      if (kind === 'next') q = makeNext(book, chapterNum, verses, verseIdx);
+      if (kind === 'typefill') q = makeTypeFill(book, chapterNum, verses, verseIdx);
+      if (q) return q;
+    }
+    return null;
+  }
+
+  window.QuestionFactory = { generateLesson, generateVerseQuestion };
 })();

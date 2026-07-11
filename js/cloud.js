@@ -54,6 +54,7 @@ const CloudSync = (function () {
         done: state.done, scene: state.scene, mascot: state.mascot,
         nickname: state.nickname || "", weekXp: state.weekXp || 0, weekKey: state.weekKey || "",
         review: state.review || [],
+        puzzles: state.puzzles || { beatitudes: [] },
         name: user.displayName || "",
         updatedAt: ts,
       }, { merge: true }).catch((e) => console.warn("寫入雲端失敗（本機已保存）", e));

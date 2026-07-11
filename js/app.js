@@ -42,7 +42,8 @@
       CloudSync.save(d); // 有登入就同步到雲端（沒登入時是空操作）
     },
   };
-  let state = Object.assign({ xp: 0, streak: 0, lastPlay: '', done: {}, scene: 'meadow', mascot: 'dove', nickname: '', weekXp: 0, weekKey: '', muted: false, review: [] }, store.load());
+  let state = Object.assign({ xp: 0, streak: 0, lastPlay: '', done: {}, scene: 'meadow', mascot: 'dove', nickname: '', weekXp: 0, weekKey: '', muted: false, review: [], puzzles: { beatitudes: [] } }, store.load());
+  if (!state.puzzles) state.puzzles = { beatitudes: [] }; // 舊存檔補欄位
   // review: 錯題間隔複習佇列 [{key, q, book, due, stage}]；答錯隔天到期，答對依 1→3→7 天延後，對滿三次畢業移除
   // done: { MRK: [1,2,3] } 已完成章
 
@@ -223,6 +224,8 @@
       grid.appendChild(tile);
     }
     renderReviewBanner(); // 首頁同步刷新「今日複習」橫幅
+    const got = (state.puzzles && state.puzzles.beatitudes) || [];
+    $('#puzzle-progress').textContent = got.length === 8 ? '已完成！點我欣賞金句卡 ✨' : `已收集 ${got.length}/8 片`;
   }
   for (const tab of document.querySelectorAll('.tab')) {
     tab.onclick = () => {
@@ -283,15 +286,19 @@
     renderQuestion();
   }
   $('#btn-quit').onclick = () => {
-    // 錯題複習/間隔複習離開不會白打；正式輪離開才會失去進度
+    // 錯題複習/間隔複習/拼圖離開不會白打；正式輪離開才會失去進度
     const isReview = lesson && lesson.isReview;
-    const msg = isReview
-      ? '要先離開複習嗎？已答的進度會保留。'
-      : (lesson && lesson.inRetest)
-        ? '過關成績已經保存了！要跳過剩下的錯題複習嗎?'
-        : '確定要離開嗎？這一關的進度不會保留。';
+    const isPuzzle = lesson && lesson.isPuzzle;
+    const msg = isPuzzle
+      ? '要先離開拼圖挑戰嗎？（不會有任何損失）'
+      : isReview
+        ? '要先離開複習嗎？已答的進度會保留。'
+        : (lesson && lesson.inRetest)
+          ? '過關成績已經保存了！要跳過剩下的錯題複習嗎?'
+          : '確定要離開嗎？這一關的進度不會保留。';
     if (confirm(msg)) {
       lesson = null; renderTopbar();
+      if (isPuzzle) { renderPuzzle(); show('#screen-puzzle'); return; }
       if (isReview || !currentBook) { renderBooks(); renderReviewBanner(); show('#screen-books'); return; }
       show('#screen-chapters'); openBook(currentBook.id);
     }
@@ -320,10 +327,12 @@
     if (q.type === 'tf') renderTF(q, area);
     if (q.type === 'typefill') renderTypeFill(q, area);
     if (q.type === 'read') renderRead(q, area);
-    if (lesson.inRetest || lesson.isReview) { // 複習：題目上方掛個提示徽章
+    if (lesson.inRetest || lesson.isReview || lesson.isPuzzle) { // 複習/拼圖：題目上方掛個提示徽章
       const badge = document.createElement('div');
       badge.className = 'retest-badge';
-      badge.textContent = lesson.isReview ? '📅 今日複習 · 答對記憶升級，答錯不扣愛心' : '🔁 錯題複習中 · 答錯不扣愛心';
+      badge.textContent = lesson.isPuzzle
+        ? `🧩 拼圖挑戰：${BEATITUDES[lesson.puzzleIdx].label} · 答錯不扣愛心`
+        : lesson.isReview ? '📅 今日複習 · 答對記憶升級，答錯不扣愛心' : '🔁 錯題複習中 · 答錯不扣愛心';
       area.prepend(badge);
     }
   }
@@ -669,6 +678,8 @@
         bumpReviewItem(lesson.reviewItems[lesson.i], true);
         lesson.reviewCorrect++;
         store.save(state);
+      } else if (lesson.isPuzzle) {
+        lesson.puzzleCorrect = true; // 拼圖：獎勵在 winPuzzle 一次發
       } else if (!lesson.inRetest) {
         lesson.xp += 10; // 錯題再測驗不重複給經驗值
       }
@@ -678,13 +689,13 @@
       $('#feedback-text').innerHTML = `<span class="fb-mascot">${mascot().emoji}</span><span>完成配對！（中途有配錯，這題不加分）</span>`;
     } else {
       fb.classList.add('bad');
-      const retestNote = (lesson.inRetest || lesson.isReview) ? '（複習不扣愛心）' : '';
+      const retestNote = lesson.isPuzzle ? '（拼圖挑戰不扣愛心）' : (lesson.inRetest || lesson.isReview) ? '（複習不扣愛心）' : '';
       $('#feedback-text').innerHTML = `<span class="fb-mascot">💭</span><span>正確答案：${escapeHtml(correctText)}${escapeHtml(retestNote)}${noteHtml}</span>`;
       sndBad();
       if (lesson.isReview) { // 間隔複習答錯：退回明天再考
         bumpReviewItem(lesson.reviewItems[lesson.i], false);
         store.save(state);
-      } else if (!lesson.inRetest && q.type !== 'read') { // 正式輪答錯：扣愛心、記下錯題供之後複習（朗讀操練除外）
+      } else if (!lesson.inRetest && !lesson.isPuzzle && q.type !== 'read') { // 正式輪答錯：扣愛心、記下錯題供之後複習（朗讀操練、拼圖除外）
         lesson.hearts--;
         lesson.wrong++;
         lesson.wrongQs.push(q);
@@ -700,6 +711,7 @@
   function advanceLesson() {
     lesson.i++;
     if (lesson.i >= lesson.qs.length) {
+      if (lesson.isPuzzle) { winPuzzle(); return; } // 拼圖單題挑戰結束
       if (lesson.isReview) { winReview(); return; } // 間隔複習結束
       // 正式輪跑完、且有答錯的題目 → 先記錄過關成績，再進錯題複習（複習中途離開也不會白打）
       if (!lesson.inRetest && lesson.wrongQs.length) { awardWin(); startRetest(); return; }
@@ -807,6 +819,106 @@
     banner.classList.toggle('hidden', n === 0);
     if (n) $('#review-count').textContent = n;
   }
+  // ===== 天國八福拼圖（太 5:3-10，一片一福）=====
+  const BEATITUDES = [
+    { label: '虛心的人', emoji: '🙇', vi: 2 },
+    { label: '哀慟的人', emoji: '😢', vi: 3 },
+    { label: '溫柔的人', emoji: '🕊️', vi: 4 },
+    { label: '飢渴慕義的人', emoji: '🍞', vi: 5 },
+    { label: '憐恤人的人', emoji: '💗', vi: 6 },
+    { label: '清心的人', emoji: '💎', vi: 7 },
+    { label: '使人和睦的人', emoji: '🤝', vi: 8 },
+    { label: '為義受逼迫的人', emoji: '👑', vi: 9 },
+  ];
+  const puzzleGot = () => state.puzzles.beatitudes;
+  function renderPuzzle() {
+    const got = puzzleGot();
+    const grid = $('#puzzle-grid');
+    grid.innerHTML = '';
+    BEATITUDES.forEach((b, i) => {
+      const tile = document.createElement('button');
+      const owned = got.includes(i);
+      tile.className = 'pz-tile' + (owned ? ' owned' : '');
+      tile.innerHTML = owned
+        ? `<span class="pz-tile-emoji">${b.emoji}</span><span class="pz-tile-label">${b.label}</span><span class="pz-tile-sub">有福了！</span>`
+        : `<span class="pz-tile-emoji">🔒</span><span class="pz-tile-label">第 ${i + 1} 福</span><span class="pz-tile-sub">點我挑戰</span>`;
+      if (!owned) tile.onclick = () => startPuzzleQuestion(i);
+      grid.appendChild(tile);
+    });
+    // 集滿：顯示完整八福金句卡
+    const doneBox = $('#puzzle-complete');
+    if (got.length === BEATITUDES.length) {
+      $('#puzzle-hint').classList.add('hidden');
+      grid.classList.add('hidden');
+      doneBox.classList.remove('hidden');
+      doneBox.innerHTML = `
+        <div class="bcard">
+          <div class="bcard-title">✨ 天國八福 ✨</div>
+          <div class="bcard-ref">馬太福音 5:3-10</div>
+          ${BEATITUDES.map((b, i) => `<div class="bcard-row"><span>${b.emoji}</span><span>${escapeHtml(bookVerse(i))}</span></div>`).join('')}
+          <div class="bcard-foot">🧩 拼圖完成！這八句話是天國子民的樣子</div>
+        </div>`;
+    } else {
+      $('#puzzle-hint').classList.remove('hidden');
+      grid.classList.remove('hidden');
+      doneBox.classList.add('hidden');
+    }
+  }
+  // 八福經文（拼圖完成卡用；MAT 已載入時直接取，未載入用精簡版標籤）
+  function bookVerse(i) {
+    const mat = bookCache['MAT'];
+    return mat ? mat.chapters[4][BEATITUDES[i].vi] : `${BEATITUDES[i].label}有福了！`;
+  }
+  async function startPuzzleQuestion(i) {
+    let book;
+    try { book = await loadBook('MAT'); }
+    catch { alert('網路不穩，載入經文失敗了，請再試一次。'); return; }
+    const q = QuestionFactory.generateVerseQuestion(book, 5, BEATITUDES[i].vi);
+    if (!q) { alert('這一福暫時出不了題，先挑別片吧！'); return; }
+    currentBook = book;
+    lesson = {
+      chapterNum: 5, qs: [q], i: 0, hearts: MAX_HEARTS, wrong: 0, xp: 0,
+      wrongQs: [], inRetest: false, awarded: true, // 拼圖不走過關記帳
+      isPuzzle: true, puzzleIdx: i, puzzleCorrect: false,
+    };
+    renderTopbar();
+    show('#screen-lesson');
+    renderQuestion();
+  }
+  function winPuzzle() {
+    const i = lesson.puzzleIdx;
+    const b = BEATITUDES[i];
+    if (lesson.puzzleCorrect) {
+      const got = puzzleGot();
+      if (!got.includes(i)) got.push(i);
+      state.xp += 20;
+      ensureWeek();
+      state.weekXp += 20;
+      bumpStreak();
+      store.save(state);
+      sndWin();
+      if (got.length === BEATITUDES.length) throwConfetti();
+    }
+    const got = puzzleGot();
+    $('#result-box').innerHTML = lesson.puzzleCorrect ? `
+      <div class="r-emoji">${b.emoji}🧩</div>
+      <h2>獲得拼圖！</h2>
+      <p>「${b.label}有福了！」</p>
+      <div class="result-stats">
+        <div class="r-stat">＋20<span>經驗值</span></div>
+        <div class="r-stat">${got.length}/8<span>已收集</span></div>
+      </div>
+      <button class="big-btn" id="btn-continue">${got.length === 8 ? '看完整八福卡 🎉' : '繼續拼圖'}</button>` : `
+      <div class="r-emoji">${mascot().emoji}💭</div>
+      <h2>差一點！</h2>
+      <p>沒關係，拼圖挑戰不扣愛心，再試一次就好！</p>
+      <button class="big-btn" id="btn-continue">再挑戰</button>`;
+    $('#btn-continue').onclick = () => { lesson = null; renderTopbar(); renderPuzzle(); show('#screen-puzzle'); };
+    lessonEndCommon();
+  }
+  $('#btn-puzzle').onclick = () => { renderPuzzle(); show('#screen-puzzle'); };
+  $('#btn-back-puzzle').onclick = () => { renderBooks(); show('#screen-books'); };
+
   $('#btn-review-start').onclick = () => startReviewLesson();
   function startReviewLesson() {
     const due = dueReviews().slice(0, 10);
@@ -913,6 +1025,7 @@
       weekKey: wk,
       weekXp: Math.max(localWeek, cloudWeek),
       review: mergeReview(local.review, cloud.review),
+      puzzles: { beatitudes: [...new Set([...(local.puzzles?.beatitudes || []), ...(cloud.puzzles?.beatitudes || [])])] },
     };
   }
   // 複習佇列合併：以雲端為主，補上雲端沒有的本機錯題

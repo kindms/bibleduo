@@ -47,6 +47,13 @@
       <button id="btn-review-start">開始複習</button>
     </div>
 
+    <!-- 拼圖入口 -->
+    <button class="puzzle-entry" id="btn-puzzle">
+      <span class="pz-emoji">🧩</span>
+      <span class="pz-text"><b>天國八福拼圖</b><small id="puzzle-progress">已收集 0/8 片</small></span>
+      <span class="pz-arrow">›</span>
+    </button>
+
     <!-- 打扮面板（首頁預設展開，點 🎨 才收起） -->
     <div class="custom-panel" id="custom-panel">
       <h3>🏞️ 選擇場景</h3>
@@ -89,6 +96,17 @@
     <div class="lesson-bottom" id="lesson-bottom">
       <button id="btn-check" class="big-btn" disabled>確定</button>
     </div>
+  </main>
+
+  <!-- 畫面：天國八福拼圖 -->
+  <main id="screen-puzzle" class="screen hidden">
+    <div class="book-header">
+      <button class="back-btn" id="btn-back-puzzle">←</button>
+      <h2>🧩 天國八福拼圖</h2>
+    </div>
+    <p class="puzzle-hint" id="puzzle-hint">點一片 🔒 拼圖來挑戰，答對就能收集（答錯不扣愛心）。集滿 8 片拼出完整的八福金句卡！</p>
+    <div class="puzzle-grid" id="puzzle-grid"></div>
+    <div class="puzzle-complete hidden" id="puzzle-complete"></div>
   </main>
 
   <!-- 畫面 4：結算 -->

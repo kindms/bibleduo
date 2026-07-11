@@ -162,6 +162,55 @@ main, header { position: relative; z-index: 1; }
 }
 .review-banner button:active { opacity: .8; }
 
+/* 拼圖入口卡（首頁） */
+.puzzle-entry {
+  width: 100%; display: flex; align-items: center; gap: 12px; cursor: pointer;
+  background: var(--card); border: 2px solid var(--card-line); border-bottom-width: 4px;
+  border-radius: 16px; padding: 12px 14px; margin-bottom: 14px; text-align: left;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, .05);
+}
+.puzzle-entry:active { transform: translateY(2px); border-bottom-width: 2px; }
+.puzzle-entry .pz-emoji { font-size: 1.8rem; }
+.puzzle-entry .pz-text { flex: 1; display: flex; flex-direction: column; }
+.puzzle-entry .pz-text b { font-size: 1.05rem; color: var(--text); }
+.puzzle-entry .pz-text small { font-size: .8rem; color: var(--text-light); }
+.puzzle-entry .pz-arrow { font-size: 1.6rem; color: var(--text-light); }
+
+/* 拼圖畫面 */
+.puzzle-hint { color: var(--text-light); font-size: .95rem; line-height: 1.6; margin: 0 0 14px; }
+.puzzle-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding-bottom: 30px; }
+.pz-tile {
+  min-height: 120px; cursor: pointer; border-radius: 16px; padding: 14px 8px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  background: var(--node-locked); border: 2px dashed var(--node-locked-shadow);
+  color: var(--text-light);
+}
+.pz-tile:active { transform: translateY(2px); }
+.pz-tile.owned {
+  background: var(--card); border: 2px solid #eab308; border-bottom-width: 4px;
+  box-shadow: 0 3px 12px rgba(234, 179, 8, .3); color: var(--text); cursor: default;
+}
+.pz-tile-emoji { font-size: 2rem; }
+.pz-tile-label { font-weight: bold; font-size: 1.02rem; }
+.pz-tile-sub { font-size: .78rem; color: var(--text-light); }
+.pz-tile.owned .pz-tile-sub { color: #ca8a04; font-weight: bold; }
+
+/* 集滿的八福金句卡 */
+.bcard {
+  background: linear-gradient(160deg, #fef9e7, #fdf3d0);
+  border: 3px solid #eab308; border-radius: 20px; padding: 20px 16px;
+  box-shadow: 0 8px 24px rgba(234, 179, 8, .3);
+  color: #713f12;
+}
+.bcard-title { text-align: center; font-size: 1.5rem; font-weight: bold; margin-bottom: 2px; }
+.bcard-ref { text-align: center; font-size: .9rem; color: #a16207; margin-bottom: 14px; }
+.bcard-row {
+  display: flex; gap: 10px; align-items: flex-start;
+  font-size: 1rem; line-height: 1.7; margin-bottom: 8px;
+}
+.bcard-row span:first-child { flex-shrink: 0; }
+.bcard-foot { text-align: center; font-size: .85rem; color: #a16207; margin-top: 12px; font-weight: bold; }
+
 /* ===== 打扮面板（場景＋夥伴） ===== */
 .custom-panel {
   background: var(--card); border: 2px solid var(--card-line);
