@@ -74,6 +74,16 @@
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; padding: 0; min-height: 100%; }
+
+/* 寬螢幕整體放大：版面以手機 (~400px) 為基準、內容上限 520px，
+   螢幕愈寬就等比放大，避免大手機/平板/電腦上內容縮成中間一小條。
+   --z 要跟 zoom 同值：vh 單位不受 zoom 影響，用到 vh 的高度都要除以 --z 換算 */
+:root { --z: 1; }
+@media (min-width: 600px)  { body { zoom: 1.35; } :root { --z: 1.35; } }
+@media (min-width: 760px)  { body { zoom: 1.65; } :root { --z: 1.65; } }
+@media (min-width: 900px)  { body { zoom: 1.9; }  :root { --z: 1.9; } }
+@media (min-width: 1100px) { body { zoom: 2.1; }  :root { --z: 2.1; } }
+@media (min-width: 1400px) { body { zoom: 2.2; }  :root { --z: 2.2; } }
 body {
   font-family: 'Microsoft JhengHei', 'PingFang TC', sans-serif;
   background: var(--bg); background-attachment: fixed;
@@ -204,7 +214,7 @@ main, header { position: relative; z-index: 1; }
 .chapter-node:nth-child(even):active { transform: translateX(46px) translateY(3px); }
 
 /* ===== 關卡進行中 ===== */
-#screen-lesson { display: flex; flex-direction: column; min-height: calc(100vh - 60px); }
+#screen-lesson { display: flex; flex-direction: column; min-height: calc(100vh / var(--z, 1) - 60px); }
 .lesson-top { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
 .progress-track { flex: 1; height: 14px; background: var(--card-line); border-radius: 8px; overflow: hidden; }
 .progress-fill {
@@ -376,7 +386,7 @@ main, header { position: relative; z-index: 1; }
 }
 .revive-overlay.hidden { display: none; }
 .revive-card {
-  width: 100%; max-width: 520px; max-height: 90vh;
+  width: 100%; max-width: 520px; max-height: calc(90vh / var(--z, 1));
   display: flex; flex-direction: column;
   background: var(--card); border: 2px solid var(--card-line);
   border-radius: 20px; padding: 18px; box-shadow: 0 10px 40px rgba(0, 0, 0, .3);
