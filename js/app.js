@@ -42,7 +42,8 @@
       CloudSync.save(d); // 有登入就同步到雲端（沒登入時是空操作）
     },
   };
-  let state = Object.assign({ xp: 0, streak: 0, lastPlay: '', done: {}, scene: 'meadow', mascot: 'dove', nickname: '', weekXp: 0, weekKey: '', muted: false }, store.load());
+  let state = Object.assign({ xp: 0, streak: 0, lastPlay: '', done: {}, scene: 'meadow', mascot: 'dove', nickname: '', weekXp: 0, weekKey: '', muted: false, review: [] }, store.load());
+  // review: 錯題間隔複習佇列 [{key, q, book, due, stage}]；答錯隔天到期，答對依 1→3→7 天延後，對滿三次畢業移除
   // done: { MRK: [1,2,3] } 已完成章
 
   const mascot = () => MASCOTS[state.mascot] || MASCOTS.dove;
@@ -114,6 +115,7 @@
   const pad = (n) => String(n).padStart(2, '0');
   const localDate = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   function today() { return localDate(new Date()); }
+  const addDaysStr = (n) => localDate(new Date(Date.now() + n * 86400000));
   function weekKeyOf() { // 本週週一的日期，當作「這一週」的鑰匙
     const d = new Date();
     d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
@@ -220,6 +222,7 @@
       tile.onclick = () => openBook(b.id);
       grid.appendChild(tile);
     }
+    renderReviewBanner(); // 首頁同步刷新「今日複習」橫幅
   }
   for (const tab of document.querySelectorAll('.tab')) {
     tab.onclick = () => {
@@ -280,12 +283,17 @@
     renderQuestion();
   }
   $('#btn-quit').onclick = () => {
-    // 錯題複習階段過關成績已經保存，離開不會白打；正式輪離開才會失去進度
-    const msg = lesson && lesson.inRetest
-      ? '過關成績已經保存了！要跳過剩下的錯題複習嗎?'
-      : '確定要離開嗎？這一關的進度不會保留。';
+    // 錯題複習/間隔複習離開不會白打；正式輪離開才會失去進度
+    const isReview = lesson && lesson.isReview;
+    const msg = isReview
+      ? '要先離開複習嗎？已答的進度會保留。'
+      : (lesson && lesson.inRetest)
+        ? '過關成績已經保存了！要跳過剩下的錯題複習嗎?'
+        : '確定要離開嗎？這一關的進度不會保留。';
     if (confirm(msg)) {
-      lesson = null; renderTopbar(); show('#screen-chapters'); openBook(currentBook.id);
+      lesson = null; renderTopbar();
+      if (isReview || !currentBook) { renderBooks(); renderReviewBanner(); show('#screen-books'); return; }
+      show('#screen-chapters'); openBook(currentBook.id);
     }
   };
 
@@ -309,10 +317,12 @@
     if (q.type === 'match') renderMatch(q, area);
     if (q.type === 'next') renderNext(q, area);
     if (q.type === 'comp') renderComp(q, area);
-    if (lesson.inRetest) { // 複習輪：題目上方掛個提示徽章
+    if (q.type === 'tf') renderTF(q, area);
+    if (q.type === 'typefill') renderTypeFill(q, area);
+    if (lesson.inRetest || lesson.isReview) { // 複習：題目上方掛個提示徽章
       const badge = document.createElement('div');
       badge.className = 'retest-badge';
-      badge.textContent = '🔁 錯題複習中 · 答錯不扣愛心';
+      badge.textContent = lesson.isReview ? '📅 今日複習 · 答對記憶升級，答錯不扣愛心' : '🔁 錯題複習中 · 答錯不扣愛心';
       area.prepend(badge);
     }
   }
@@ -363,12 +373,71 @@
       <div class="q-passage">${q.head}<span class="blank">……</span></div>`);
   }
 
+  // --- 題型 5：是非題 ---
+  function renderTF(q, area) {
+    area.innerHTML = `
+      <div class="q-type">⭕❌ 是非題：這句經文正確嗎？</div>
+      <div class="q-ref">${q.ref}</div>
+      <div class="q-passage">${escapeHtml(q.statement)}</div>`;
+    const row = document.createElement('div');
+    row.className = 'tf-row';
+    let selected = null;
+    for (const val of [true, false]) {
+      const btn = document.createElement('button');
+      btn.className = 'tf-btn';
+      btn.innerHTML = val ? '⭕<span>正確</span>' : '❌<span>有錯</span>';
+      btn.onclick = () => {
+        row.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        selected = { val, el: btn };
+        $('#btn-check').disabled = false;
+      };
+      row.appendChild(btn);
+    }
+    area.appendChild(row);
+    currentAnswerGetter = () => {
+      if (!selected) return null;
+      const ok = selected.val === q.answer;
+      selected.el.classList.add(ok ? 'correct' : 'wrong');
+      return {
+        ok,
+        correctText: q.answer ? '⭕ 這句是正確的' : '❌ 這句被改過了',
+        note: q.answer === false ? `原文：${q.original}` : '',
+      };
+    };
+  }
+
+  // --- 題型 6：打字填空 ---
+  function renderTypeFill(q, area) {
+    area.innerHTML = `
+      <div class="q-type">⌨️ 打字填空（提示：${q.answer.length} 個字）</div>
+      <div class="q-ref">${q.ref}</div>
+      <div class="q-passage">${q.display.replace('____', '<span class="blank">？</span>')}</div>`;
+    const input = document.createElement('input');
+    input.className = 'type-input';
+    input.type = 'text';
+    input.autocomplete = 'off';
+    input.placeholder = `輸入 ${q.answer.length} 個字`;
+    input.maxLength = q.answer.length + 2;
+    input.oninput = () => { $('#btn-check').disabled = !input.value.trim(); };
+    input.onkeydown = (e) => { if (e.key === 'Enter' && input.value.trim() && !$('#btn-check').disabled) $('#btn-check').click(); };
+    area.appendChild(input);
+    currentAnswerGetter = () => {
+      const val = input.value.trim();
+      if (!val) return null;
+      const ok = val === q.answer;
+      input.classList.add(ok ? 'correct' : 'wrong');
+      input.disabled = true;
+      return { ok, correctText: q.answer };
+    };
+  }
+
   // --- 題型 2：排順序（按住把手拖曳排序）---
   function renderOrder(q, area) {
     area.innerHTML = `
       <div class="q-type">🧩 把經文排回正確順序</div>
       <div class="q-ref">${q.ref}</div>
-      <div class="q-hint">按住 ⠿ 上下拖曳，把句子排成正確順序，排好按「確定」。</div>
+      <div class="q-hint">按住卡片上下拖曳，把句子排成正確順序，排好按「確定」。</div>
       <div class="sort-list" id="sort-list"></div>`;
     const list = $('#sort-list');
     for (const piece of q.pieces) {
@@ -383,13 +452,12 @@
       row.append(handle, text);
       list.appendChild(row);
     }
-    // 指標事件拖曳（手機觸控與滑鼠通吃）；只有把手能拖，其他地方保留給頁面捲動
+    // 指標事件拖曳（手機觸控與滑鼠通吃）；整張卡都能拖，⠿ 只是視覺提示
     let drag = null;
     list.addEventListener('pointerdown', (e) => {
-      const handle = e.target.closest('.sort-handle');
-      if (!handle) return;
+      const item = e.target.closest('.sort-item');
+      if (!item) return;
       e.preventDefault();
-      const item = handle.closest('.sort-item');
       try { item.setPointerCapture(e.pointerId); } catch { /* 測試環境的合成事件沒有真 pointerId */ }
       drag = { item, y: e.clientY };
       item.classList.add('dragging');
@@ -501,17 +569,26 @@
     if (ok === true) {
       fb.classList.add('good');
       $('#feedback-text').innerHTML = `<span class="fb-mascot">${mascot().emoji}</span><span>${pickPraise()}${noteHtml}</span>`;
-      if (!lesson.inRetest) lesson.xp += 10; // 複習輪不重複給經驗值
+      if (lesson.isReview) { // 間隔複習答對：進下一階段
+        bumpReviewItem(lesson.reviewItems[lesson.i], true);
+        lesson.reviewCorrect++;
+        store.save(state);
+      } else if (!lesson.inRetest) {
+        lesson.xp += 10; // 錯題再測驗不重複給經驗值
+      }
       sndGood();
     } else if (ok === 'soft') { // 配對題有配錯但完成
       fb.classList.add('good');
       $('#feedback-text').innerHTML = `<span class="fb-mascot">${mascot().emoji}</span><span>完成配對！（中途有配錯，這題不加分）</span>`;
     } else {
       fb.classList.add('bad');
-      const retestNote = lesson.inRetest ? '（複習輪不扣愛心）' : '';
+      const retestNote = (lesson.inRetest || lesson.isReview) ? '（複習不扣愛心）' : '';
       $('#feedback-text').innerHTML = `<span class="fb-mascot">💭</span><span>正確答案：${escapeHtml(correctText)}${escapeHtml(retestNote)}${noteHtml}</span>`;
       sndBad();
-      if (!lesson.inRetest) { // 正式輪答錯：扣愛心、記下錯題供之後複習
+      if (lesson.isReview) { // 間隔複習答錯：退回明天再考
+        bumpReviewItem(lesson.reviewItems[lesson.i], false);
+        store.save(state);
+      } else if (!lesson.inRetest) { // 正式輪答錯：扣愛心、記下錯題供之後複習
         lesson.hearts--;
         lesson.wrong++;
         lesson.wrongQs.push(q);
@@ -527,6 +604,7 @@
   function advanceLesson() {
     lesson.i++;
     if (lesson.i >= lesson.qs.length) {
+      if (lesson.isReview) { winReview(); return; } // 間隔複習結束
       // 正式輪跑完、且有答錯的題目 → 先記錄過關成績，再進錯題複習（複習中途離開也不會白打）
       if (!lesson.inRetest && lesson.wrongQs.length) { awardWin(); startRetest(); return; }
       winLesson(); return;
@@ -596,7 +674,80 @@
     bumpStreak();
     const done = state.done[currentBook.id] || (state.done[currentBook.id] = []);
     if (!done.includes(lesson.chapterNum)) done.push(lesson.chapterNum);
+    queueReview(); // 答錯的題排進間隔複習佇列
     store.save(state);
+  }
+  // ===== 錯題間隔複習（SRS）=====
+  const reviewKey = (q) => q.type + '|' + (q.ref || '') + '|' + (Array.isArray(q.answer) ? q.answer.join('') : String(q.answer));
+  function queueReview() {
+    if (!lesson.wrongQs.length) return;
+    const review = state.review || (state.review = []);
+    for (const q of lesson.wrongQs) {
+      const key = reviewKey(q);
+      if (review.some(r => r.key === key)) continue;
+      review.push({ key, q, book: currentBook.id, due: addDaysStr(1), stage: 0 });
+    }
+    while (review.length > 50) review.shift(); // 佇列上限，太舊的先淘汰
+  }
+  function dueReviews() {
+    const t = today();
+    return (state.review || []).filter(r => r.due <= t);
+  }
+  // 答對進下一階段（1→3→7 天後再考），對滿三次畢業移除；答錯退回明天再考
+  function bumpReviewItem(item, ok) {
+    if (ok) {
+      item.stage = (item.stage || 0) + 1;
+      if (item.stage >= 3) state.review = state.review.filter(r => r.key !== item.key);
+      else item.due = addDaysStr([1, 3, 7][item.stage]);
+    } else {
+      item.stage = 0;
+      item.due = addDaysStr(1);
+    }
+  }
+  function renderReviewBanner() {
+    const banner = $('#review-banner');
+    if (!banner) return;
+    const n = dueReviews().length;
+    banner.classList.toggle('hidden', n === 0);
+    if (n) $('#review-count').textContent = n;
+  }
+  $('#btn-review-start').onclick = () => startReviewLesson();
+  function startReviewLesson() {
+    const due = dueReviews().slice(0, 10);
+    if (!due.length) return;
+    lesson = {
+      chapterNum: 0, qs: due.map(r => r.q), i: 0, hearts: MAX_HEARTS,
+      wrong: 0, xp: 0, wrongQs: [], inRetest: false, awarded: true, // awarded=true：複習不走過關記帳
+      isReview: true, reviewItems: due, reviewCorrect: 0,
+    };
+    renderTopbar();
+    show('#screen-lesson');
+    renderQuestion();
+  }
+  function winReview() {
+    const gained = (lesson.reviewCorrect || 0) * 5;
+    state.xp += gained;
+    ensureWeek();
+    state.weekXp += gained;
+    bumpStreak();
+    store.save(state);
+    sndWin();
+    const left = dueReviews().length;
+    $('#result-box').innerHTML = `
+      <div class="r-emoji">${mascot().emoji}📅</div>
+      <h2>複習完成！</h2>
+      <p>錯題複習過，記憶才會變長期的！</p>
+      <div class="result-stats">
+        <div class="r-stat">＋${gained}<span>經驗值（每對一題 +5）</span></div>
+        <div class="r-stat">${left}<span>今日還剩複習題</span></div>
+      </div>
+      <button class="big-btn" id="btn-continue">${left ? '繼續複習' : '回首頁'}</button>`;
+    $('#btn-continue').onclick = () => {
+      lesson = null; renderTopbar();
+      if (left) { startReviewLesson(); return; }
+      renderBooks(); renderReviewBanner(); show('#screen-books');
+    };
+    lessonEndCommon();
   }
   function winLesson() {
     awardWin();
@@ -665,7 +816,16 @@
       nickname: cloud.nickname || local.nickname || '', // 換裝置時保留自己取的排行榜名字
       weekKey: wk,
       weekXp: Math.max(localWeek, cloudWeek),
+      review: mergeReview(local.review, cloud.review),
     };
+  }
+  // 複習佇列合併：以雲端為主，補上雲端沒有的本機錯題
+  function mergeReview(local, cloud) {
+    const merged = [...(cloud || [])];
+    for (const r of (local || [])) {
+      if (!merged.some(c => c.key === r.key)) merged.push(r);
+    }
+    return merged.slice(-50);
   }
 
   function renderUserUi() {
@@ -787,11 +947,11 @@
     btn.textContent = '回報中…';
     try {
       await CloudSync.sendReport({
-        book: currentBook.id,
+        book: (lesson.isReview ? (lesson.reviewItems[lesson.i] || {}).book : currentBook && currentBook.id) || '',
         chapter: lesson.chapterNum,
         type: q.type,
         ref: q.ref || '',
-        question: (q.q || q.display || q.head || (q.pieces || []).join('／') || '').slice(0, 200),
+        question: (q.q || q.display || q.head || q.statement || (q.pieces || []).join('／') || '').slice(0, 200),
         answer: (Array.isArray(q.answer) ? q.answer.join('') : (q.answer || '')).slice(0, 200),
         note: note.trim().slice(0, 300),
       });

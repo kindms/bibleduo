@@ -158,6 +158,38 @@
     };
   }
 
+  // 題型 5：是非題（這句經文正確嗎？一半機率把關鍵詞換成錯的）
+  function makeTF(book, ch, verses, vi) {
+    const text = verses[vi];
+    if (text.length < 10) return null;
+    const ref = `${book.name} ${ch}:${vi + 1}`;
+    if (Math.random() < 0.5) {
+      return { type: 'tf', ref, statement: text, answer: true, original: text };
+    }
+    const word = pickBlankWord(text);
+    if (!word) return null;
+    let pool = collectWords(verses, word.length).filter(w => w !== word && !text.includes(w));
+    if (!pool.length) {
+      pool = (FALLBACK_WORDS[word.length] || []).filter(w => w !== word && !text.includes(w));
+    }
+    if (!pool.length) return null;
+    const wrong = pick(pool);
+    return { type: 'tf', ref, statement: text.replace(word, wrong), answer: false, original: text };
+  }
+
+  // 題型 6：打字填空（不給選項，用鍵盤把詞打出來）
+  function makeTypeFill(book, ch, verses, vi) {
+    const text = verses[vi];
+    const word = pickBlankWord(text);
+    if (!word) return null;
+    return {
+      type: 'typefill',
+      ref: `${book.name} ${ch}:${vi + 1}`,
+      display: text.replace(word, '____'),
+      answer: word,
+    };
+  }
+
   // 產生一關的題目（預設 8 題，題型輪替；短章出不了某題型時自動換備用題型）
   function generateLesson(book, chapterNum, count = 8) {
     const verses = book.chapters[chapterNum - 1];
@@ -165,7 +197,7 @@
     const qs = [];
     const usedVi = new Set();
     const seen = new Set(); // 防止同一題出兩次
-    const makers = ['fill', 'order', 'next', 'fill', 'match', 'order', 'next', 'fill'];
+    const makers = ['fill', 'order', 'tf', 'next', 'match', 'typefill', 'order', 'fill'];
 
     function tryMake(kind) {
       if (kind === 'match') return makeMatch(book, chapterNum, verses, shuffle(usable));
@@ -176,6 +208,8 @@
       if (kind === 'fill') q = makeFill(book, chapterNum, verses, vi);
       if (kind === 'order') q = makeOrder(book, chapterNum, verses, vi);
       if (kind === 'next') q = makeNext(book, chapterNum, verses, vi);
+      if (kind === 'tf') q = makeTF(book, chapterNum, verses, vi);
+      if (kind === 'typefill') q = makeTypeFill(book, chapterNum, verses, vi);
       if (q) usedVi.add(vi);
       return q;
     }
@@ -183,7 +217,7 @@
     let tries = 0;
     while (qs.length < count && tries++ < 100) {
       const preferred = makers[qs.length % makers.length];
-      const kinds = [preferred, ...['fill', 'order', 'next', 'match'].filter(k => k !== preferred)];
+      const kinds = [preferred, ...['fill', 'order', 'next', 'match', 'tf', 'typefill'].filter(k => k !== preferred)];
       for (const kind of kinds) {
         const q = tryMake(kind);
         if (!q) continue;

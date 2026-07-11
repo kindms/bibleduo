@@ -147,6 +147,21 @@ main, header { position: relative; z-index: 1; }
 }
 .login-banner button:active { opacity: .8; }
 
+/* 今日複習橫幅（間隔複習） */
+.review-banner {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  background: var(--select-bg); border: 2px solid var(--select);
+  border-radius: 14px; padding: 10px 12px; margin-bottom: 14px;
+  font-size: .9rem; font-weight: bold; color: var(--select);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, .05);
+}
+.review-banner button {
+  flex-shrink: 0; border: none; cursor: pointer; font-weight: bold;
+  background: var(--select); color: #fff; border-radius: 10px; padding: 8px 12px;
+  font-size: .9rem;
+}
+.review-banner button:active { opacity: .8; }
+
 /* ===== 打扮面板（場景＋夥伴） ===== */
 .custom-panel {
   background: var(--card); border: 2px solid var(--card-line);
@@ -264,19 +279,43 @@ main, header { position: relative; z-index: 1; }
   border-radius: 14px; padding: 12px 12px 12px 6px;
   font-size: 1.22rem; line-height: 1.5;
   user-select: none; -webkit-user-select: none;
+  touch-action: none; /* 整張卡的觸控都保留給拖曳（要捲頁面請摸卡片以外的地方） */
+  cursor: grab;
 }
+.sort-item:active { cursor: grabbing; }
 .sort-item .sort-handle {
-  touch-action: none; /* 把手上的觸控保留給拖曳，不觸發頁面捲動 */
-  cursor: grab; flex-shrink: 0;
+  flex-shrink: 0;
   font-size: 1.3rem; color: var(--text-light);
   padding: 8px 10px; border-radius: 10px;
 }
-.sort-item .sort-handle:active { cursor: grabbing; background: var(--card-line); }
 .sort-item.dragging {
   border-color: var(--select); background: var(--select-bg);
   box-shadow: 0 8px 20px rgba(0, 0, 0, .18);
   position: relative; z-index: 5;
 }
+
+/* 是非題：兩顆大按鈕 */
+.tf-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.tf-btn {
+  background: var(--card); border: 2px solid var(--card-line); border-bottom-width: 4px;
+  border-radius: 16px; padding: 18px 10px; font-size: 2.2rem; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+}
+.tf-btn span { font-size: 1.1rem; font-weight: bold; color: var(--text-light); }
+.tf-btn.selected { border-color: var(--select); background: var(--select-bg); }
+.tf-btn.selected span { color: var(--select); }
+.tf-btn.correct { border-color: #58cc02; background: #e8f9dc; }
+.tf-btn.wrong { border-color: #ff4b4b; background: #ffe3e3; }
+
+/* 打字填空輸入框 */
+.type-input {
+  width: 100%; font-size: 1.35rem; padding: 15px 16px;
+  border: 2px solid var(--card-line); border-radius: 14px;
+  background: var(--card); color: var(--text); font-family: inherit;
+}
+.type-input:focus { outline: none; border-color: var(--select); }
+.type-input.correct { border-color: #58cc02; background: #e8f9dc; }
+.type-input.wrong { border-color: #ff4b4b; background: #ffe3e3; }
 
 /* 配對題：上句／下句各成一欄，欄位有標題與淡色底，區隔清楚 */
 .pairs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
