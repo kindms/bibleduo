@@ -1,4 +1,4 @@
-// 天路闖關 — 主程式（畫面切換、遊戲流程、進度/經驗值/連續天數）
+// 天行者 — 主程式（畫面切換、遊戲流程、進度/經驗值/連續天數）
 (function () {
   const $ = (sel) => document.querySelector(sel);
   const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));

@@ -1,9 +1,9 @@
-// 天路闖關 Service Worker：讓 App 可安裝、離線也能玩
+// 天行者 Service Worker：讓 App 可安裝、離線也能玩
 // 策略：
 //   - 程式本體（HTML/JS/CSS）→ 網路優先：有網路一定拿最新版，斷線才用快取
 //   - 經文與題庫（data/*）→ 快取優先＋背景更新：畫面秒開，內容有更新下次進來就是新的
 // 改版時把 VERSION 加一，舊快取會自動清掉
-const VERSION = 'bibleduo-v1';
+const VERSION = 'bibleduo-v2'; // v2：改名「天行者」＋換新圖示
 const CORE = [
   '.',
   'index.html',
