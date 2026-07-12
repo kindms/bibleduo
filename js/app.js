@@ -19,10 +19,11 @@
 
   // ===== 場景與夥伴 =====
   const SCENES = {
-    meadow: { name: '青草地', emoji: '🌿', decor: ['🌾', '🌼', '🐑', '🦋', '🌻'] },
-    galilee: { name: '加利利海', emoji: '🌊', decor: ['⛵', '🐟', '🌊', '🕊️', '🐚'] },
-    desert: { name: '曠野日出', emoji: '🏜️', decor: ['🌵', '🐫', '☀️', '⛺', '🦂'] },
-    night: { name: '星夜應許', emoji: '🌌', decor: ['⭐', '🌙', '✨', '☁️', '💫'] },
+    // theme = 手機狀態列（瀏覽器頂端）顏色，用各場景的淺色調，不再是刺眼的主綠色
+    meadow: { name: '青草地', emoji: '🌿', decor: ['🌾', '🌼', '🐑', '🦋', '🌻'], theme: '#e6f8ea' },
+    galilee: { name: '加利利海', emoji: '🌊', decor: ['⛵', '🐟', '🌊', '🕊️', '🐚'], theme: '#e6f2fd' },
+    desert: { name: '曠野日出', emoji: '🏜️', decor: ['🌵', '🐫', '☀️', '⛺', '🦂'], theme: '#fdf4dc' },
+    night: { name: '星夜應許', emoji: '🌌', decor: ['⭐', '🌙', '✨', '☁️', '💫'], theme: '#211d4d' },
   };
   const MASCOTS = {
     dove: { name: '小鴿子', emoji: '🕊️', verse: '「鴿子嘴裏叼着一個新擰下來的橄欖葉子」— 創世記 8:11' },
@@ -55,6 +56,8 @@
   function applyScene() {
     const scene = SCENES[state.scene] ? state.scene : 'meadow';
     document.documentElement.dataset.scene = scene;
+    const themeMeta = document.querySelector('meta[name="theme-color"]');
+    if (themeMeta) themeMeta.content = SCENES[scene].theme; // 手機狀態列顏色跟著場景走
     const decor = document.querySelector('#decor');
     decor.innerHTML = '';
     const items = SCENES[scene].decor;
