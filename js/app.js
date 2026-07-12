@@ -1184,6 +1184,21 @@
         { q: '大衛打死歌利亞時，手中有沒有刀？', options: ['手中沒有刀', '一把長劍', '一支長槍', '一把短刀'], answer: '手中沒有刀', basis: '撒上 17:50' },
       ],
     },
+    daniel_lions: {
+      book: 'DAN', ch: 6, emoji: '🦁', title: '但以理在獅子坑', tag: '但 6・答題對決',
+      myEmoji: '😇', myName: '天使封住獅子的口', myGoal: 5,
+      foeEmoji: '🌙', foeName: '長夜漸深', foeGoal: 5,
+      hitText: '😇 天使封住獅子的口！', missText: '🌙 夜更深了，坑裡傳來低吼…',
+      win: { emoji: '🦁', title: '毫髮無傷！', text: '天亮了，王急忙到坑邊呼叫。但以理竟身上毫無傷損，因為信靠他的神——王大喜，把他從坑裡繫上來！' },
+      lose: { text: '天還沒亮，別灰心——但以理一日三次向神禱告，你也再禱告一次重來！' },
+      manualQs: [
+        { q: '但以理一日幾次雙膝跪下禱告？', options: ['三次', '一次', '七次', '兩次'], answer: '三次', basis: '但 6:10' },
+        { q: '王的禁令規定三十日內只能向誰祈求？', options: ['只能向王', '只能向耶和華', '只能向天使', '只能向偶像'], answer: '只能向王', basis: '但 6:7' },
+        { q: '但以理禱告時，樓上的窗戶開向哪座城？', options: ['耶路撒冷', '巴比倫', '尼尼微', '伯特利'], answer: '耶路撒冷', basis: '但 6:10' },
+        { q: '神差遣誰封住獅子的口？', options: ['使者（天使）', '先知', '王的軍兵', '但以理自己'], answer: '使者（天使）', basis: '但 6:22' },
+        { q: '但以理從坑裡上來時，身上如何？', options: ['毫無傷損', '受了輕傷', '一隻手受傷', '多處被咬'], answer: '毫無傷損', basis: '但 6:23' },
+      ],
+    },
   };
 
   let mg = null; // { id, cfg, qs, i, my, foe, answered }
@@ -1327,6 +1342,7 @@
     { emoji: '🎤', name: '朗讀勇士', desc: '開口讀經成功 20 次', test: s => ((s.stats || {}).readOk || 0) >= 20 },
     { emoji: '🐋', name: '約拿同行者', desc: '完成約拿冒險全 4 章', test: s => (((s.story || {}).JON) || []).length >= 4 },
     { emoji: '🗿', name: '巨人殺手', desc: '通關「大衛擊殺歌利亞」', test: s => !!((s.minigames || {}).david) },
+    { emoji: '🦁', name: '獅子坑的信心', desc: '通關「但以理在獅子坑」', test: s => !!((s.minigames || {}).daniel_lions) },
   ];
   const earnedBadges = () => BADGES.filter(b => b.test(state));
   function renderBadges() {
