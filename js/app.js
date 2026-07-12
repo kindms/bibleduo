@@ -1214,6 +1214,21 @@
         { q: '但以理從坑裡上來時，身上如何？', options: ['毫無傷損', '受了輕傷', '一隻手受傷', '多處被咬'], answer: '毫無傷損', basis: '但 6:23' },
       ],
     },
+    elijah: {
+      book: '1KI', ch: 18, emoji: '⚡', title: '以利亞 PK 巴力先知', tag: '王上 18・答題對決',
+      myEmoji: '🔥', myName: '以利亞獻祭禱告', myGoal: 5,
+      foeEmoji: '📢', foeName: '巴力先知狂喊', foeGoal: 5,
+      hitText: '🔥 又前進一步：修壇、倒水、禱告！', missText: '📢 巴力先知從早喊到午，甚至用刀自割…',
+      win: { emoji: '⚡', title: '耶和華降下火來！', text: '耶和華的火降下，燒盡燔祭、木柴、石頭、塵土，連溝裡的水也燒乾了！眾民俯伏喊著：耶和華是神！耶和華是神！' },
+      lose: { text: '巴力始終不回應——別急，把柴上再倒滿四桶水，讓神的大能更顯明，重來一次！' },
+      manualQs: [
+        { q: '巴力的先知有多少人？', options: ['四百五十個', '四百個', '三百個', '一千個'], answer: '四百五十個', basis: '王上 18:22' },
+        { q: '以利亞照支派的數目，取了幾塊石頭修壇？', options: ['十二塊', '七塊', '十塊', '五塊'], answer: '十二塊', basis: '王上 18:31' },
+        { q: '以利亞叫人把水倒在燔祭和柴上，共倒了幾次？', options: ['三次', '一次', '四次', '七次'], answer: '三次', basis: '王上 18:33-34' },
+        { q: '耶和華降火，連什麼也燒乾了？', options: ['溝裡的水', '旁邊的樹', '天上的雲', '遠處的海'], answer: '溝裡的水', basis: '王上 18:38' },
+        { q: '眾民看見火降下，俯伏說什麼？', options: ['耶和華是神！', '巴力是神！', '以利亞是神！', '王是神！'], answer: '耶和華是神！', basis: '王上 18:39' },
+      ],
+    },
   };
 
   let mg = null; // { id, cfg, qs, i, my, foe, answered }
@@ -1359,6 +1374,7 @@
     { emoji: '🗿', name: '巨人殺手', desc: '通關「大衛擊殺歌利亞」', test: s => !!((s.minigames || {}).david) },
     { emoji: '🦁', name: '獅子坑的信心', desc: '通關「但以理在獅子坑」', test: s => !!((s.minigames || {}).daniel_lions) },
     { emoji: '🔥', name: '火窯不燒', desc: '通關「火窯三友」', test: s => !!((s.minigames || {}).furnace) },
+    { emoji: '⚡', name: '迦密山的火', desc: '通關「以利亞 PK 巴力先知」', test: s => !!((s.minigames || {}).elijah) },
   ];
   const earnedBadges = () => BADGES.filter(b => b.test(state));
   function renderBadges() {
