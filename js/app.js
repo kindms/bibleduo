@@ -45,6 +45,7 @@
   let state = Object.assign({ xp: 0, streak: 0, lastPlay: '', done: {}, scene: 'meadow', mascot: 'dove', nickname: '', weekXp: 0, weekKey: '', muted: false, review: [], puzzles: { beatitudes: [] } }, store.load());
   if (!state.puzzles) state.puzzles = { beatitudes: [] }; // 舊存檔補欄位
   if (!state.stats) state.stats = {}; // 各種計數器（衝刺最高分、翻牌次數、複習次數、朗讀成功數…），徽章用
+  if (!state.minigames) state.minigames = {}; // 書卷故事小遊戲通關紀錄 { gameId: true }
   // review: 錯題間隔複習佇列 [{key, q, book, due, stage}]；答錯隔天到期，答對依 1→3→7 天延後，對滿三次畢業移除
   // done: { MRK: [1,2,3] } 已完成章
 
@@ -251,11 +252,10 @@
     }
     currentBook = book;
     $('#chapter-title').textContent = currentBook.name;
-    // 書卷專屬玩法：八福拼圖放馬太、約拿冒險放約拿書，顯示在章節頁頂端
+    // 書卷專屬玩法：八福拼圖放馬太、約拿冒險放約拿書、故事小遊戲放對應書卷，顯示在章節頁頂端
     const slot = $('#book-feature-slot');
     slot.innerHTML = '';
-    const feat = bookFeatureNode(id);
-    if (feat) slot.appendChild(feat);
+    for (const node of bookFeatures(id)) slot.appendChild(node);
     const path = $('#chapter-path');
     path.innerHTML = '';
     const done = state.done[id] || [];
@@ -271,15 +271,16 @@
     }
     show('#screen-chapters');
   }
-  // 產生某書卷頂端的「專屬玩法」入口（沒有就回傳 null）
-  function bookFeatureNode(id) {
+  // 產生某書卷頂端的「專屬玩法」入口清單（可有多個）
+  function bookFeatures(id) {
+    const nodes = [];
     if (id === 'MAT') {
       const got = ((state.puzzles && state.puzzles.beatitudes) || []).length;
       const btn = document.createElement('button');
       btn.className = 'book-feature';
       btn.innerHTML = `<span class="bf-emoji">🧩</span><span class="bf-text"><b>天國八福拼圖</b><small>${got === 8 ? '已完成 ✨ 點我看金句卡' : `馬太 5:3-10・已收集 ${got}/8`}</small></span><span class="bf-arrow">›</span>`;
       btn.onclick = () => { renderPuzzle(); show('#screen-puzzle'); };
-      return btn;
+      nodes.push(btn);
     }
     if (id === 'JON') {
       const sDone = ((state.story && state.story.JON) || []).length;
@@ -287,13 +288,23 @@
       btn.className = 'book-feature';
       btn.innerHTML = `<span class="bf-emoji">🐋</span><span class="bf-text"><b>約拿冒險（故事模式）</b><small>${sDone >= 4 ? '已完結，可重播 ⭐' : sDone ? `進度 ${sDone}/4 章` : '跟著先知走一趟！'}</small></span><span class="bf-arrow">›</span>`;
       btn.onclick = () => openStoryList();
-      return btn;
+      nodes.push(btn);
     }
-    return null;
+    // 書卷故事小遊戲：任何 book 對應此 id 的遊戲都自動出現（加設定即長出入口）
+    for (const [gid, cfg] of Object.entries(MINIGAMES)) {
+      if (cfg.book !== id) continue;
+      const won = (state.minigames || {})[gid];
+      const btn = document.createElement('button');
+      btn.className = 'book-feature mg-card';
+      btn.innerHTML = `<span class="bf-emoji">${cfg.emoji}</span><span class="bf-text"><b>${cfg.title}</b><small>${won ? '已通關 ⭐ 可重玩' : (cfg.tag || '小遊戲・答題對決')}</small></span><span class="bf-arrow">›</span>`;
+      btn.onclick = () => startMinigame(gid);
+      nodes.push(btn);
+    }
+    return nodes;
   }
   $('#btn-back-books').onclick = () => { renderBooks(); show('#screen-books'); };
   $('#btn-home').onclick = () => {
-    stopSprintTimer(); sprint = null; flip = null; // 從小遊戲直接回家要停計時器
+    stopSprintTimer(); sprint = null; flip = null; mg = null; // 從小遊戲直接回家要停計時器/清狀態
     lesson = null; renderTopbar(); renderBooks(); show('#screen-books');
   };
 
@@ -1155,6 +1166,148 @@
   $('#btn-flip').onclick = () => startFlip();
   $('#btn-back-flip').onclick = () => { flip = null; renderBooks(); show('#screen-books'); };
 
+  // ===== 📖 書卷故事小遊戲（對決引擎：答對推進我方、答錯讓威脅逼近，先滿者定勝負）=====
+  // 加一款遊戲＝在這裡加一份設定，章節頁入口與雲端同步都會自動長出來
+  const MINIGAMES = {
+    david: {
+      book: '1SA', ch: 17, emoji: '🗿', title: '大衛擊殺歌利亞', tag: '撒上 17・答題對決',
+      myEmoji: '🪨', myName: '大衛的石子', myGoal: 5,
+      foeEmoji: '⚔️', foeName: '歌利亞', foeGoal: 5,
+      hitText: '🎯 石子甩出，命中！', missText: '😰 歌利亞又逼近一步…',
+      win: { emoji: '🎯', title: '正中額頭！', text: '第五顆石子用機弦甩去，正中歌利亞的額，巨人面伏於地——大衛手中卻沒有刀！' },
+      lose: { text: '別怕，這場仗是屬耶和華的！再撿五顆光滑石子重來。' },
+      manualQs: [
+        { q: '大衛在溪中挑選了幾塊光滑石子？', options: ['五塊', '三塊', '七塊', '十塊'], answer: '五塊', basis: '撒上 17:40' },
+        { q: '歌利亞的身高是多少？', options: ['六肘零一虎口', '三肘', '一丈', '兩肘'], answer: '六肘零一虎口', basis: '撒上 17:4' },
+        { q: '大衛說他靠什麼來攻擊歌利亞？', options: ['萬軍之耶和華的名', '刀槍和銅戟', '自己的勇氣', '掃羅王的盔甲'], answer: '萬軍之耶和華的名', basis: '撒上 17:45' },
+        { q: '石子打中了歌利亞的哪裡？', options: ['額', '胸膛', '手臂', '腳跟'], answer: '額', basis: '撒上 17:49' },
+        { q: '大衛打死歌利亞時，手中有沒有刀？', options: ['手中沒有刀', '一把長劍', '一支長槍', '一把短刀'], answer: '手中沒有刀', basis: '撒上 17:50' },
+      ],
+    },
+  };
+
+  let mg = null; // { id, cfg, qs, i, my, foe, answered }
+  async function startMinigame(id) {
+    const cfg = MINIGAMES[id];
+    let book;
+    try { book = await loadBook(cfg.book); }
+    catch { alert('網路不穩，載入經文失敗了，請再試一次。'); return; }
+    const chLabel = `${book.name} ${cfg.ch} 章`;
+    const manual = (cfg.manualQs || []).map(m => ({ type: 'manual', ref: chLabel, ...m }));
+    const auto = QuestionFactory.generateQuickQuestions(book, cfg.ch, 10);
+    const pool = shuffleArr([...manual, ...auto]);
+    if (pool.length < cfg.myGoal + 1) { alert('這款遊戲暫時湊不出題目，稍後再試！'); return; }
+    mg = { id, cfg, qs: pool, i: 0, my: 0, foe: 0, answered: false };
+    $('#mg-title').textContent = `${cfg.emoji} ${cfg.title}`;
+    $('#mg-my-emoji').textContent = cfg.myEmoji;
+    $('#mg-my-name').textContent = cfg.myName;
+    $('#mg-foe-emoji').textContent = cfg.foeEmoji;
+    $('#mg-foe-name').textContent = cfg.foeName;
+    setMgScene(`目標：答對 ${cfg.myGoal} 題就獲勝！答錯會讓${cfg.foeName}逼近。`);
+    updateMgBars();
+    show('#screen-minigame');
+    renderMgQuestion();
+  }
+  function updateMgBars() {
+    if (!mg) return;
+    $('#mg-my-fill').style.width = `${(mg.my / mg.cfg.myGoal) * 100}%`;
+    $('#mg-foe-fill').style.width = `${(mg.foe / mg.cfg.foeGoal) * 100}%`;
+    $('#mg-my-count').textContent = `${mg.my}/${mg.cfg.myGoal}`;
+    $('#mg-foe-count').textContent = `${mg.foe}/${mg.cfg.foeGoal}`;
+  }
+  function setMgScene(text) { $('#mg-scene').textContent = text; }
+  function renderMgQuestion() {
+    const q = mg.qs[mg.i % mg.qs.length];
+    let stem = '';
+    if (q.type === 'fill') stem = q.display.replace('____', '<span class="blank">？</span>');
+    else if (q.type === 'next') stem = `${q.head}<span class="blank">……</span>`;
+    else if (q.type === 'tf') stem = '這句經文正確嗎？<br>' + escapeHtml(q.statement);
+    else stem = escapeHtml(q.q); // manual
+    const area = $('#mg-area');
+    area.innerHTML = `<div class="q-ref">${q.ref || ''}</div><div class="q-passage sprint-passage">${stem}</div>`;
+    const box = document.createElement('div');
+    box.className = q.type === 'tf' ? 'tf-row' : 'choices';
+    const opts = q.type === 'tf'
+      ? [{ label: '⭕ 正確', val: true }, { label: '❌ 有錯', val: false }]
+      : shuffleArr(q.options).map(o => ({ label: o, val: o }));
+    const btns = [];
+    for (const o of opts) {
+      const btn = document.createElement('button');
+      btn.className = q.type === 'tf' ? 'tf-btn tf-mini' : 'choice';
+      btn.textContent = o.label;
+      btn.onclick = () => answerMg(q, o, btn, btns, opts);
+      btns.push(btn);
+      box.appendChild(btn);
+    }
+    area.appendChild(box);
+  }
+  function answerMg(q, opt, btn, btns, opts) {
+    if (!mg || mg.answered) return;
+    mg.answered = true;
+    const ok = opt.val === q.answer;
+    btn.classList.add(ok ? 'correct' : 'wrong');
+    if (ok) { mg.my++; sndGood(); setMgScene(mg.cfg.hitText); }
+    else {
+      const ri = opts.findIndex(o => o.val === q.answer);
+      if (ri >= 0) btns[ri].classList.add('correct');
+      mg.foe++; sndBad(); setMgScene(mg.cfg.missText);
+    }
+    updateMgBars();
+    setTimeout(() => {
+      if (!mg) return;
+      if (mg.my >= mg.cfg.myGoal) { winMinigame(); return; }
+      if (mg.foe >= mg.cfg.foeGoal) { loseMinigame(); return; }
+      mg.answered = false; mg.i++; renderMgQuestion();
+    }, ok ? 500 : 950);
+  }
+  function winMinigame() {
+    const cfg = mg.cfg, id = mg.id;
+    mg = null;
+    const first = !state.minigames[id];
+    const gained = first ? 30 : 5;
+    if (first) state.minigames[id] = true;
+    state.xp += gained;
+    ensureWeek();
+    state.weekXp += gained;
+    bumpStreak();
+    store.save(state);
+    sndWin();
+    throwConfetti();
+    $('#result-box').innerHTML = `
+      <div class="r-emoji">${cfg.win.emoji || '🎉'}</div>
+      <h2>${cfg.win.title || '獲勝！'}</h2>
+      <p>${cfg.win.text}</p>
+      <div class="result-stats"><div class="r-stat">＋${gained}<span>經驗值${first ? '' : '（重玩）'}</span></div></div>
+      <button class="big-btn" id="btn-mg-again">再玩一次</button>
+      <button class="ghost-btn" id="btn-continue">回書卷</button>`;
+    $('#btn-mg-again').onclick = () => startMinigame(id);
+    $('#btn-continue').onclick = () => { renderTopbar(); openBook(cfg.book); };
+    renderTopbar();
+    show('#screen-result');
+  }
+  function loseMinigame() {
+    const cfg = mg.cfg, id = mg.id;
+    mg = null;
+    sndBad();
+    $('#result-box').innerHTML = `
+      <div class="r-emoji">${mascot().emoji}💭</div>
+      <h2>差一點！</h2>
+      <p>${cfg.lose.text}</p>
+      <button class="big-btn" id="btn-mg-again">再挑戰</button>
+      <button class="ghost-btn" id="btn-continue">回書卷</button>`;
+    $('#btn-mg-again').onclick = () => startMinigame(id);
+    $('#btn-continue').onclick = () => { renderTopbar(); openBook(cfg.book); };
+    renderTopbar();
+    show('#screen-result');
+  }
+  $('#btn-mg-quit').onclick = () => {
+    if (confirm('要離開這款小遊戲嗎？（不會有任何損失）')) {
+      const bk = mg && mg.cfg.book;
+      mg = null;
+      if (bk) openBook(bk); else { renderBooks(); show('#screen-books'); }
+    }
+  };
+
   // ===== 🏅成就徽章 =====
   const countBooksDone = (s) => !bookIndex ? 0 : bookIndex.filter(b => (s.done[b.id] || []).length >= b.chapters).length;
   const BADGES = [
@@ -1173,6 +1326,7 @@
     { emoji: '📅', name: '複習達人', desc: '完成 10 次錯題複習', test: s => ((s.stats || {}).reviewsDone || 0) >= 10 },
     { emoji: '🎤', name: '朗讀勇士', desc: '開口讀經成功 20 次', test: s => ((s.stats || {}).readOk || 0) >= 20 },
     { emoji: '🐋', name: '約拿同行者', desc: '完成約拿冒險全 4 章', test: s => (((s.story || {}).JON) || []).length >= 4 },
+    { emoji: '🗿', name: '巨人殺手', desc: '通關「大衛擊殺歌利亞」', test: s => !!((s.minigames || {}).david) },
   ];
   const earnedBadges = () => BADGES.filter(b => b.test(state));
   function renderBadges() {
@@ -1446,6 +1600,7 @@
       puzzles: { beatitudes: [...new Set([...(local.puzzles?.beatitudes || []), ...(cloud.puzzles?.beatitudes || [])])] },
       stats: mergeStats(local.stats, cloud.stats),
       story: { JON: [...new Set([...((local.story || {}).JON || []), ...((cloud.story || {}).JON || [])])] },
+      minigames: Object.assign({}, cloud.minigames, local.minigames), // 任一裝置通關就算通關
     };
   }
   // 計數器合併：每個欄位取較大值（兩邊各玩各的都不吃虧）
@@ -1601,7 +1756,7 @@
   };
 
   // 測試用鉤子（自動化驗證流程時讀取關卡狀態）
-  window.__bd = { get lesson() { return lesson; }, get state() { return state; }, get sprint() { return sprint; }, get flip() { return flip; }, mergeStates, renderBoard, renderQuestion, similarity };
+  window.__bd = { get lesson() { return lesson; }, get state() { return state; }, get sprint() { return sprint; }, get flip() { return flip; }, get mg() { return mg; }, mergeStates, renderBoard, renderQuestion, similarity };
 
   // ===== 啟動 =====
   (async function init() {

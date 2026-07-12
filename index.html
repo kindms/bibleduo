@@ -51,7 +51,7 @@
     <div class="feature-grid">
       <button class="feat" id="btn-sprint"><span class="feat-emoji">⚡</span><b>金句衝刺</b><small id="sprint-best">60 秒限時挑戰</small></button>
       <button class="feat" id="btn-flip"><span class="feat-emoji">🃏</span><b>經文翻牌</b><small>上下句配對記憶</small></button>
-      <button class="feat feat-wide" id="btn-badges"><span class="feat-emoji">🏅</span><span class="feat-wide-text"><b>成就徽章</b><small id="badge-count">0/15</small></span></button>
+      <button class="feat feat-wide" id="btn-badges"><span class="feat-emoji">🏅</span><span class="feat-wide-text"><b>成就徽章</b><small id="badge-count">0/16</small></span></button>
     </div>
 
     <!-- 打扮面板（首頁預設展開，點 🎨 才收起） -->
@@ -131,6 +131,34 @@
     </div>
     <p class="puzzle-hint">翻開兩張牌，找出同一節經文的「上句＋下句」，全部配對就完成！<span id="flip-ref" class="flip-ref"></span></p>
     <div class="flip-grid" id="flip-grid"></div>
+  </main>
+
+  <!-- 畫面：📖 書卷故事小遊戲（對決） -->
+  <main id="screen-minigame" class="screen hidden">
+    <div class="lesson-top">
+      <button class="icon-btn" id="btn-mg-quit">✕</button>
+      <h3 id="mg-title" class="story-title"></h3>
+    </div>
+    <div class="mg-bars">
+      <div class="mg-bar-row mg-me">
+        <span class="mg-bar-emoji" id="mg-my-emoji">🪨</span>
+        <div class="mg-bar-main">
+          <div class="mg-bar-name" id="mg-my-name">我方</div>
+          <div class="mg-track"><div class="mg-fill mg-fill-my" id="mg-my-fill"></div></div>
+        </div>
+        <span class="mg-bar-count" id="mg-my-count">0/5</span>
+      </div>
+      <div class="mg-bar-row mg-foe">
+        <span class="mg-bar-emoji" id="mg-foe-emoji">⚔️</span>
+        <div class="mg-bar-main">
+          <div class="mg-bar-name" id="mg-foe-name">威脅</div>
+          <div class="mg-track"><div class="mg-fill mg-fill-foe" id="mg-foe-fill"></div></div>
+        </div>
+        <span class="mg-bar-count" id="mg-foe-count">0/5</span>
+      </div>
+    </div>
+    <div class="mg-scene" id="mg-scene"></div>
+    <div id="mg-area"></div>
   </main>
 
   <!-- 畫面：🐋約拿冒險（章節選單） -->

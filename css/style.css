@@ -191,6 +191,27 @@ main, header { position: relative; z-index: 1; }
 .book-feature .bf-text small { font-size: .82rem; color: var(--text-light); }
 .book-feature .bf-arrow { font-size: 1.6rem; color: var(--select); flex-shrink: 0; }
 
+/* 📖 書卷故事小遊戲（對決） */
+.mg-bars { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+.mg-bar-row { display: flex; align-items: center; gap: 10px; }
+.mg-bar-emoji { font-size: 1.8rem; flex-shrink: 0; width: 2rem; text-align: center; }
+.mg-bar-main { flex: 1; }
+.mg-bar-name { font-size: .82rem; font-weight: bold; color: var(--text-light); margin-bottom: 3px; }
+.mg-bar-count { font-weight: bold; font-size: .95rem; flex-shrink: 0; min-width: 2.6em; text-align: right; }
+.mg-track { height: 16px; background: var(--card-line); border-radius: 8px; overflow: hidden; }
+.mg-fill { height: 100%; width: 0%; border-radius: 8px; transition: width .35s; }
+.mg-fill-my { background: linear-gradient(90deg, #58cc02, #46a302); }
+.mg-fill-foe { background: linear-gradient(90deg, #ff9600, #ff4b4b); }
+.mg-me .mg-bar-count { color: #3f9803; }
+.mg-foe .mg-bar-count { color: #e03131; }
+.mg-scene {
+  text-align: center; font-weight: bold; font-size: 1.02rem; color: var(--text);
+  background: var(--card); border: 2px solid var(--card-line); border-radius: 14px;
+  padding: 10px 12px; margin-bottom: 12px; min-height: 1.5em;
+}
+.mg-card { background: var(--card); border-color: #eab308; }
+.mg-card .bf-text b, .mg-card .bf-arrow { color: #ca8a04; }
+
 /* 🐋約拿冒險（故事模式） */
 .story-ch {
   width: 100%; display: flex; align-items: center; gap: 12px; cursor: pointer;

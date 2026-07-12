@@ -281,5 +281,18 @@
     return pairs;
   }
 
-  window.QuestionFactory = { generateLesson, generateVerseQuestion, generatePairs };
+  // 小遊戲對決用：從指定章生成一批「點選就能答」的快答題（填空/是非/接下句）
+  function generateQuickQuestions(book, chapterNum, count = 10) {
+    const out = [];
+    let guard = 0;
+    while (out.length < count && guard++ < 8) {
+      for (const q of generateLesson(book, chapterNum, 8)) {
+        if (['fill', 'tf', 'next'].includes(q.type)) out.push(q);
+        if (out.length >= count) break;
+      }
+    }
+    return out;
+  }
+
+  window.QuestionFactory = { generateLesson, generateVerseQuestion, generatePairs, generateQuickQuestions };
 })();
