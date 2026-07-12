@@ -1184,6 +1184,21 @@
         { q: '大衛打死歌利亞時，手中有沒有刀？', options: ['手中沒有刀', '一把長劍', '一支長槍', '一把短刀'], answer: '手中沒有刀', basis: '撒上 17:50' },
       ],
     },
+    furnace: {
+      book: 'DAN', ch: 3, emoji: '🔥', title: '火窯三友', tag: '但 3・答題對決',
+      myEmoji: '🙏', myName: '第四個人的同在', myGoal: 5,
+      foeEmoji: '🔥', foeName: '窯溫升高', foeGoal: 5,
+      hitText: '🙏 火中有第四個人同行，護住他們！', missText: '🔥 窯又燒得更旺了…',
+      win: { emoji: '🔥', title: '毫髮無傷走出火窯！', text: '三人從火中出來，頭髮沒燒焦、衣裳沒變色、也沒有火燎的氣味——因為第四個人與他們同在！' },
+      lose: { text: '「即或不然」，他們的心志也不改變——你也再進一次火窯，重新來過！' },
+      manualQs: [
+        { q: '王吩咐把窯燒熱，比尋常更加幾倍？', options: ['七倍', '三倍', '十倍', '兩倍'], answer: '七倍', basis: '但 3:19' },
+        { q: '王在火中看見有幾個人在遊行？', options: ['四個', '三個', '五個', '兩個'], answer: '四個', basis: '但 3:25' },
+        { q: '那第四個人的相貌好像誰？', options: ['神子', '天使', '先知', '巴比倫王'], answer: '神子', basis: '但 3:25' },
+        { q: '三友說「即或不然」，也決不敬拜什麼？', options: ['王所立的金像', '天上的星辰', '外邦的偶像', '巴力的祭壇'], answer: '王所立的金像', basis: '但 3:18' },
+        { q: '三人從火裡出來，身上有沒有火燎的氣味？', options: ['沒有火燎的氣味', '頭髮燒焦了', '衣裳燒破了', '手臂受傷了'], answer: '沒有火燎的氣味', basis: '但 3:27' },
+      ],
+    },
     daniel_lions: {
       book: 'DAN', ch: 6, emoji: '🦁', title: '但以理在獅子坑', tag: '但 6・答題對決',
       myEmoji: '😇', myName: '天使封住獅子的口', myGoal: 5,
@@ -1343,6 +1358,7 @@
     { emoji: '🐋', name: '約拿同行者', desc: '完成約拿冒險全 4 章', test: s => (((s.story || {}).JON) || []).length >= 4 },
     { emoji: '🗿', name: '巨人殺手', desc: '通關「大衛擊殺歌利亞」', test: s => !!((s.minigames || {}).david) },
     { emoji: '🦁', name: '獅子坑的信心', desc: '通關「但以理在獅子坑」', test: s => !!((s.minigames || {}).daniel_lions) },
+    { emoji: '🔥', name: '火窯不燒', desc: '通關「火窯三友」', test: s => !!((s.minigames || {}).furnace) },
   ];
   const earnedBadges = () => BADGES.filter(b => b.test(state));
   function renderBadges() {
