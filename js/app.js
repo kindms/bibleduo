@@ -1232,6 +1232,21 @@
         { q: '眾民看見火降下，俯伏說什麼？', options: ['耶和華是神！', '巴力是神！', '以利亞是神！', '王是神！'], answer: '耶和華是神！', basis: '王上 18:39' },
       ],
     },
+    redsea: {
+      book: 'EXO', ch: 14, emoji: '🌊', title: '過紅海', tag: '出 14・答題對決',
+      myEmoji: '🚶', myName: '走過分開的乾地', myGoal: 5,
+      foeEmoji: '🏇', foeName: '法老的追兵', foeGoal: 5,
+      hitText: '🌊 海水又分開一步，往前走上乾地！', missText: '🏇 法老的車輛馬兵又追近了…',
+      win: { emoji: '🌊', title: '全軍覆沒，一個也不剩！', text: '以色列人在海中走乾地，水在左右作了牆垣；等追兵下海，水就回流淹沒車輛馬兵——法老的全軍，連一個也沒有剩下！' },
+      lose: { text: '「不要懼怕，只管站住！耶和華必為你們爭戰。」再向海伸一次杖，重新來過！' },
+      manualQs: [
+        { q: '摩西怎樣把紅海的水分開？', options: ['向海伸杖', '用手推開海水', '搬開海邊的大石', '吹響號角'], answer: '向海伸杖', basis: '出 14:16' },
+        { q: '耶和華用甚麼使海水一夜退去？', options: ['大東風', '大地震', '一場暴雨', '天上降火'], answer: '大東風', basis: '出 14:21' },
+        { q: '以色列人下海走乾地時，水在他們左右作了甚麼？', options: ['牆垣', '大霧', '漩渦', '冰山'], answer: '牆垣', basis: '出 14:22' },
+        { q: '跟著以色列人下海的法老全軍，剩下幾個？', options: ['一個也沒有剩下', '剩下一半', '只剩法老一人', '剩下車輛馬兵'], answer: '一個也沒有剩下', basis: '出 14:28' },
+        { q: '摩西對百姓說，耶和華必為你們做甚麼？', options: ['爭戰', '開路', '降雨', '造船'], answer: '爭戰', basis: '出 14:14' },
+      ],
+    },
   };
 
   let mg = null; // { id, cfg, qs, i, my, foe, answered }
@@ -1378,6 +1393,7 @@
     { emoji: '🦁', name: '獅子坑的信心', desc: '通關「但以理在獅子坑」', test: s => !!((s.minigames || {}).daniel_lions) },
     { emoji: '🔥', name: '火窯不燒', desc: '通關「火窯三友」', test: s => !!((s.minigames || {}).furnace) },
     { emoji: '⚡', name: '迦密山的火', desc: '通關「以利亞 PK 巴力先知」', test: s => !!((s.minigames || {}).elijah) },
+    { emoji: '🌊', name: '分海先鋒', desc: '通關「過紅海」', test: s => !!((s.minigames || {}).redsea) },
   ];
   const earnedBadges = () => BADGES.filter(b => b.test(state));
   function renderBadges() {
