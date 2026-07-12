@@ -1247,6 +1247,21 @@
         { q: '摩西對百姓說，耶和華必為你們做甚麼？', options: ['爭戰', '開路', '降雨', '造船'], answer: '爭戰', basis: '出 14:14' },
       ],
     },
+    jericho: {
+      book: 'JOS', ch: 6, emoji: '🎺', title: '耶利哥城牆', tag: '書 6・繞城七圈',
+      myEmoji: '🎺', myName: '繞城的圈數', myGoal: 7,
+      foeEmoji: '😨', foeName: '百姓信心動搖', foeGoal: 5,
+      hitText: '🎺 又繞了一圈，腳步不停！', missText: '😨 城裡傳來嘲笑，有人信心動搖了…',
+      win: { emoji: '🏙️', title: '城牆應聲塌陷！', text: '第七圈繞完，祭司吹角、百姓大聲呼喊——耶利哥的城牆便塌陷，各人往前直上，把城奪取了！' },
+      lose: { text: '照耶和華的吩咐，明天再來繞一次——祂已把這城交在你手中了，重新開始！' },
+      manualQs: [
+        { q: '頭六日，以色列人一天繞耶利哥城幾次？', options: ['一次', '兩次', '三次', '七次'], answer: '一次', basis: '書 6:3' },
+        { q: '到了第七日，他們要繞城幾次？', options: ['七次', '一次', '三次', '十二次'], answer: '七次', basis: '書 6:4' },
+        { q: '走在約櫃前的七個祭司拿著甚麼？', options: ['七個羊角', '七枝號筒', '七個火把', '七面旌旗'], answer: '七個羊角', basis: '書 6:4' },
+        { q: '百姓聽見甚麼之後，城牆就塌陷了？', options: ['角聲和大聲呼喊', '一陣大地震', '天上的雷轟', '攻城的撞錘'], answer: '角聲和大聲呼喊', basis: '書 6:20' },
+        { q: '城被攻取時，誰和她全家得以存活？', options: ['妓女喇合', '約書亞的妻子', '祭司的女兒', '城主的家人'], answer: '妓女喇合', basis: '書 6:17' },
+      ],
+    },
   };
 
   let mg = null; // { id, cfg, qs, i, my, foe, answered }
@@ -1394,6 +1409,7 @@
     { emoji: '🔥', name: '火窯不燒', desc: '通關「火窯三友」', test: s => !!((s.minigames || {}).furnace) },
     { emoji: '⚡', name: '迦密山的火', desc: '通關「以利亞 PK 巴力先知」', test: s => !!((s.minigames || {}).elijah) },
     { emoji: '🌊', name: '分海先鋒', desc: '通關「過紅海」', test: s => !!((s.minigames || {}).redsea) },
+    { emoji: '🎺', name: '繞城得勝', desc: '通關「耶利哥城牆」', test: s => !!((s.minigames || {}).jericho) },
   ];
   const earnedBadges = () => BADGES.filter(b => b.test(state));
   function renderBadges() {
