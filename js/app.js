@@ -1430,6 +1430,36 @@
         { q: '門徒大大懼怕，彼此議論說甚麼？', options: ['連風和海也聽從他', '這是先知以利亞', '我們得救了', '該往加利利去'], answer: '連風和海也聽從他', basis: '可 4:41' },
       ],
     },
+    esther: {
+      book: 'EST', ch: 4, emoji: '👑', title: '以斯帖為同胞挺身', tag: '斯 4・答題對決',
+      myEmoji: '🙏', myName: '禁食禱告的勇氣', myGoal: 5,
+      foeEmoji: '📜', foeName: '滅族的詔令', foeGoal: 5,
+      hitText: '🙏 三日禁食後，以斯帖挺身向前！', missText: '📜 滅族的日子又逼近了…',
+      win: { emoji: '👑', title: '王向她伸出金杖！', text: '「我若死就死吧！」以斯帖冒死進去見王，王向她伸出金杖——猶大人終得拯救，哈曼反被掛在自己立的木架上！' },
+      lose: { text: '「焉知你得了王后的位分，不是為現今的機會嗎？」再招聚同胞禁食禱告，重新來過！' },
+      manualQs: [
+        { q: '末底改知道滅族的事後，穿上甚麼在城中痛哭哀號？', options: ['麻衣', '錦袍', '祭司袍', '王的朝服'], answer: '麻衣', basis: '斯 4:1' },
+        { q: '不蒙宣召擅自進內院見王的人，會怎樣？', options: ['必被治死', '被罰重款', '逐出王宮', '關進監牢'], answer: '必被治死', basis: '斯 4:11' },
+        { q: '除非王向他伸出甚麼，擅入的人才得存活？', options: ['金杖', '令牌', '印戒', '詔書'], answer: '金杖', basis: '斯 4:11' },
+        { q: '以斯帖請書珊城的猶大人為她禁食幾晝夜？', options: ['三晝三夜', '一晝一夜', '七晝七夜', '四十晝夜'], answer: '三晝三夜', basis: '斯 4:16' },
+        { q: '以斯帖下定決心進去見王，說了哪句話？', options: ['我若死就死吧！', '願神憐憫我', '一切交託在神手中', '我必然得勝'], answer: '我若死就死吧！', basis: '斯 4:16' },
+      ],
+    },
+    peter_prison: {
+      book: 'ACT', ch: 12, emoji: '⛓️', title: '彼得被天使救出監牢', tag: '徒 12・答題對決',
+      myEmoji: '😇', myName: '教會的禱告與天使', myGoal: 5,
+      foeEmoji: '⛓️', foeName: '鐵鍊與四班兵丁', foeGoal: 5,
+      hitText: '😇 天使一拍，鐵鍊脫落，鐵門自開！', missText: '⛓️ 守衛森嚴，鐵鍊又緊了…',
+      win: { emoji: '🔓', title: '鐵門自己開了！', text: '天使拍醒彼得，鐵鍊就從他手上脫落；過了兩層監牢，臨街的鐵門自己開了——彼得被救出希律的手，走到了街上！' },
+      lose: { text: '別灰心，教會還在為你切切地禱告——神必差天使來，再試一次！' },
+      manualQs: [
+        { q: '希律拿了彼得，交給幾班兵丁看守？', options: ['四班兵丁', '兩班兵丁', '一隊祭司', '十個守衛'], answer: '四班兵丁', basis: '徒 12:4' },
+        { q: '彼得被囚在監裏時，教會為他做甚麼？', options: ['切切地禱告神', '湊錢要贖他', '上告羅馬皇帝', '逃離耶路撒冷'], answer: '切切地禱告神', basis: '徒 12:5' },
+        { q: '天使拍醒彼得，他手上的甚麼就脫落了？', options: ['鐵鍊', '麻繩', '腳鐐', '囚衣'], answer: '鐵鍊', basis: '徒 12:7' },
+        { q: '過了兩層監牢，臨街的鐵門怎麼樣了？', options: ['自己開了', '被彼得撞開', '天使砸開', '守衛打開'], answer: '自己開了', basis: '徒 12:10' },
+        { q: '彼得敲門，認出他聲音的使女叫甚麼名字？', options: ['羅大', '馬利亞', '大比大', '呂底亞'], answer: '羅大', basis: '徒 12:13-14' },
+      ],
+    },
   };
 
   let mg = null; // { id, cfg, qs, i, my, foe, answered }
@@ -1582,6 +1612,8 @@
     { emoji: '🌈', name: '立約的彩虹', desc: '通關「挪亞方舟」', test: s => !!((s.minigames || {}).noah) },
     { emoji: '⚔️', name: '三百精兵', desc: '通關「基甸與三百勇士」', test: s => !!((s.minigames || {}).gideon) },
     { emoji: '⛵', name: '風浪也聽從', desc: '通關「耶穌平靜風浪」', test: s => !!((s.minigames || {}).storm) },
+    { emoji: '👑', name: '挺身的王后', desc: '通關「以斯帖為同胞挺身」', test: s => !!((s.minigames || {}).esther) },
+    { emoji: '🔓', name: '鐵門自開', desc: '通關「彼得被天使救出監牢」', test: s => !!((s.minigames || {}).peter_prison) },
   ];
   const earnedBadges = () => BADGES.filter(b => b.test(state));
   function renderBadges() {
