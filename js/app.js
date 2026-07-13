@@ -1460,6 +1460,36 @@
         { q: '彼得敲門，認出他聲音的使女叫甚麼名字？', options: ['羅大', '馬利亞', '大比大', '呂底亞'], answer: '羅大', basis: '徒 12:13-14' },
       ],
     },
+    naaman: {
+      book: '2KI', ch: 5, emoji: '💧', title: '乃縵洗七次得潔淨', tag: '王下 5・洗七次',
+      myEmoji: '💧', myName: '順服下約旦河', myGoal: 7,
+      foeEmoji: '😤', foeName: '驕傲不肯下水', foeGoal: 5,
+      hitText: '💧 放下驕傲，又下水洗了一回！', missText: '😤 「大馬色的河豈不更好？」他又氣忿忿轉身…',
+      win: { emoji: '✨', title: '肉復原像小孩子的肉！', text: '乃縵照神人的話，在約旦河裏沐浴七回——大痲瘋就潔淨了，他的肉復原好像小孩子的肉！原來神要的，是單純的順服。' },
+      lose: { text: '「先知若吩咐你作一件大事，你豈不作嗎？何況只是去沐浴」——別讓驕傲攔阻你，再下水一次！' },
+      manualQs: [
+        { q: '乃縵是大能的勇士，只是身上長了甚麼？', options: ['大痲瘋', '毒瘡', '瞎了眼', '瘸了腿'], answer: '大痲瘋', basis: '王下 5:1' },
+        { q: '先知以利沙叫乃縵去哪條河裏沐浴？', options: ['約旦河', '大馬色的亞罷拿河', '埃及的尼羅河', '基順河'], answer: '約旦河', basis: '王下 5:10' },
+        { q: '以利沙吩咐乃縵在河裏沐浴幾回？', options: ['七回', '三回', '一回', '十回'], answer: '七回', basis: '王下 5:10' },
+        { q: '乃縵起先發怒，是因為覺得哪裡的河更好？', options: ['大馬色的河', '加利利海', '死海', '約帕的海'], answer: '大馬色的河', basis: '王下 5:12' },
+        { q: '是誰勸乃縵放下驕傲、照先知的話去做？', options: ['他的僕人', '亞蘭王', '以色列王', '他的妻子'], answer: '他的僕人', basis: '王下 5:13' },
+      ],
+    },
+    empty_tomb: {
+      book: 'LUK', ch: 24, emoji: '🌅', title: '空墳墓・耶穌復活', tag: '路 24・答題對決',
+      myEmoji: '🌅', myName: '尋見復活的主', myGoal: 5,
+      foeEmoji: '🪦', foeName: '死亡的權勢', foeGoal: 5,
+      hitText: '🌅 又想起主的話——祂說過要復活！', missText: '🪦 婦女們驚怕，將臉伏地…',
+      win: { emoji: '✝️', title: '祂不在這裡，已經復活了！', text: '婦女清早到墳墓，看見石頭滾開、身體不見了；天使說：「為甚麼在死人中找活人呢？他不在這裡，已經復活了！」死亡再也關不住祂！' },
+      lose: { text: '別在憂傷中停留——「當記念他還在加利利的時候怎樣告訴你們」，祂必復活！再想一次！' },
+      manualQs: [
+        { q: '七日的頭一日清早，婦女帶著所預備的甚麼來到墳墓？', options: ['香料', '鮮花', '餅和酒', '燈油'], answer: '香料', basis: '路 24:1' },
+        { q: '婦女來到墳墓，看見墓門的石頭怎樣了？', options: ['已經滾開了', '仍然封著', '裂成兩半', '被兵丁把守'], answer: '已經滾開了', basis: '路 24:2' },
+        { q: '她們進了墳墓，發現甚麼？', options: ['不見主耶穌的身體', '有天兵把守', '身體還在', '裡面一片黑暗'], answer: '不見主耶穌的身體', basis: '路 24:3' },
+        { q: '兩個衣服放光的人對婦女說了哪句話？', options: ['為甚麼在死人中找活人呢？', '不要害怕，只要信', '你們的信救了你們', '平安歸與你們'], answer: '為甚麼在死人中找活人呢？', basis: '路 24:5' },
+        { q: '天使提醒婦女，主曾在哪裡預先告訴門徒要復活？', options: ['加利利', '耶路撒冷', '伯利恆', '拿撒勒'], answer: '加利利', basis: '路 24:6' },
+      ],
+    },
   };
 
   let mg = null; // { id, cfg, qs, i, my, foe, answered }
@@ -1614,6 +1644,8 @@
     { emoji: '⛵', name: '風浪也聽從', desc: '通關「耶穌平靜風浪」', test: s => !!((s.minigames || {}).storm) },
     { emoji: '👑', name: '挺身的王后', desc: '通關「以斯帖為同胞挺身」', test: s => !!((s.minigames || {}).esther) },
     { emoji: '🔓', name: '鐵門自開', desc: '通關「彼得被天使救出監牢」', test: s => !!((s.minigames || {}).peter_prison) },
+    { emoji: '💧', name: '單純的順服', desc: '通關「乃縵洗七次得潔淨」', test: s => !!((s.minigames || {}).naaman) },
+    { emoji: '✝️', name: '空墳墓的清晨', desc: '通關「空墳墓・耶穌復活」', test: s => !!((s.minigames || {}).empty_tomb) },
   ];
   const earnedBadges = () => BADGES.filter(b => b.test(state));
   function renderBadges() {
