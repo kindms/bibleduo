@@ -293,6 +293,14 @@
       btn.onclick = () => openStoryList();
       nodes.push(btn);
     }
+    if (id === 'GEN') {
+      const won = (state.minigames || {}).noah;
+      const btn = document.createElement('button');
+      btn.className = 'book-feature mg-card';
+      btn.innerHTML = `<span class="bf-emoji">🚢</span><span class="bf-text"><b>挪亞方舟</b><small>${won ? '已通關 ⭐ 可重玩' : '創 7-8・動物翻牌配對'}</small></span><span class="bf-arrow">›</span>`;
+      btn.onclick = () => startNoah();
+      nodes.push(btn);
+    }
     // 書卷故事小遊戲：任何 book 對應此 id 的遊戲都自動出現（加設定即長出入口）
     for (const [gid, cfg] of Object.entries(MINIGAMES)) {
       if (cfg.book !== id) continue;
@@ -307,7 +315,7 @@
   }
   $('#btn-back-books').onclick = () => { renderBooks(); show('#screen-books'); };
   $('#btn-home').onclick = () => {
-    stopSprintTimer(); sprint = null; flip = null; mg = null; // 從小遊戲直接回家要停計時器/清狀態
+    stopSprintTimer(); sprint = null; flip = null; mg = null; noah = null; // 從小遊戲直接回家要停計時器/清狀態
     lesson = null; renderTopbar(); renderBooks(); show('#screen-books');
   };
 
@@ -1169,6 +1177,121 @@
   $('#btn-flip').onclick = () => startFlip();
   $('#btn-back-flip').onclick = () => { flip = null; renderBooks(); show('#screen-books'); };
 
+  // ===== 🚢 挪亞方舟（複用翻牌：動物兩兩配對送上方舟 → 鴿子橄欖葉 → 彩虹立約）=====
+  const NOAH_ANIMALS = ['🦁', '🐘', '🐫', '🦒', '🐄', '🐑', '🐐', '🦓', '🐅', '🦌', '🐒', '🐖'];
+  const NOAH_BONUS = [
+    { q: '潔淨的畜類，挪亞要帶幾公幾母上方舟？', options: ['七公七母', '一公一母', '兩公兩母', '三公三母'], answer: '七公七母', basis: '創 7:2' },
+    { q: '洪水的大雨下了多久？', options: ['四十晝夜', '七晝夜', '一百天', '一年'], answer: '四十晝夜', basis: '創 7:12' },
+    { q: '鴿子回到方舟時，嘴裏叼着甚麼？', options: ['新擰下的橄欖葉子', '一根麥穗', '一朵雲彩', '一條小魚'], answer: '新擰下的橄欖葉子', basis: '創 8:11' },
+    { q: '神把虹放在雲彩中，作為與地立約的甚麼？', options: ['記號', '禮物', '賞賜', '命令'], answer: '記號', basis: '創 9:13' },
+  ];
+  let noah = null; // { cards, matched, pairs, moves, sel, lock, bonus, phase }
+  function startNoah() {
+    const animals = shuffleArr([...NOAH_ANIMALS]).slice(0, 8);
+    const cards = [];
+    animals.forEach((a, i) => { cards.push({ key: i, emoji: a }); cards.push({ key: i, emoji: a }); });
+    noah = {
+      cards: shuffleArr(cards), matched: 0, pairs: animals.length,
+      moves: 0, sel: null, lock: false,
+      bonus: NOAH_BONUS[Math.floor(Math.random() * NOAH_BONUS.length)], phase: 'match',
+    };
+    $('#noah-hint').textContent = '翻牌找出成對的動物，兩兩送上方舟！全部配對就開船。';
+    renderNoahBoard();
+    show('#screen-noah');
+  }
+  function renderNoahBoard() {
+    $('#noah-moves').textContent = noah.moves;
+    const grid = $('#noah-grid');
+    grid.className = 'flip-grid';
+    grid.innerHTML = '';
+    noah.cards.forEach((c) => {
+      const card = document.createElement('button');
+      card.className = 'flip-card';
+      card.innerHTML = `<span class="flip-inner"><span class="flip-face flip-front">🚢</span><span class="flip-face flip-back"></span></span>`;
+      card.querySelector('.flip-back').textContent = c.emoji;
+      card.onclick = () => noahFlip(c, card);
+      grid.appendChild(card);
+    });
+  }
+  function noahFlip(c, el) {
+    if (!noah || noah.lock || noah.phase !== 'match' || el.classList.contains('open') || el.classList.contains('done')) return;
+    el.classList.add('open');
+    if (!noah.sel) { noah.sel = { c, el }; return; }
+    noah.moves++;
+    $('#noah-moves').textContent = noah.moves;
+    const a = noah.sel;
+    noah.sel = null;
+    if (a.c.key === c.key) {
+      a.el.classList.add('done'); el.classList.add('done');
+      noah.matched++;
+      sndGood();
+      if (noah.matched === noah.pairs) setTimeout(noahBonus, 500);
+    } else {
+      noah.lock = true;
+      sndBad();
+      setTimeout(() => { a.el.classList.remove('open'); el.classList.remove('open'); noah.lock = false; }, 750);
+    }
+  }
+  function noahBonus() {
+    noah.phase = 'quiz';
+    const q = noah.bonus;
+    $('#noah-hint').textContent = '🕊️ 動物都上船了！開船前，回答一題航行日誌：';
+    const grid = $('#noah-grid');
+    grid.className = '';
+    grid.innerHTML = `<div class="q-title">${escapeHtml(q.q)}</div>`;
+    const box = document.createElement('div');
+    box.className = 'choices';
+    const btns = [];
+    for (const o of shuffleArr(q.options)) {
+      const btn = document.createElement('button');
+      btn.className = 'choice';
+      btn.textContent = o;
+      btn.onclick = () => {
+        if (noah.phase !== 'quiz') return;
+        noah.phase = 'done';
+        const ok = o === q.answer;
+        btn.classList.add(ok ? 'correct' : 'wrong');
+        if (!ok) { const ri = btns.findIndex(b => b.textContent === q.answer); if (ri >= 0) btns[ri].classList.add('correct'); sndBad(); }
+        else sndGood();
+        setTimeout(() => endNoah(ok), ok ? 600 : 1100);
+      };
+      btns.push(btn);
+      box.appendChild(btn);
+    }
+    grid.appendChild(box);
+  }
+  function endNoah(bonusOk) {
+    const moves = noah.moves;
+    noah = null;
+    const first = !state.minigames.noah;
+    const gained = first ? 30 : 5;
+    if (first) state.minigames.noah = true;
+    state.xp += gained;
+    ensureWeek();
+    state.weekXp += gained;
+    bumpStreak();
+    store.save(state);
+    sndWin();
+    throwConfetti();
+    $('#result-box').innerHTML = `
+      <div class="r-emoji">🕊️🫒🌈</div>
+      <h2>水退了，彩虹掛在天上！</h2>
+      <p>動物兩兩上了方舟，洪水過後鴿子叼回新擰下的橄欖葉子——地上的水退了。神把虹放在雲中，作與地立約的記號：不再用洪水毀滅凡有血肉的了。</p>
+      <div class="result-stats">
+        <div class="r-stat">${moves}<span>配對步數</span></div>
+        <div class="r-stat">＋${gained}<span>經驗值${first ? '' : '（重玩）'}</span></div>
+      </div>
+      <button class="big-btn" id="btn-noah-again">再玩一次 🚢</button>
+      <button class="ghost-btn" id="btn-continue">回書卷</button>`;
+    $('#btn-noah-again').onclick = () => startNoah();
+    $('#btn-continue').onclick = () => { renderTopbar(); openBook('GEN'); };
+    renderTopbar();
+    show('#screen-result');
+  }
+  $('#btn-back-noah').onclick = () => {
+    if (confirm('要離開挪亞方舟嗎？（不會有任何損失）')) { noah = null; openBook('GEN'); }
+  };
+
   // ===== 📖 書卷故事小遊戲（對決引擎：答對推進我方、答錯讓威脅逼近，先滿者定勝負）=====
   // 加一款遊戲＝在這裡加一份設定，章節頁入口與雲端同步都會自動長出來
   const MINIGAMES = {
@@ -1260,6 +1383,21 @@
         { q: '走在約櫃前的七個祭司拿著甚麼？', options: ['七個羊角', '七枝號筒', '七個火把', '七面旌旗'], answer: '七個羊角', basis: '書 6:4' },
         { q: '百姓聽見甚麼之後，城牆就塌陷了？', options: ['角聲和大聲呼喊', '一陣大地震', '天上的雷轟', '攻城的撞錘'], answer: '角聲和大聲呼喊', basis: '書 6:20' },
         { q: '城被攻取時，誰和她全家得以存活？', options: ['妓女喇合', '約書亞的妻子', '祭司的女兒', '城主的家人'], answer: '妓女喇合', basis: '書 6:17' },
+      ],
+    },
+    loaves: {
+      book: 'JHN', ch: 6, emoji: '🍞', title: '五餅二魚', tag: '約 6・餵飽五千',
+      myEmoji: '🍞', myName: '餵飽的人數', myGoal: 5,
+      foeEmoji: '🌆', foeName: '天色漸晚、群眾飢餓', foeGoal: 5,
+      hitText: '🍞 餅越掰越多，又餵飽了一千人！', missText: '🌆 天色更晚了，群眾更餓了…',
+      win: { emoji: '🧺', title: '五千人都吃飽了！', text: '一個孩童的五餅二魚，經耶穌祝謝分開，五千人都吃飽了——剩下的零碎還裝滿了十二個籃子！' },
+      lose: { text: '別忘了，在耶穌手中五個餅也夠用——把餅再遞上去，再試一次！' },
+      manualQs: [
+        { q: '這五個餅和兩條魚原是誰帶來的？', options: ['一個孩童', '門徒腓力', '門徒安得烈', '一位財主'], answer: '一個孩童', basis: '約 6:9' },
+        { q: '孩童帶來的食物是甚麼？', options: ['五個大麥餅和兩條魚', '五條魚和兩個餅', '七個餅和三條魚', '十二個餅'], answer: '五個大麥餅和兩條魚', basis: '約 6:9' },
+        { q: '坐下吃飯的人數約有多少？', options: ['約五千', '約三千', '約一千', '約一萬'], answer: '約五千', basis: '約 6:10' },
+        { q: '眾人吃飽後，剩下的零碎裝滿了幾個籃子？', options: ['十二個', '七個', '五個', '三個'], answer: '十二個', basis: '約 6:13' },
+        { q: '把孩童帶來的餅告訴耶穌的安得烈，是誰的兄弟？', options: ['西門彼得', '雅各', '約翰', '腓力'], answer: '西門彼得', basis: '約 6:8' },
       ],
     },
   };
@@ -1410,6 +1548,8 @@
     { emoji: '⚡', name: '迦密山的火', desc: '通關「以利亞 PK 巴力先知」', test: s => !!((s.minigames || {}).elijah) },
     { emoji: '🌊', name: '分海先鋒', desc: '通關「過紅海」', test: s => !!((s.minigames || {}).redsea) },
     { emoji: '🎺', name: '繞城得勝', desc: '通關「耶利哥城牆」', test: s => !!((s.minigames || {}).jericho) },
+    { emoji: '🍞', name: '分餅的手', desc: '通關「五餅二魚」', test: s => !!((s.minigames || {}).loaves) },
+    { emoji: '🌈', name: '立約的彩虹', desc: '通關「挪亞方舟」', test: s => !!((s.minigames || {}).noah) },
   ];
   const earnedBadges = () => BADGES.filter(b => b.test(state));
   function renderBadges() {

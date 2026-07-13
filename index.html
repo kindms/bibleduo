@@ -51,7 +51,7 @@
     <div class="feature-grid">
       <button class="feat" id="btn-sprint"><span class="feat-emoji">⚡</span><b>金句衝刺</b><small id="sprint-best">60 秒限時挑戰</small></button>
       <button class="feat" id="btn-flip"><span class="feat-emoji">🃏</span><b>經文翻牌</b><small>上下句配對記憶</small></button>
-      <button class="feat feat-wide" id="btn-badges"><span class="feat-emoji">🏅</span><span class="feat-wide-text"><b>成就徽章</b><small id="badge-count">0/21</small></span></button>
+      <button class="feat feat-wide" id="btn-badges"><span class="feat-emoji">🏅</span><span class="feat-wide-text"><b>成就徽章</b><small id="badge-count">0/23</small></span></button>
     </div>
 
     <!-- 打扮面板（首頁預設展開，點 🎨 才收起） -->
@@ -131,6 +131,17 @@
     </div>
     <p class="puzzle-hint">翻開兩張牌，找出同一節經文的「上句＋下句」，全部配對就完成！<span id="flip-ref" class="flip-ref"></span></p>
     <div class="flip-grid" id="flip-grid"></div>
+  </main>
+
+  <!-- 畫面：🚢 挪亞方舟（動物翻牌配對） -->
+  <main id="screen-noah" class="screen hidden">
+    <div class="book-header">
+      <button class="back-btn" id="btn-back-noah">←</button>
+      <h2>🚢 挪亞方舟</h2>
+      <span class="flip-moves-label">步數 <b id="noah-moves">0</b></span>
+    </div>
+    <p class="puzzle-hint" id="noah-hint">翻牌找出成對的動物，兩兩送上方舟！全部配對就開船。</p>
+    <div class="flip-grid" id="noah-grid"></div>
   </main>
 
   <!-- 畫面：📖 書卷故事小遊戲（對決） -->
