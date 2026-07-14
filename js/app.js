@@ -1490,6 +1490,36 @@
         { q: '天使提醒婦女，主曾在哪裡預先告訴門徒要復活？', options: ['加利利', '耶路撒冷', '伯利恆', '拿撒勒'], answer: '加利利', basis: '路 24:6' },
       ],
     },
+    bronze_serpent: {
+      book: 'NUM', ch: 21, emoji: '🐍', title: '摩西舉銅蛇', tag: '民 21・答題對決',
+      myEmoji: '🙏', myName: '抬頭仰望銅蛇', myGoal: 5,
+      foeEmoji: '🐍', foeName: '火蛇的咬傷', foeGoal: 5,
+      hitText: '🙏 一抬頭望向銅蛇，就活過來了！', missText: '🐍 火蛇又咬了一口，毒性蔓延…',
+      win: { emoji: '🐍', title: '一望就活了！', text: '摩西把銅蛇掛在杆子上；凡被蛇咬的，一望這銅蛇就活了！（主耶穌說：摩西在曠野怎樣舉蛇，人子也必照樣被舉起來——約 3:14）' },
+      lose: { text: '別低頭盯著傷口——抬起頭，望向那掛在杆子上的銅蛇，你就必得活！再試一次！' },
+      manualQs: [
+        { q: '百姓在曠野向神和摩西怨讟，抱怨沒有糧、也沒有甚麼？', options: ['水', '肉', '帳棚', '金子'], answer: '水', basis: '民 21:5' },
+        { q: '耶和華使甚麼進入百姓中間咬他們？', options: ['火蛇', '蝗蟲', '獅子', '冰雹'], answer: '火蛇', basis: '民 21:6' },
+        { q: '耶和華吩咐摩西製造一條蛇，掛在甚麼上面？', options: ['杆子上', '祭壇上', '帳幕門口', '石堆上'], answer: '杆子上', basis: '民 21:8' },
+        { q: '摩西製造的那條蛇，是用甚麼做的？', options: ['銅', '金', '木頭', '泥土'], answer: '銅', basis: '民 21:9' },
+        { q: '被蛇咬的人只要怎樣做，就必得活？', options: ['一望這銅蛇', '喝下藥水', '獻上祭物', '逃出營外'], answer: '一望這銅蛇', basis: '民 21:9' },
+      ],
+    },
+    nehemiah: {
+      book: 'NEH', ch: 4, emoji: '🧱', title: '尼希米重建城牆', tag: '尼 4・答題對決',
+      myEmoji: '🧱', myName: '重建城牆的進度', myGoal: 5,
+      foeEmoji: '😈', foeName: '仇敵的攪擾', foeGoal: 5,
+      hitText: '🧱 一手做工一手拿兵器，城牆又高一截！', missText: '😈 參巴拉譏誚、仇敵同謀來攻擊…',
+      win: { emoji: '🏛️', title: '五十二天，城牆修完了！', text: '任憑仇敵譏誚攻擊，眾人一手做工、一手拿兵器、晝夜趕工——城牆只用五十二天就修完了，因為「我們的神必為我們爭戰」！' },
+      lose: { text: '別被譏誚嚇退——「不要怕他們！當記念主是大而可畏的」，重整旗鼓再來過！' },
+      manualQs: [
+        { q: '參巴拉聽見猶大人修造城牆，就怎樣？', options: ['發怒嗤笑', '前來幫忙', '送禮祝賀', '假裝不知'], answer: '發怒嗤笑', basis: '尼 4:1' },
+        { q: '多比雅譏笑說，甚麼上去也必跐倒他們的石牆？', options: ['狐狸', '野狼', '山羊', '老鼠'], answer: '狐狸', basis: '尼 4:3' },
+        { q: '修造城牆的人怎樣一邊防備仇敵？', options: ['一手作工一手拿兵器', '停工躲藏', '只顧高築圍籬', '日夜點火示警'], answer: '一手作工一手拿兵器', basis: '尼 4:17' },
+        { q: '尼希米說，聽見甚麼聲音就要聚集？', options: ['角聲', '鐘聲', '鼓聲', '號哭聲'], answer: '角聲', basis: '尼 4:20' },
+        { q: '耶路撒冷的城牆最後共修了幾天完工？', options: ['五十二天', '四十天', '一百天', '七天'], answer: '五十二天', basis: '尼 6:15' },
+      ],
+    },
   };
 
   let mg = null; // { id, cfg, qs, i, my, foe, answered }
@@ -1646,6 +1676,8 @@
     { emoji: '🔓', name: '鐵門自開', desc: '通關「彼得被天使救出監牢」', test: s => !!((s.minigames || {}).peter_prison) },
     { emoji: '💧', name: '單純的順服', desc: '通關「乃縵洗七次得潔淨」', test: s => !!((s.minigames || {}).naaman) },
     { emoji: '✝️', name: '空墳墓的清晨', desc: '通關「空墳墓・耶穌復活」', test: s => !!((s.minigames || {}).empty_tomb) },
+    { emoji: '🐍', name: '一望得生', desc: '通關「摩西舉銅蛇」', test: s => !!((s.minigames || {}).bronze_serpent) },
+    { emoji: '🧱', name: '重建的城牆', desc: '通關「尼希米重建城牆」', test: s => !!((s.minigames || {}).nehemiah) },
   ];
   const earnedBadges = () => BADGES.filter(b => b.test(state));
   function renderBadges() {
