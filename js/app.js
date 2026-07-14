@@ -1580,6 +1580,36 @@
         { q: '約伯為朋友禱告後，耶和華賜給他的比從前怎樣？', options: ['加倍', '減半', '相同', '全數收回'], answer: '加倍', basis: '伯 42:10' },
       ],
     },
+    david_ark: {
+      book: '2SA', ch: 6, emoji: '🕺', title: '大衛迎約櫃跳舞', tag: '撒下 6・答題對決',
+      myEmoji: '🕺', myName: '歡呼跳舞迎約櫃', myGoal: 5,
+      foeEmoji: '⚠️', foeName: '搬運的攔阻與輕視', foeGoal: 5,
+      hitText: '🕺 大衛在耶和華面前極力跳舞，約櫃又近了大衛城！', missText: '⚠️ 牛失前蹄、有人輕視——路上滿是攔阻…',
+      win: { emoji: '🕺', title: '約櫃歡然進了大衛城！', text: '大衛穿細麻布以弗得，在耶和華面前極力跳舞；以色列全家歡呼吹角，把約櫃抬進大衛城！大衛說：我在耶和華面前跳舞，就算更卑微也甘心。' },
+      lose: { text: '要按神的法度來到祂面前——別怕別人輕視，重整心思再來一次，把約櫃迎進城！' },
+      manualQs: [
+        { q: '起初大衛他們用甚麼運送神的約櫃？', options: ['新車', '肩膀扛抬', '木筏', '駱駝'], answer: '新車', basis: '撒下 6:3' },
+        { q: '牛失前蹄時，烏撒做了甚麼，以致被神擊殺？', options: ['伸手扶住約櫃', '逃跑躲避', '大聲呼喊', '鞭打牛群'], answer: '伸手扶住約櫃', basis: '撒下 6:6-7' },
+        { q: '大衛穿著細麻布的以弗得，在耶和華面前做甚麼？', options: ['極力跳舞', '俯伏禱告', '獻上燔祭', '高聲讀律法'], answer: '極力跳舞', basis: '撒下 6:14' },
+        { q: '約櫃抬上來時，以色列全家怎樣慶賀？', options: ['歡呼吹角', '默然肅立', '撒灰痛哭', '各自回家'], answer: '歡呼吹角', basis: '撒下 6:15' },
+        { q: '誰從窗戶看見大衛跳舞，心裡就輕視他？', options: ['米甲', '拔示巴', '亞比該', '拿俄米'], answer: '米甲', basis: '撒下 6:16' },
+      ],
+    },
+    lazarus: {
+      book: 'JHN', ch: 11, emoji: '⚰️', title: '拉撒路復活', tag: '約 11・答題對決',
+      myEmoji: '🗣️', myName: '耶穌呼喚：出來！', myGoal: 5,
+      foeEmoji: '⚰️', foeName: '四天的死亡與墳墓', foeGoal: 5,
+      hitText: '🗣️ 「復活在我，生命也在我！」死亡攔不住主的話！', missText: '⚰️ 「他現在必是臭了，死了已經四天了…」',
+      win: { emoji: '🙌', title: '拉撒路出來了！', text: '耶穌大聲呼叫：「拉撒路出來！」那死了四天的人就手腳裹著布走出墳墓——耶穌說：復活在我，生命也在我！信祂的人雖然死了，也必復活。' },
+      lose: { text: '「你若信，就必看見神的榮耀」——把石頭挪開、抬起信心，再呼求一次！' },
+      manualQs: [
+        { q: '耶穌到的時候，拉撒路在墳墓裡已經幾天了？', options: ['四天', '一天', '三天', '七天'], answer: '四天', basis: '約 11:17' },
+        { q: '耶穌對馬大說：復活在我，還有甚麼也在我？', options: ['生命', '智慧', '平安', '公義'], answer: '生命', basis: '約 11:25' },
+        { q: '在墳墓前，耶穌流露了甚麼？', options: ['耶穌哭了', '耶穌笑了', '耶穌發怒', '耶穌沉默離開'], answer: '耶穌哭了', basis: '約 11:35' },
+        { q: '耶穌吩咐把墳墓口的甚麼挪開？', options: ['石頭', '木門', '帳幔', '泥土'], answer: '石頭', basis: '約 11:39' },
+        { q: '耶穌大聲呼叫哪句話，拉撒路就出來了？', options: ['拉撒路出來！', '起來行走！', '平安了吧！', '你的信救了你！'], answer: '拉撒路出來！', basis: '約 11:43' },
+      ],
+    },
   };
 
   let mg = null; // { id, cfg, qs, i, my, foe, answered }
@@ -1742,6 +1772,8 @@
     { emoji: '🦴', name: '枯骨復生', desc: '通關「以西結與枯骨復生」', test: s => !!((s.minigames || {}).dry_bones) },
     { emoji: '🌾', name: '忠心的路得', desc: '通關「路得的忠心與救贖」', test: s => !!((s.minigames || {}).ruth) },
     { emoji: '💪', name: '苦難中站立', desc: '通關「約伯苦難中持守信心」', test: s => !!((s.minigames || {}).job) },
+    { emoji: '🕺', name: '在主前跳舞', desc: '通關「大衛迎約櫃跳舞」', test: s => !!((s.minigames || {}).david_ark) },
+    { emoji: '🌿', name: '死裡復活', desc: '通關「拉撒路復活」', test: s => !!((s.minigames || {}).lazarus) },
   ];
   const earnedBadges = () => BADGES.filter(b => b.test(state));
   function renderBadges() {
