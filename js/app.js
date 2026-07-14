@@ -1520,6 +1520,36 @@
         { q: '耶路撒冷的城牆最後共修了幾天完工？', options: ['五十二天', '四十天', '一百天', '七天'], answer: '五十二天', basis: '尼 6:15' },
       ],
     },
+    jehoshaphat: {
+      book: '2CH', ch: 20, emoji: '🎶', title: '約沙法唱詩退敵', tag: '代下 20・答題對決',
+      myEmoji: '🎶', myName: '走在軍前的讚美', myGoal: 5,
+      foeEmoji: '⚔️', foeName: '三國聯軍', foeGoal: 5,
+      hitText: '🎶 「他的慈愛永遠長存！」讚美一起，敵陣就亂！', missText: '⚔️ 三國大軍壓境，猶大人心生懼怕…',
+      win: { emoji: '🎶', title: '讚美中得了勝！', text: '眾人一唱歌讚美耶和華，耶和華就派伏兵擊殺三國聯軍，敵人自相擊殺——猶大人不用爭戰，只擺陣站著，就看見了神的拯救！' },
+      lose: { text: '「勝敗不在乎你們，乃在乎神」——把眼目單單仰望祂，再讚美一次！' },
+      manualQs: [
+        { q: '大軍來攻，約沙法懼怕之後做了甚麼？', options: ['定意尋求耶和華、宣告禁食', '立刻招兵買馬', '逃往埃及', '向敵人求和'], answer: '定意尋求耶和華、宣告禁食', basis: '代下 20:3' },
+        { q: '約沙法禱告說：我們無力抵擋，只把眼目怎樣？', options: ['單仰望神', '轉向盟友', '倚靠城牆', '求告偶像'], answer: '單仰望神', basis: '代下 20:12' },
+        { q: '神藉先知說，這場仗的勝敗在乎誰？', options: ['在乎神', '在乎軍隊多寡', '在乎王的智慧', '在乎城牆堅固'], answer: '在乎神', basis: '代下 20:15' },
+        { q: '神吩咐他們這次不要爭戰，只要怎樣？', options: ['擺陣站著看神拯救', '主動出擊', '連夜撤退', '築壘防守'], answer: '擺陣站著看神拯救', basis: '代下 20:17' },
+        { q: '約沙法設立甚麼人，走在軍隊前面？', options: ['歌唱讚美的人', '弓箭手', '騎兵', '抬約櫃的祭司'], answer: '歌唱讚美的人', basis: '代下 20:21' },
+      ],
+    },
+    dry_bones: {
+      book: 'EZK', ch: 37, emoji: '🦴', title: '以西結與枯骨復生', tag: '結 37・答題對決',
+      myEmoji: '💨', myName: '神的氣息進入枯骨', myGoal: 5,
+      foeEmoji: '🦴', foeName: '極其枯乾的骸骨', foeGoal: 5,
+      hitText: '💨 氣息一進入，骨頭就聯絡、有筋有肉！', missText: '🦴 「我們的骨頭枯乾了，指望失去了…」',
+      win: { emoji: '🦴', title: '骸骨活了，成為極大的軍隊！', text: '以西結遵命說預言，氣息就進入骸骨——骨與骨聯絡、有筋有肉、皮遮蔽，一站起來竟成為極大的軍隊！神能叫枯乾的以色列全家重新得生。' },
+      lose: { text: '再遵命說預言——「我必使氣息進入你們裡面，你們就要活了」，別放棄，再試一次！' },
+      manualQs: [
+        { q: '耶和華的靈帶以西結到平原，那裡遍滿甚麼？', options: ['骸骨', '荊棘', '帳棚', '羊群'], answer: '骸骨', basis: '結 37:1' },
+        { q: '平原上的骸骨甚多，而且怎樣？', options: ['極其枯乾', '濕潤發亮', '剛剛死去', '半埋土中'], answer: '極其枯乾', basis: '結 37:2' },
+        { q: '神問以西結：這些骸骨能怎樣？', options: ['能復活嗎', '能站立嗎', '能說話嗎', '能數算嗎'], answer: '能復活嗎', basis: '結 37:3' },
+        { q: '以西結一說預言，有響聲地震，骨頭怎樣？', options: ['骨與骨互相聯絡', '化為塵土', '燃燒起來', '沉入地裡'], answer: '骨與骨互相聯絡', basis: '結 37:7' },
+        { q: '神說這些骸骨就是誰？', options: ['以色列全家', '埃及的軍隊', '外邦列國', '已死的先知'], answer: '以色列全家', basis: '結 37:11' },
+      ],
+    },
   };
 
   let mg = null; // { id, cfg, qs, i, my, foe, answered }
@@ -1678,6 +1708,8 @@
     { emoji: '✝️', name: '空墳墓的清晨', desc: '通關「空墳墓・耶穌復活」', test: s => !!((s.minigames || {}).empty_tomb) },
     { emoji: '🐍', name: '一望得生', desc: '通關「摩西舉銅蛇」', test: s => !!((s.minigames || {}).bronze_serpent) },
     { emoji: '🧱', name: '重建的城牆', desc: '通關「尼希米重建城牆」', test: s => !!((s.minigames || {}).nehemiah) },
+    { emoji: '🎶', name: '讚美得勝', desc: '通關「約沙法唱詩退敵」', test: s => !!((s.minigames || {}).jehoshaphat) },
+    { emoji: '🦴', name: '枯骨復生', desc: '通關「以西結與枯骨復生」', test: s => !!((s.minigames || {}).dry_bones) },
   ];
   const earnedBadges = () => BADGES.filter(b => b.test(state));
   function renderBadges() {
