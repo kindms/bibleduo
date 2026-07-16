@@ -52,7 +52,7 @@ const CloudSync = (function () {
       db.collection(COLLECTION).doc(user.uid).set({
         xp: state.xp, streak: state.streak, lastPlay: state.lastPlay,
         done: state.done, scene: state.scene, mascot: state.mascot,
-        nickname: state.nickname || "", weekXp: state.weekXp || 0, weekKey: state.weekKey || "",
+        nickname: state.nickname || "", weekXp: state.weekXp || 0, weekKey: state.weekKey || "", weekCh: state.weekCh || 0,
         review: state.review || [],
         puzzles: state.puzzles || { beatitudes: [] },
         stats: state.stats || {},
@@ -68,6 +68,7 @@ const CloudSync = (function () {
         xp: state.xp || 0,
         weekXp: state.weekXp || 0,
         weekKey: state.weekKey || "",
+        weekCh: state.weekCh || 0,
         streak: state.streak || 0,
         friendCode: codeOf(user.uid),
         friends: state.friends || [],

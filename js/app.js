@@ -128,9 +128,9 @@
     d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
     return localDate(d);
   }
-  function ensureWeek() { // 跨週時歸零本週經驗值（Step 6 排行榜用）
+  function ensureWeek() { // 跨週時歸零本週經驗值與本週章數（排行榜＋好友週任務用）
     const wk = weekKeyOf();
-    if (state.weekKey !== wk) { state.weekKey = wk; state.weekXp = 0; }
+    if (state.weekKey !== wk) { state.weekKey = wk; state.weekXp = 0; state.weekCh = 0; }
   }
   function bumpStreak() {
     const t = today();
@@ -335,6 +335,7 @@
     if (compQs[0]) qs.splice(Math.floor(qs.length / 2), 0, compQs[0]);
     if (compQs[1]) qs.push(compQs[1]);
     lesson = { chapterNum, qs, i: 0, hearts: MAX_HEARTS, wrong: 0, xp: 0, wrongQs: [], inRetest: false, awarded: false };
+    refreshFriendBonus(); // 背景刷新組隊加成，結算時用最新值（失敗就沿用快取）
     renderTopbar();
     show('#screen-lesson');
     renderQuestion();
@@ -830,15 +831,21 @@
     lesson.awarded = true;
     lesson.perfect = lesson.wrong === 0;
     const bonus = lesson.perfect ? 20 : 0;
-    lesson.gained = lesson.xp + bonus;
+    const base = lesson.xp + bonus;
+    // 好友組隊加成：只加在章節過關與錯題複習（小遊戲/衝刺不加，防刷分）
+    lesson.friendPct = friendBonus.pct || 0;
+    lesson.friendXp = Math.round(base * lesson.friendPct / 100);
+    lesson.gained = base + lesson.friendXp;
     state.xp += lesson.gained;
     ensureWeek();
     state.weekXp += lesson.gained;
+    state.weekCh = (state.weekCh || 0) + 1; // 本週完成章數（好友週任務進度）
     bumpStreak();
     const done = state.done[currentBook.id] || (state.done[currentBook.id] = []);
     if (!done.includes(lesson.chapterNum)) done.push(lesson.chapterNum);
     queueReview(); // 答錯的題排進間隔複習佇列
     store.save(state);
+    refreshFriendBonus(); // 我的週任務進度剛變了，背景重算加成（下一關生效）
   }
   // ===== 錯題間隔複習（SRS）=====
   const reviewKey = (q) => q.type + '|' + (q.ref || '') + '|' + (Array.isArray(q.answer) ? q.answer.join('') : String(q.answer));
@@ -1952,7 +1959,9 @@
     renderQuestion();
   }
   function winReview() {
-    const gained = (lesson.reviewCorrect || 0) * 5;
+    const base = (lesson.reviewCorrect || 0) * 5;
+    const pct = friendBonus.pct || 0; // 組隊加成也適用錯題複習
+    const gained = base + Math.round(base * pct / 100);
     state.xp += gained;
     ensureWeek();
     state.weekXp += gained;
@@ -1961,12 +1970,13 @@
     store.save(state);
     sndWin();
     const left = dueReviews().length;
+    const xpNote = pct && gained > base ? `（每對一題 +5，含👥組隊 +${pct}%）` : '（每對一題 +5）';
     $('#result-box').innerHTML = `
       <div class="r-emoji">${mascot().emoji}📅</div>
       <h2>複習完成！</h2>
       <p>錯題複習過，記憶才會變長期的！</p>
       <div class="result-stats">
-        <div class="r-stat">＋${gained}<span>經驗值（每對一題 +5）</span></div>
+        <div class="r-stat">＋${gained}<span>經驗值${xpNote}</span></div>
         <div class="r-stat">${left}<span>今日還剩複習題</span></div>
       </div>
       <button class="big-btn" id="btn-continue">${left ? '繼續複習' : '回首頁'}</button>`;
@@ -1981,13 +1991,17 @@
     awardWin();
     sndWin();
     if (lesson.perfect) throwConfetti();
+    const notes = [];
+    if (lesson.perfect) notes.push('完美 +20');
+    if (lesson.friendXp) notes.push(`👥組隊 +${lesson.friendPct}%`);
+    const xpNote = notes.length ? `（含${notes.join('、')}）` : '';
     $('#result-box').innerHTML = `
       <div class="r-emoji">${mascot().emoji}${lesson.perfect ? '🏆' : '🎉'}</div>
       <h2>${lesson.perfect ? '完美通關！' : '過關！'}</h2>
       <p>${currentBook.name} 第 ${lesson.chapterNum} 章</p>
       ${lesson.inRetest ? '<p class="retest-done">🔁 已完成錯題複習</p>' : ''}
       <div class="result-stats">
-        <div class="r-stat">＋${lesson.gained}<span>經驗值${lesson.perfect ? '（含完美 +20）' : ''}</span></div>
+        <div class="r-stat">＋${lesson.gained}<span>經驗值${xpNote}</span></div>
         <div class="r-stat">🔥 ${state.streak}<span>連續天數</span></div>
       </div>
       <button class="big-btn" id="btn-continue">繼續</button>`;
@@ -2034,6 +2048,8 @@
     const wk = weekKeyOf();
     const localWeek = local.weekKey === wk ? (local.weekXp || 0) : 0;
     const cloudWeek = cloud.weekKey === wk ? (cloud.weekXp || 0) : 0;
+    const localCh = local.weekKey === wk ? (local.weekCh || 0) : 0;
+    const cloudCh = cloud.weekKey === wk ? (cloud.weekCh || 0) : 0;
     return {
       xp: Math.max(local.xp || 0, cloud.xp || 0),
       streak: Math.max(local.streak || 0, cloud.streak || 0),
@@ -2044,6 +2060,7 @@
       nickname: cloud.nickname || local.nickname || '', // 換裝置時保留自己取的排行榜名字
       weekKey: wk,
       weekXp: Math.max(localWeek, cloudWeek),
+      weekCh: Math.max(localCh, cloudCh),
       review: mergeReview(local.review, cloud.review),
       puzzles: { beatitudes: [...new Set([...(local.puzzles?.beatitudes || []), ...(cloud.puzzles?.beatitudes || [])])] },
       stats: mergeStats(local.stats, cloud.stats),
@@ -2207,7 +2224,31 @@
       await processAcceptedRequests(req.accepted);
       const n = req.incoming.length;
       $('#friends-hint').textContent = n ? `🔔 ${n} 個邀請待處理` : (state.friends.length ? `${state.friends.length} 位好友` : '揪團一起讀經');
+      await refreshFriendBonus();
     } catch (e) { console.warn('好友同步失敗', e); }
+  }
+  // --- 組隊經驗加成（Phase 2）---
+  // 規則：本週有 ≥1 位好友也有玩 → +20%；我＋至少 2 位好友都完成週任務（各 3 章）→ +30%（取代 20%）
+  // 加成只套用「章節過關」與「錯題複習」的經驗值；隨機夥伴的 +20% 疊加屬 Phase 3
+  const QUEST_CH = 3; // 週任務門檻：本週完成 3 章
+  let friendBonus = { pct: 0, active: 0, questMates: 0, meQuest: false, profiles: [] };
+  async function refreshFriendBonus() {
+    if (!CloudSync.isLoggedIn() || !(state.friends || []).length) {
+      friendBonus = { pct: 0, active: 0, questMates: 0, meQuest: false, profiles: [] };
+      return friendBonus;
+    }
+    try {
+      const wk = weekKeyOf();
+      const profiles = await CloudSync.fetchProfiles(state.friends);
+      const active = profiles.filter((p) => p.weekKey === wk && (p.weekXp || 0) > 0);
+      const questMates = profiles.filter((p) => p.weekKey === wk && (p.weekCh || 0) >= QUEST_CH);
+      const meQuest = state.weekKey === wk && (state.weekCh || 0) >= QUEST_CH;
+      let pct = 0;
+      if (active.length >= 1) pct = 20;
+      if (meQuest && questMates.length >= 2) pct = 30; // 三人小隊全數達標
+      friendBonus = { pct, active: active.length, questMates: questMates.length, meQuest, profiles };
+    } catch (e) { console.warn('好友加成計算失敗（先用舊值）', e); }
+    return friendBonus;
   }
   async function renderFriends() {
     const body = $('#friends-body');
@@ -2223,13 +2264,31 @@
     try {
       req = await CloudSync.fetchRequests();
       await processAcceptedRequests(req.accepted);
-      profiles = await CloudSync.fetchProfiles(state.friends);
+      await refreshFriendBonus(); // 同一次抓取供加成計算＋清單顯示
+      profiles = friendBonus.profiles;
     } catch (e) {
       console.warn('好友資料載入失敗', e);
       body.innerHTML = '<p class="board-hint">好友資料載入失敗，請檢查網路後再試。</p>';
       return;
     }
     body.innerHTML = '';
+    // --- 本週組隊狀態（有好友才顯示）---
+    if (state.friends.length) {
+      ensureWeek();
+      const fb = friendBonus;
+      const myCh = state.weekCh || 0;
+      const status = document.createElement('div');
+      status.className = 'fr-card fr-bonus' + (fb.pct ? ' on' : '');
+      const nextHint = fb.pct >= 30
+        ? '已達本週最高組隊加成！'
+        : fb.meQuest && fb.questMates >= 2 ? ''
+        : fb.pct === 20 ? `想升級 +30%：你完成 ${QUEST_CH} 章（目前 ${Math.min(myCh, QUEST_CH)}/${QUEST_CH}），且至少 2 位好友也完成 ${QUEST_CH} 章（目前 ${fb.questMates} 位）`
+        : '只要有一位好友本週玩過任一關，你們都 +20%！';
+      status.innerHTML = `<h3 class="fr-h">🤝 本週組隊加成：<b class="fr-pct">${fb.pct ? `+${fb.pct}%` : '尚未啟動'}</b></h3>
+        <p class="fr-tip">本週有玩的好友：${fb.active} 位・完成週任務（${QUEST_CH} 章）的好友：${fb.questMates} 位・我的週任務：${Math.min(myCh, QUEST_CH)}/${QUEST_CH} 章${myCh >= QUEST_CH ? ' ✅' : ''}</p>
+        ${nextHint ? `<p class="fr-tip">💡 ${nextHint}</p>` : ''}`;
+      body.appendChild(status);
+    }
     // --- 我的好友碼＋加好友 ---
     const card = document.createElement('div');
     card.className = 'fr-card';
@@ -2293,11 +2352,12 @@
       for (const p of profiles.sort((a, b) => (b.weekKey === wk ? b.weekXp || 0 : 0) - (a.weekKey === wk ? a.weekXp || 0 : 0))) {
         const m = MASCOTS[p.mascot] || MASCOTS.dove;
         const wxp = p.weekKey === wk ? (p.weekXp || 0) : 0;
+        const wch = p.weekKey === wk ? (p.weekCh || 0) : 0;
         const row = document.createElement('div');
         row.className = 'fr-friend-row';
         row.innerHTML = `<span class="b-mascot">${m.emoji}</span>
           <span class="fr-name">${escapeHtml(p.nick || '無名小卒')}</span>
-          <span class="fr-week">${wxp ? `本週 ⭐${wxp}` : '本週還沒玩'}</span>
+          <span class="fr-week">${wxp ? `本週 ⭐${wxp}・📖${wch}章${wch >= QUEST_CH ? '✅' : ''}` : '本週還沒玩'}</span>
           <button class="fr-x" title="移除好友">✕</button>`;
         row.querySelector('.fr-x').onclick = () => {
           if (!confirm(`要把 ${p.nick || '這位好友'} 從好友清單移除嗎？`)) return;

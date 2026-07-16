@@ -701,3 +701,8 @@ main, header { position: relative; z-index: 1; }
 .fr-ok { background: var(--primary, #58cc02); color: #fff; }
 .fr-no { background: var(--card-line, #e5e5e5); color: var(--text); }
 .fr-x { border: none; background: none; color: var(--text-light); font-size: .9rem; cursor: pointer; padding: 4px 6px; }
+
+/* 好友組隊加成狀態卡（Phase 2） */
+.fr-bonus { border-color: var(--card-line, #e5e5e5); }
+.fr-bonus.on { border-color: var(--primary, #58cc02); }
+.fr-bonus .fr-pct { color: var(--primary, #58cc02); }
