@@ -1566,6 +1566,150 @@
     }
   };
 
+  // —— 🍞 掰餅接籃：拖籃子接住掉落的餅魚，餵飽五千（石頭別接！）——
+  ACTION_GAMES.loaves = function startLoaves2() {
+    const GOAL = 5000, DUSK_MS = 75000; // 天黑前餵飽五千
+    const S = { phase: 'play', fed: 0, dusk: 0, basketX: 50, items: [], spawnMs: 0, raf: 0 };
+    const area = startAction('🍞 掰餅接籃', 'JHN', () => cancelAnimationFrame(S.raf));
+    action.state = S;
+    area.innerHTML = `
+      <div class="act-row"><span>🍽️ 餵飽</span><div class="act-track"><div class="act-fill" id="lv-fed"></div></div><b id="lv-count">0</b></div>
+      <div class="act-row"><span>🌆 天色</span><div class="act-track"><div class="act-fill act-foe" id="lv-dusk"></div></div></div>
+      <div class="lv-stage" id="lv-stage">
+        <div class="lv-hands">🙏🍞</div>
+        <div class="lv-basket" id="lv-basket">🧺</div>
+      </div>
+      <p class="fr-tip">左右拖動接住 🍞🥖🐟 分給群眾；🪨 石頭不能吃，別接！</p>`;
+    const stage = $('#lv-stage');
+    const moveBasket = (e) => {
+      const r = stage.getBoundingClientRect();
+      S.basketX = Math.max(6, Math.min(94, ((e.clientX - r.left) / r.width) * 100));
+      $('#lv-basket').style.left = `${S.basketX}%`;
+    };
+    stage.onpointerdown = moveBasket;
+    stage.onpointermove = (e) => { if (e.buttons || e.pressure > 0) moveBasket(e); };
+    const KINDS = [
+      { emoji: '🍞', feed: 250, w: 3 }, { emoji: '🥖', feed: 250, w: 2 },
+      { emoji: '🐟', feed: 400, w: 2 }, { emoji: '🪨', feed: -300, w: 2 },
+    ];
+    function spawn() {
+      const pool = [];
+      for (const k of KINDS) for (let i = 0; i < k.w; i++) pool.push(k);
+      const k = pool[Math.floor(Math.random() * pool.length)];
+      const el = document.createElement('div');
+      el.className = 'lv-item';
+      el.textContent = k.emoji;
+      stage.appendChild(el);
+      S.items.push({ k, el, x: 8 + Math.random() * 84, y: 8 });
+    }
+    S.tick = (dt) => { // 遊戲迴圈本體：rAF 驅動；測試可手動逐格推進
+      if (S.phase !== 'play') return;
+      S.dusk += dt;
+      S.spawnMs += dt;
+      if (S.spawnMs >= 850) { S.spawnMs = 0; spawn(); }
+      for (let i = S.items.length - 1; i >= 0; i--) {
+        const it = S.items[i];
+        it.y += dt * 0.045; // 掉落速度（%/ms）
+        it.el.style.left = `${it.x}%`;
+        it.el.style.top = `${it.y}%`;
+        if (it.y >= 82) { // 到籃子高度：判定接到沒
+          if (Math.abs(it.x - S.basketX) <= 11) {
+            S.fed = Math.max(0, S.fed + it.k.feed);
+            if (it.k.feed > 0) sndGood(); else { sndBad(); stage.classList.remove('jr-shake'); void stage.offsetWidth; stage.classList.add('jr-shake'); }
+          }
+          it.el.remove();
+          S.items.splice(i, 1);
+        }
+      }
+      $('#lv-fed').style.width = `${Math.min(100, (S.fed / GOAL) * 100)}%`;
+      $('#lv-count').textContent = S.fed;
+      $('#lv-dusk').style.width = `${Math.min(100, (S.dusk / DUSK_MS) * 100)}%`;
+      if (S.fed >= GOAL) {
+        S.phase = 'done';
+        winAction('loaves', 'JHN', { emoji: '🧺', title: '五千人都吃飽了！', text: '一個孩童的五個大麥餅、兩條魚，經耶穌祝謝擘開——眾人都吃飽了，剩下的零碎還裝滿十二個籃子！（約 6:11-13）' }, ACTION_GAMES.loaves);
+        return;
+      }
+      if (S.dusk >= DUSK_MS) {
+        S.phase = 'done';
+        loseAction('JHN', `天色暗了，還差 ${GOAL - S.fed} 人沒吃飽——別忘了，在耶穌手中五個餅也夠用，再試一次！`, ACTION_GAMES.loaves);
+      }
+    };
+    let last = performance.now();
+    const step = (now) => {
+      if (!action || action.state !== S) return;
+      S.tick(Math.min(50, now - last)); // 單幀上限 50ms，切回前景不會瞬間跳關
+      last = now;
+      if (S.phase === 'play') S.raf = requestAnimationFrame(step);
+    };
+    S.raf = requestAnimationFrame(step);
+  };
+
+  // —— ⛵ 穩住船身：按左/右舷平衡船身撐過風浪 → 呼求耶穌，瞬間平靜 ——
+  ACTION_GAMES.storm = function startStorm2() {
+    const SURVIVE_MS = 30000, CAPSIZE = 45; // 撐 30 秒；傾斜超過 45° 翻船
+    const S = { phase: 'play', t: 0, angle: 0, vel: 0, wind: 0, windMs: 0, input: 0, raf: 0 };
+    const area = startAction('⛵ 穩住船身', 'MRK', () => cancelAnimationFrame(S.raf));
+    action.state = S;
+    area.innerHTML = `
+      <div class="act-row"><span>⏱️ 撐住</span><div class="act-track"><div class="act-fill" id="st-time"></div></div></div>
+      <div class="st-stage"><div class="st-sea">🌊🌊🌊</div><div class="st-boat" id="st-boat">⛵</div><div class="st-wind" id="st-wind"></div></div>
+      <div class="st-btns">
+        <button class="big-btn act-tap" id="st-left">◀️ 壓左舷</button>
+        <button class="big-btn act-tap" id="st-right">壓右舷 ▶️</button>
+      </div>
+      <p class="fr-tip">風把船吹向哪邊，就按住另一邊壓回來，別讓船翻了！</p>`;
+    const hold = (id, val) => {
+      const b = $(id);
+      b.onpointerdown = (e) => { e.preventDefault(); S.input = val; };
+      b.onpointerup = () => { if (S.input === val) S.input = 0; };
+      b.onpointerleave = () => { if (S.input === val) S.input = 0; };
+    };
+    hold('#st-left', -1);
+    hold('#st-right', 1);
+    S.tick = (dt) => {
+      if (S.phase !== 'play') return;
+      S.t += dt;
+      S.windMs -= dt;
+      if (S.windMs <= 0) { // 風向每 1~2 秒變一次，越晚越猛
+        S.windMs = 1000 + Math.random() * 1000;
+        const force = 12 + (S.t / SURVIVE_MS) * 22; // 風力上限 34 < 玩家的 48，壓得回來；但放著不管必翻
+        S.wind = (Math.random() < 0.5 ? -1 : 1) * force;
+        $('#st-wind').textContent = S.wind < 0 ? '💨⬅️' : '➡️💨';
+      }
+      const f = dt / 16.7; // 換算成「幀當量」，物理不受幀率/節流影響
+      S.vel += (S.wind + S.input * 48) * 0.0167 * f;
+      S.vel -= S.angle * 0.006 * f;        // 微量自扶正力（緩衝用，擋不住中後期的風）
+      S.vel *= Math.pow(0.97, f);          // 阻尼（依時間縮放）
+      S.vel = Math.max(-30, Math.min(30, S.vel));
+      S.angle += S.vel * 0.0667 * f;
+      $('#st-boat').style.transform = `rotate(${S.angle}deg)`;
+      $('#st-time').style.width = `${Math.min(100, (S.t / SURVIVE_MS) * 100)}%`;
+      if (Math.abs(S.angle) >= CAPSIZE) {
+        S.phase = 'done';
+        loseAction('MRK', '船翻了！別怕——「為甚麼膽怯？你們還沒有信心嗎？」耶穌就在船上，再撐一次！', ACTION_GAMES.storm);
+        return;
+      }
+      if (S.t >= SURVIVE_MS) {
+        S.phase = 'call';
+        $('#st-wind').textContent = '🌊🌊🌊';
+        const btns = $('#action-area').querySelector('.st-btns');
+        btns.innerHTML = `<button class="big-btn" id="st-call">🙏 呼求耶穌！</button>`;
+        $('#st-call').onclick = () => {
+          S.phase = 'done';
+          winAction('storm', 'MRK', { emoji: '🌅', title: '住了吧！靜了吧！', text: '你拼命撐住了整場風浪——但真正平靜風浪的，是耶穌的一句話。「風就止住，大大地平靜了。」（可 4:39）連風和海也聽從祂！' }, ACTION_GAMES.storm);
+        };
+      }
+    };
+    let last = performance.now();
+    const step = (now) => {
+      if (!action || action.state !== S) return;
+      S.tick(Math.min(50, now - last));
+      last = now;
+      if (S.phase === 'play') S.raf = requestAnimationFrame(step);
+    };
+    S.raf = requestAnimationFrame(step);
+  };
+
   // ===== 📖 書卷故事小遊戲（對決引擎：答對推進我方、答錯讓威脅逼近，先滿者定勝負）=====
   // 加一款遊戲＝在這裡加一份設定，章節頁入口與雲端同步都會自動長出來
   const MINIGAMES = {
@@ -1660,7 +1804,7 @@
       ],
     },
     loaves: {
-      book: 'JHN', ch: 6, emoji: '🍞', title: '五餅二魚', tag: '約 6・餵飽五千',
+      book: 'JHN', ch: 6, emoji: '🍞', title: '五餅二魚', tag: '約 6・拖籃接餅',
       myEmoji: '🍞', myName: '餵飽的人數', myGoal: 5,
       foeEmoji: '🌆', foeName: '天色漸晚、群眾飢餓', foeGoal: 5,
       hitText: '🍞 餅越掰越多，又餵飽了一千人！', missText: '🌆 天色更晚了，群眾更餓了…',
@@ -1690,7 +1834,7 @@
       ],
     },
     storm: {
-      book: 'MRK', ch: 4, emoji: '⛵', title: '耶穌平靜風浪', tag: '可 4・答題對決',
+      book: 'MRK', ch: 4, emoji: '⛵', title: '耶穌平靜風浪', tag: '可 4・平衡穩船',
       myEmoji: '🙏', myName: '向耶穌呼求的信心', myGoal: 5,
       foeEmoji: '🌊', foeName: '暴風大浪', foeGoal: 5,
       hitText: '🙏 定睛在耶穌身上，心就安穩！', missText: '🌊 波浪打入船內，船快滿了水…',

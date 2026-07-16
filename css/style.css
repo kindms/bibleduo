@@ -737,3 +737,16 @@ main, header { position: relative; z-index: 1; }
 .jr-laps { position: absolute; top: 8px; right: 14px; font-weight: bold; color: var(--text); }
 .jr-shake { animation: jrshake .4s; }
 @keyframes jrshake { 25% { transform: rotate(-6deg) } 75% { transform: rotate(6deg) } }
+
+/* 🍞 掰餅接籃 */
+.lv-stage { position: relative; height: 340px; border: 2px dashed var(--card-line); border-radius: 20px; margin: 8px 0; overflow: hidden; touch-action: none; }
+.lv-hands { position: absolute; top: 4px; left: 50%; transform: translateX(-50%); font-size: 1.6rem; }
+.lv-item { position: absolute; font-size: 1.6rem; transform: translate(-50%, -50%); pointer-events: none; }
+.lv-basket { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); font-size: 2.4rem; pointer-events: none; }
+/* ⛵ 穩住船身 */
+.st-stage { position: relative; height: 200px; border: 2px dashed var(--card-line); border-radius: 20px; margin: 8px 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.st-boat { font-size: 4.5rem; transition: transform .06s linear; user-select: none; }
+.st-sea { position: absolute; bottom: 6px; left: 0; right: 0; text-align: center; font-size: 1.4rem; opacity: .7; }
+.st-wind { position: absolute; top: 8px; left: 0; right: 0; text-align: center; font-size: 1.3rem; }
+.st-btns { display: flex; gap: 10px; }
+.st-btns .big-btn { flex: 1; margin: 6px 0; }
