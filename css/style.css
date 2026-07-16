@@ -71,6 +71,23 @@
   --node-locked-shadow: #2c2a4d;
   --title: #c4b5fd;
 }
+[data-scene="jerusalem"] {
+  /* 🏛️ 耶路撒冷（聖城石牆的暖金色） */
+  --bg: radial-gradient(900px 500px at 75% -10%, #fcedc8 0%, transparent 55%),
+        linear-gradient(170deg, #fdf9ef 0%, #f5ecd8 50%, #eadfc4 100%);
+  --primary: #d4a017;
+  --primary-dark: #b18411;
+  --select: #2563eb;
+  --select-bg: #eef2fd;
+  --card: #fffdf6;
+  --card-line: #e8dcbf;
+  --text: #4a3f28;
+  --text-light: #a99d80;
+  --topbar: rgba(253, 249, 239, 0.9);
+  --node-locked: #e3dac2;
+  --node-locked-shadow: #cbc0a4;
+  --title: #a97b0f;
+}
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; padding: 0; min-height: 100%; }

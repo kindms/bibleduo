@@ -24,12 +24,14 @@
     galilee: { name: '加利利海', emoji: '🌊', decor: ['⛵', '🐟', '🌊', '🕊️', '🐚'], theme: '#e6f2fd' },
     desert: { name: '曠野日出', emoji: '🏜️', decor: ['🌵', '🐫', '☀️', '⛺', '🦂'], theme: '#fdf4dc' },
     night: { name: '星夜應許', emoji: '🌌', decor: ['⭐', '🌙', '✨', '☁️', '💫'], theme: '#211d4d' },
+    jerusalem: { name: '耶路撒冷', emoji: '🏛️', decor: ['🏛️', '🫒', '🎺', '🕊️', '🌟'], theme: '#f7efdd' },
   };
   const MASCOTS = {
     dove: { name: '小鴿子', emoji: '🕊️', verse: '「鴿子嘴裏叼着一個新擰下來的橄欖葉子」— 創世記 8:11' },
     fish: { name: '小魚', emoji: '🐟', verse: '「我們這裏只有五個餅、兩條魚」— 馬太福音 14:17' },
     hippo: { name: '小河馬', emoji: '🦛', verse: '「你且觀看河馬…牠的氣力在腰間」— 約伯記 40:15-16' },
     ant: { name: '小螞蟻', emoji: '🐜', verse: '「懶惰人哪，你去察看螞蟻的動作就可得智慧」— 箴言 6:6' },
+    lion: { name: '小獅子', emoji: '🦁', verse: '「看哪，猶大支派中的獅子…他已得勝」— 啟示錄 5:5' },
   };
 
   // ===== 進度資料（localStorage，Step 3 會改接雲端）=====
