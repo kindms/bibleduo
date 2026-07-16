@@ -750,3 +750,16 @@ main, header { position: relative; z-index: 1; }
 .st-wind { position: absolute; top: 8px; left: 0; right: 0; text-align: center; font-size: 1.3rem; }
 .st-btns { display: flex; gap: 10px; }
 .st-btns .big-btn { flex: 1; margin: 6px 0; }
+
+/* 🌊 分海快走 */
+.rs-stage { position: relative; height: 160px; border: 2px dashed var(--card-line); border-radius: 20px; margin: 8px 0; display: flex; align-items: center; justify-content: center; gap: 6px; overflow: hidden; touch-action: none; font-size: 2.2rem; }
+.rs-sea { transition: transform .1s linear; }
+/* 🚶 躡腳出監 */
+.pp-guard { display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 1.1rem; color: var(--text); margin: 10px 0; }
+.pp-guard span:first-child { font-size: 2.6rem; }
+/* 🔥 堅立不拜 */
+.fn-crowd { text-align: center; font-size: 1.9rem; letter-spacing: 4px; margin: 8px 0; }
+.fn-taunt { min-height: 1.6em; color: #ff9600; font-weight: bold; }
+
+/* 排行榜加好友鈕 */
+.b-addfr { border: none; background: var(--card-line); border-radius: 10px; padding: 5px 9px; margin-left: 6px; cursor: pointer; font-size: .85rem; color: var(--text); }

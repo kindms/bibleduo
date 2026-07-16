@@ -1,4 +1,4 @@
-// 天行者 — 主程式（畫面切換、遊戲流程、進度/經驗值/連續天數）
+// 聖靈果 — 主程式（畫面切換、遊戲流程、進度/經驗值/連續天數）
 (function () {
   const $ = (sel) => document.querySelector(sel);
   const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -544,7 +544,7 @@
         const alts = [...e.results[0]].map(a => a.transcript);
         let best = 0, bestText = alts[0] || '';
         for (const t of alts) { const s = similarity(t, q.text); if (s > best) { best = s; bestText = t; } }
-        if (best >= 0.65) {
+        if (best >= 0.5) { // 朗讀相似度門檻：2026-07-16 使用者回饋從 0.65 調降，念個大概就過
           checkAnswer(true, null, `辨識到「${bestText}」，相似度 ${Math.round(best * 100)}%`);
         } else {
           status.textContent = `聽到「${bestText || '（沒聽清楚）'}」，相似度 ${Math.round(best * 100)}%——再唸一次試試！`;
@@ -1710,6 +1710,196 @@
     S.raf = requestAnimationFrame(step);
   };
 
+  // —— 🌊 分海快走：先撥開海水，再左右交替點腳印快走過乾地（法老追兵在後）——
+  ACTION_GAMES.redsea = function startRedsea2() {
+    const CHASE_MS = 30000; // 追兵抵達的時間
+    const S = { phase: 'part', partPx: 0, lastX: null, run: 0, next: 'L', chase: 0, raf: 0 };
+    const area = startAction('🌊 分海快走', 'EXO', () => cancelAnimationFrame(S.raf));
+    action.state = S;
+    area.innerHTML = `
+      <p class="act-hint">摩西向海伸杖——<b>左右來回撥動海水</b>，把海分開！</p>
+      <div class="rs-stage" id="rs-stage"><span class="rs-sea" id="rs-left">🌊🌊</span><span id="rs-staff">🪄</span><span class="rs-sea" id="rs-right">🌊🌊</span></div>
+      <div class="act-row"><span>分開</span><div class="act-track"><div class="act-fill" id="rs-part"></div></div></div>`;
+    const stage = $('#rs-stage');
+    stage.onpointerdown = (e) => { if (S.phase === 'part') S.lastX = e.clientX; };
+    stage.onpointerup = () => { S.lastX = null; };
+    stage.onpointermove = (e) => {
+      if (S.phase !== 'part' || S.lastX === null) return;
+      S.partPx += Math.min(40, Math.abs(e.clientX - S.lastX)); // 單次位移上限，防跳點
+      S.lastX = e.clientX;
+      const pct = Math.min(100, (S.partPx / 420) * 100);
+      $('#rs-part').style.width = `${pct}%`;
+      $('#rs-left').style.transform = `translateX(-${pct * 0.5}px)`;
+      $('#rs-right').style.transform = `translateX(${pct * 0.5}px)`;
+      if (S.partPx >= 420) startRun();
+    };
+    function startRun() {
+      S.phase = 'run';
+      area.innerHTML = `
+        <p class="act-hint">海分開了！<b>左右交替踏步</b>，趕快走過乾地——追兵來了！</p>
+        <div class="act-row"><span>🏇 追兵</span><div class="act-track"><div class="act-fill act-foe" id="rs-chase"></div></div></div>
+        <div class="act-row"><span>🚶 過海</span><div class="act-track"><div class="act-fill" id="rs-run"></div></div></div>
+        <div class="st-btns">
+          <button class="big-btn act-tap" id="rs-l">👣 左腳</button>
+          <button class="big-btn act-tap" id="rs-r">右腳 👣</button>
+        </div>
+        <p class="fr-tip" id="rs-hint">要「左、右、左、右」輪流點，同一隻腳連點是走不動的！</p>`;
+      const stepBtn = (side) => {
+        if (S.phase !== 'run') return;
+        if (S.next !== side) { $('#rs-hint').textContent = '同一隻腳連點走不動——換另一隻腳！'; return; }
+        S.next = side === 'L' ? 'R' : 'L';
+        S.run = Math.min(100, S.run + 2.5);
+        $('#rs-run').style.width = `${S.run}%`;
+        if (S.run >= 100) {
+          S.phase = 'done';
+          winAction('redsea', 'EXO', { emoji: '🌊', title: '走過乾地，追兵全沒！', text: '以色列人下海中走乾地，水在左右作了牆垣；水一回流，法老的全軍連一個也沒有剩下！（出 14:22,28）' }, ACTION_GAMES.redsea);
+        }
+      };
+      $('#rs-l').onclick = () => stepBtn('L');
+      $('#rs-r').onclick = () => stepBtn('R');
+      loop();
+    }
+    S.tick = (dt) => {
+      if (S.phase !== 'run') return;
+      S.chase += dt;
+      const el = $('#rs-chase'); if (el) el.style.width = `${Math.min(100, (S.chase / CHASE_MS) * 100)}%`;
+      if (S.chase >= CHASE_MS) {
+        S.phase = 'done';
+        loseAction('EXO', '被法老的車輛馬兵追上了！「不要懼怕，只管站住——耶和華必為你們爭戰。」再走一次！', ACTION_GAMES.redsea);
+      }
+    };
+    function loop() {
+      let last = performance.now();
+      const step = (now) => {
+        if (!action || action.state !== S) return;
+        S.tick(Math.min(50, now - last));
+        last = now;
+        if (S.phase === 'run') S.raf = requestAnimationFrame(step);
+      };
+      S.raf = requestAnimationFrame(step);
+    }
+  };
+
+  // —— 🚶 躡腳出監：守衛打瞌睡才能長按前進，醒著就要放手（紅綠燈潛行）——
+  ACTION_GAMES.peter_prison = function startPeter2() {
+    const DAWN_MS = 90000; // 天亮倒數
+    const CHECKPOINTS = [0, 34, 67]; // 第一層、第二層、臨街鐵門
+    const S = { phase: 'play', prog: 0, guard: 'sleep', guardMs: 2200, hold: false, dawn: 0, caught: 0, raf: 0 };
+    const area = startAction('🚶 躡腳出監', 'ACT', () => cancelAnimationFrame(S.raf));
+    action.state = S;
+    area.innerHTML = `
+      <p class="act-hint">天使拍醒彼得，鐵鍊脫落——<b>守衛打瞌睡時長按前進</b>，睜眼前快放手！</p>
+      <div class="pp-guard"><span id="pp-guard-emoji">😴</span><span id="pp-guard-text">守衛睡著了…</span></div>
+      <div class="act-row"><span>🌅 天亮</span><div class="act-track"><div class="act-fill act-foe" id="pp-dawn"></div></div></div>
+      <div class="act-row"><span>🚶 逃出</span><div class="act-track"><div class="act-fill" id="pp-prog"></div></div></div>
+      <p class="fr-tip" id="pp-stage-text">第一層監牢…</p>
+      <button class="big-btn act-tap" id="pp-btn">🤫 長按躡腳前進</button>`;
+    const btn = $('#pp-btn');
+    btn.onpointerdown = (e) => { e.preventDefault(); S.hold = true; };
+    btn.onpointerup = () => { S.hold = false; };
+    btn.onpointerleave = () => { S.hold = false; };
+    const stageText = () => (S.prog < 34 ? '第一層監牢…' : S.prog < 67 ? '第二層監牢…' : '快到臨街的鐵門了！');
+    S.tick = (dt) => {
+      if (S.phase !== 'play') return;
+      S.dawn += dt;
+      S.guardMs -= dt;
+      if (S.guardMs <= 0) { // 守衛狀態機：睡 → 快醒（預告）→ 醒 → 睡
+        if (S.guard === 'sleep') { S.guard = 'warn'; S.guardMs = 700; $('#pp-guard-emoji').textContent = '🥱'; $('#pp-guard-text').textContent = '守衛動了一下！'; }
+        else if (S.guard === 'warn') { S.guard = 'awake'; S.guardMs = 900 + Math.random() * 900; $('#pp-guard-emoji').textContent = '👁️'; $('#pp-guard-text').textContent = '守衛醒著——別動！'; }
+        else { S.guard = 'sleep'; S.guardMs = 1500 + Math.random() * 1500; $('#pp-guard-emoji').textContent = '😴'; $('#pp-guard-text').textContent = '守衛睡著了…'; }
+      }
+      if (S.hold) {
+        if (S.guard === 'awake') { // 被發現：退回上一個檢查點
+          S.caught++;
+          sndBad();
+          S.prog = [...CHECKPOINTS].reverse().find((c) => c <= S.prog) || 0;
+          S.hold = false;
+          $('#pp-guard-text').textContent = '被看到了！退回上個檢查點，禱告再來…';
+        } else {
+          S.prog = Math.min(100, S.prog + dt * 0.012);
+        }
+      }
+      $('#pp-prog').style.width = `${S.prog}%`;
+      $('#pp-dawn').style.width = `${Math.min(100, (S.dawn / DAWN_MS) * 100)}%`;
+      $('#pp-stage-text').textContent = stageText();
+      if (S.prog >= 100) {
+        S.phase = 'done';
+        winAction('peter_prison', 'ACT', { emoji: '🔓', title: '鐵門自己開了！', text: '過了第一層第二層監牢，臨街的鐵門自己開了——彼得出來，才知道不是異象：主真的差天使救他脫離希律的手！（徒 12:10-11）教會的禱告，神都聽見了。' }, ACTION_GAMES.peter_prison);
+        return;
+      }
+      if (S.dawn >= DAWN_MS) {
+        S.phase = 'done';
+        loseAction('ACT', '天亮了，還沒走出監牢——別灰心，教會還在為你切切禱告，再來一次！', ACTION_GAMES.peter_prison);
+      }
+    };
+    let last = performance.now();
+    const step = (now) => {
+      if (!action || action.state !== S) return;
+      S.tick(Math.min(50, now - last));
+      last = now;
+      if (S.phase === 'play') S.raf = requestAnimationFrame(step);
+    };
+    S.raf = requestAnimationFrame(step);
+  };
+
+  // —— 🔥 堅立不拜：長按「站立」堅持到底，抗住各種要你鬆手的干擾 ——
+  ACTION_GAMES.furnace = function startFurnace2() {
+    const STAND_MS = 20000; // 需累計站立 20 秒
+    const TAUNTS = ['📯 樂聲響起——所有人都拜下去了…', '你也放手跟著拜吧？', '🔥 王下令：窯要燒熱七倍！', '「即或不然……」', '再撐一下，快天亮了！'];
+    const S = { phase: 'play', stand: 0, kneel: 0, hold: false, tauntMs: 2600, ti: 0, raf: 0 };
+    const area = startAction('🔥 堅立不拜', 'DAN', () => cancelAnimationFrame(S.raf));
+    action.state = S;
+    area.innerHTML = `
+      <p class="act-hint">金像立起、樂聲響起——<b>長按「站立」，手不放、膝不彎！</b></p>
+      <div class="fn-crowd" id="fn-crowd">🧍🧍🧍🧍🧍🧍</div>
+      <p class="act-hint fn-taunt" id="fn-taunt">📯 樂聲響起…</p>
+      <div class="act-row"><span>🧎 下拜</span><div class="act-track"><div class="act-fill act-foe" id="fn-kneel"></div></div></div>
+      <div class="act-row"><span>🧍 堅立</span><div class="act-track"><div class="act-fill" id="fn-stand"></div></div></div>
+      <button class="big-btn act-tap" id="fn-btn">🧍 按住不放＝堅立不拜</button>`;
+    const btn = $('#fn-btn');
+    btn.onpointerdown = (e) => { e.preventDefault(); S.hold = true; };
+    btn.onpointerup = () => { S.hold = false; };
+    btn.onpointerleave = () => { S.hold = false; };
+    S.tick = (dt) => {
+      if (S.phase !== 'play') return;
+      S.tauntMs -= dt;
+      if (S.tauntMs <= 0) { // 干擾輪播：換嘲諷詞＋群眾逐排拜下＋畫面搖一下
+        S.tauntMs = 2200 + Math.random() * 1200;
+        S.ti++;
+        $('#fn-taunt').textContent = TAUNTS[S.ti % TAUNTS.length];
+        const bowed = Math.min(6, Math.floor((S.stand / STAND_MS) * 7));
+        $('#fn-crowd').textContent = '🙇'.repeat(bowed) + '🧍'.repeat(6 - bowed);
+        const a = $('#action-area');
+        a.classList.remove('jr-shake'); void a.offsetWidth; a.classList.add('jr-shake');
+      }
+      if (S.hold) {
+        S.stand += dt;
+        S.kneel = Math.max(0, S.kneel - dt * 0.4);
+      } else {
+        S.kneel += dt; // 放手就開始往下跪，約 4 秒跪滿
+      }
+      $('#fn-stand').style.width = `${Math.min(100, (S.stand / STAND_MS) * 100)}%`;
+      $('#fn-kneel').style.width = `${Math.min(100, (S.kneel / 4000) * 100)}%`;
+      if (S.stand >= STAND_MS) {
+        S.phase = 'done';
+        winAction('furnace', 'DAN', { emoji: '🔥', title: '火中有第四個人！', text: '他們被扔進烈火的窯——王卻看見四個人在火中遊行，毫無傷損，第四個的相貌好像神子！頭髮沒燒焦、衣裳沒變色、連火燎的氣味也沒有。（但 3:25,27）' }, ACTION_GAMES.furnace);
+        return;
+      }
+      if (S.kneel >= 4000) {
+        S.phase = 'done';
+        loseAction('DAN', '手一鬆，膝蓋就彎了——「即或不然，我們也決不事奉你的神像。」深呼吸，再堅立一次！', ACTION_GAMES.furnace);
+      }
+    };
+    let last = performance.now();
+    const step = (now) => {
+      if (!action || action.state !== S) return;
+      S.tick(Math.min(50, now - last));
+      last = now;
+      if (S.phase === 'play') S.raf = requestAnimationFrame(step);
+    };
+    S.raf = requestAnimationFrame(step);
+  };
+
   // ===== 📖 書卷故事小遊戲（對決引擎：答對推進我方、答錯讓威脅逼近，先滿者定勝負）=====
   // 加一款遊戲＝在這裡加一份設定，章節頁入口與雲端同步都會自動長出來
   const MINIGAMES = {
@@ -1729,7 +1919,7 @@
       ],
     },
     furnace: {
-      book: 'DAN', ch: 3, emoji: '🔥', title: '火窯三友', tag: '但 3・答題對決',
+      book: 'DAN', ch: 3, emoji: '🔥', title: '火窯三友', tag: '但 3・堅立不拜',
       myEmoji: '🙏', myName: '第四個人的同在', myGoal: 5,
       foeEmoji: '🔥', foeName: '窯溫升高', foeGoal: 5,
       hitText: '🙏 火中有第四個人同行，護住他們！', missText: '🔥 窯又燒得更旺了…',
@@ -1774,7 +1964,7 @@
       ],
     },
     redsea: {
-      book: 'EXO', ch: 14, emoji: '🌊', title: '過紅海', tag: '出 14・答題對決',
+      book: 'EXO', ch: 14, emoji: '🌊', title: '過紅海', tag: '出 14・撥海快走',
       myEmoji: '🚶', myName: '走過分開的乾地', myGoal: 5,
       foeEmoji: '🏇', foeName: '法老的追兵', foeGoal: 5,
       hitText: '🌊 海水又分開一步，往前走上乾地！', missText: '🏇 法老的車輛馬兵又追近了…',
@@ -1864,7 +2054,7 @@
       ],
     },
     peter_prison: {
-      book: 'ACT', ch: 12, emoji: '⛓️', title: '彼得被天使救出監牢', tag: '徒 12・答題對決',
+      book: 'ACT', ch: 12, emoji: '⛓️', title: '彼得被天使救出監牢', tag: '徒 12・躡腳潛行',
       myEmoji: '😇', myName: '教會的禱告與天使', myGoal: 5,
       foeEmoji: '⛓️', foeName: '鐵鍊與四班兵丁', foeGoal: 5,
       hitText: '😇 天使一拍，鐵鍊脫落，鐵門自開！', missText: '⛓️ 守衛森嚴，鐵鍊又緊了…',
@@ -2552,11 +2742,21 @@
         const isMe = r.uid === my;
         row.className = 'board-row' + (isMe ? ' me' : '');
         const m = MASCOTS[r.mascot] || MASCOTS.dove;
+        const canAdd = !isMe && CloudSync.isLoggedIn() && !(state.friends || []).includes(r.uid); // 排行榜直接加好友（2026-07-16 回饋）
         row.innerHTML = `<span class="b-rank">${medals[i] || i + 1}</span>
           <span class="b-mascot">${m.emoji}</span>
           <span class="b-nick">${escapeHtml(r.nick || '無名小卒')}${isMe ? ' <span class="b-editme">✏️改名</span>' : ''}</span>
-          <span class="b-xp">⭐ ${boardMode === 'week' ? (r.weekXp || 0) : (r.xp || 0)}</span>`;
+          <span class="b-xp">⭐ ${boardMode === 'week' ? (r.weekXp || 0) : (r.xp || 0)}</span>${canAdd ? '<button class="b-addfr" title="加好友">➕</button>' : ''}`;
         if (isMe) row.onclick = openNameEditor; // 點自己那一列即可改名
+        const addBtn = row.querySelector('.b-addfr');
+        if (addBtn) addBtn.onclick = async (e) => {
+          e.stopPropagation();
+          addBtn.disabled = true; addBtn.textContent = '…';
+          try {
+            await CloudSync.sendFriendRequest(r.uid, state.nickname || (currentUser && currentUser.name) || '', r.nick || '');
+            addBtn.textContent = '✓已邀';
+          } catch (err) { console.warn('排行榜加好友失敗', err); addBtn.disabled = false; addBtn.textContent = '➕'; alert('網路不穩，請再試一次。'); }
+        };
         list.appendChild(row);
       });
     }
@@ -2826,7 +3026,7 @@
       const sec = document.createElement('div');
       sec.className = 'fr-card fr-out';
       sec.innerHTML = `<h3 class="fr-h">⏳ 等待對方同意</h3>` + req.outgoing.map((r) =>
-        `<div class="fr-req-row"><span class="fr-name fr-dim">已邀請，等回應中…</span><button class="fr-no" data-rid="${r.id}">取消</button></div>`).join('');
+        `<div class="fr-req-row"><span class="fr-name fr-dim">等待「${escapeHtml(r.toNick || '好友')}」回應中…</span><button class="fr-no" data-rid="${r.id}">取消</button></div>`).join('');
       sec.querySelectorAll('.fr-no').forEach((b) => {
         b.onclick = async () => { await CloudSync.removeRequest(b.dataset.rid); renderFriends(); };
       });
@@ -2878,7 +3078,7 @@
         const b = rc.querySelector('#btn-reco-add');
         b.disabled = true; b.textContent = '送出中…';
         try {
-          await CloudSync.sendFriendRequest(reco.uid, state.nickname || (currentUser && currentUser.name) || '');
+          await CloudSync.sendFriendRequest(reco.uid, state.nickname || (currentUser && currentUser.name) || '', reco.nick || '');
           alert(`已送出邀請給「${reco.nick || '對方'}」，等對方同意就成為好友！`);
         } catch (e) { console.warn('推薦加好友失敗', e); alert('網路不穩，請再試一次。'); }
         renderFriends();
@@ -2919,7 +3119,7 @@
       if (!target) { alert('找不到這個人，確認好友碼或暱稱有沒有打錯（對方要至少玩過一關才找得到）。'); return; }
       if (target.uid === CloudSync.uid()) { alert('這是你自己的代碼啦 😄'); return; }
       if (state.friends.includes(target.uid)) { alert(`${target.nick} 已經是你的好友了！`); return; }
-      await CloudSync.sendFriendRequest(target.uid, state.nickname || (currentUser && currentUser.name) || '');
+      await CloudSync.sendFriendRequest(target.uid, state.nickname || (currentUser && currentUser.name) || '', target.nick);
       input.value = '';
       alert(`已送出邀請給「${target.nick}」，等對方同意就成為好友！`);
       renderFriends();

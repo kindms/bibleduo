@@ -139,11 +139,11 @@ const CloudSync = (function () {
     const d = qs.docs[0];
     return { uid: d.id, nick: d.data().nick };
   }
-  // 送出好友邀請（文件 ID 用 from_to，天然防重複邀請）
-  async function sendFriendRequest(toUid, fromNick) {
+  // 送出好友邀請（文件 ID 用 from_to，天然防重複邀請）；toNick 給「等待中」清單顯示對方是誰
+  async function sendFriendRequest(toUid, fromNick, toNick) {
     if (!user || !db) throw new Error("not-logged-in");
     await db.collection(REQUESTS).doc(`${user.uid}_${toUid}`).set({
-      from: user.uid, to: toUid, fromNick: fromNick || "無名小卒",
+      from: user.uid, to: toUid, fromNick: fromNick || "無名小卒", toNick: toNick || "",
       status: "pending", at: firebase.firestore.FieldValue.serverTimestamp(),
     });
   }
