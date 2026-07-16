@@ -81,11 +81,11 @@ const CloudSync = (function () {
   async function fetchBoard(mode, weekKey) {
     if (!db) return [];
     if (mode === "total") {
-      const qs = await db.collection(BOARD).orderBy("xp", "desc").limit(20).get();
+      const qs = await withTimeout(db.collection(BOARD).orderBy("xp", "desc").limit(20).get());
       return qs.docs.map((d) => ({ uid: d.id, ...d.data() }));
     }
     // 本週榜：抓本週有分數的人，前端排序（教會規模的量級綽綽有餘）
-    const qs = await db.collection(BOARD).where("weekKey", "==", weekKey).get();
+    const qs = await withTimeout(db.collection(BOARD).where("weekKey", "==", weekKey).get());
     return qs.docs.map((d) => ({ uid: d.id, ...d.data() }))
       .filter((r) => (r.weekXp || 0) > 0)
       .sort((a, b) => (b.weekXp || 0) - (a.weekXp || 0))
@@ -107,6 +107,9 @@ const CloudSync = (function () {
   // 好友碼：從 uid 決定性產生（同一帳號永遠同一組），存進排行榜文件供反查
   const REQUESTS = "bibleduo_requests";
   const NICKNAMES = "bibleduo_nicknames";
+  // 雲端呼叫一律加逾時：網路不穩時 Firestore 可能懸著不回應，沒有上限就會「永遠轉圈圈」
+  const withTimeout = (p, ms = 10000) =>
+    Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("cloud-timeout")), ms))]);
   function codeOf(uid) {
     let h = 0;
     for (let i = 0; i < uid.length; i++) h = (h * 131 + uid.charCodeAt(i)) >>> 0;
@@ -120,7 +123,7 @@ const CloudSync = (function () {
   // 用好友碼找人（回 {uid, nick} 或 null）
   async function findByCode(code) {
     if (!db) return null;
-    const qs = await db.collection(BOARD).where("friendCode", "==", code.trim().toUpperCase()).limit(1).get();
+    const qs = await withTimeout(db.collection(BOARD).where("friendCode", "==", code.trim().toUpperCase()).limit(1).get());
     if (qs.empty) return null;
     const d = qs.docs[0];
     return { uid: d.id, nick: d.data().nick || "無名小卒" };
@@ -128,13 +131,13 @@ const CloudSync = (function () {
   // 用暱稱找人：先查唯一暱稱登記簿，沒有再退回排行榜暱稱欄位（老用戶還沒登記）
   async function findByNick(nick) {
     if (!db) return null;
-    const reg = await db.collection(NICKNAMES).doc(nick.trim()).get();
+    const reg = await withTimeout(db.collection(NICKNAMES).doc(nick.trim()).get());
     if (reg.exists) {
       const uid = reg.data().uid;
-      const b = await db.collection(BOARD).doc(uid).get();
+      const b = await withTimeout(db.collection(BOARD).doc(uid).get());
       return { uid, nick: b.exists ? (b.data().nick || nick) : nick };
     }
-    const qs = await db.collection(BOARD).where("nick", "==", nick.trim()).limit(1).get();
+    const qs = await withTimeout(db.collection(BOARD).where("nick", "==", nick.trim()).limit(1).get());
     if (qs.empty) return null;
     const d = qs.docs[0];
     return { uid: d.id, nick: d.data().nick };
@@ -142,25 +145,25 @@ const CloudSync = (function () {
   // 送出好友邀請（文件 ID 用 from_to，天然防重複邀請）；toNick 給「等待中」清單顯示對方是誰
   async function sendFriendRequest(toUid, fromNick, toNick) {
     if (!user || !db) throw new Error("not-logged-in");
-    await db.collection(REQUESTS).doc(`${user.uid}_${toUid}`).set({
+    await withTimeout(db.collection(REQUESTS).doc(`${user.uid}_${toUid}`).set({
       from: user.uid, to: toUid, fromNick: fromNick || "無名小卒", toNick: toNick || "",
       status: "pending", at: firebase.firestore.FieldValue.serverTimestamp(),
-    });
+    }));
   }
   // 抓跟我有關的邀請：收到的待處理、我送出待回應、我送出已被同意（要收尾）
   async function fetchRequests() {
     if (!user || !db) return { incoming: [], outgoing: [], accepted: [] };
-    const [inc, outP, outA] = await Promise.all([
+    const [inc, outP, outA] = await withTimeout(Promise.all([
       db.collection(REQUESTS).where("to", "==", user.uid).where("status", "==", "pending").get(),
       db.collection(REQUESTS).where("from", "==", user.uid).where("status", "==", "pending").get(),
       db.collection(REQUESTS).where("from", "==", user.uid).where("status", "==", "accepted").get(),
-    ]);
+    ]));
     const rows = (qs) => qs.docs.map((d) => ({ id: d.id, ...d.data() }));
     return { incoming: rows(inc), outgoing: rows(outP), accepted: rows(outA) };
   }
   async function answerRequest(id, accept) {
     if (!user || !db) throw new Error("not-logged-in");
-    await db.collection(REQUESTS).doc(id).update({ status: accept ? "accepted" : "declined" });
+    await withTimeout(db.collection(REQUESTS).doc(id).update({ status: accept ? "accepted" : "declined" }));
   }
   async function removeRequest(id) {
     if (!user || !db) return;
@@ -169,7 +172,7 @@ const CloudSync = (function () {
   // 抓一批好友的排行榜資料（顯示本週進度用）
   async function fetchProfiles(uids) {
     if (!db || !uids.length) return [];
-    const snaps = await Promise.all(uids.map((u) => db.collection(BOARD).doc(u).get()));
+    const snaps = await withTimeout(Promise.all(uids.map((u) => db.collection(BOARD).doc(u).get())));
     return snaps.filter((s) => s.exists).map((s) => ({ uid: s.id, ...s.data() }));
   }
   // ===== 每週隨機夥伴（Phase 3）=====
@@ -178,18 +181,18 @@ const CloudSync = (function () {
   const MATCH = "bibleduo_matchpool";
   async function joinMatch(weekKey, nick, mascot) {
     if (!user || !db) throw new Error("not-logged-in");
-    await db.collection(MATCH).doc(weekKey).collection("entries").doc(user.uid).set({
+    await withTimeout(db.collection(MATCH).doc(weekKey).collection("entries").doc(user.uid).set({
       nick: nick || "無名小卒", mascot: mascot || "dove",
       at: firebase.firestore.FieldValue.serverTimestamp(),
-    });
+    }));
   }
   async function leaveMatch(weekKey) {
     if (!user || !db) return;
-    await db.collection(MATCH).doc(weekKey).collection("entries").doc(user.uid).delete().catch(() => {});
+    await withTimeout(db.collection(MATCH).doc(weekKey).collection("entries").doc(user.uid).delete()).catch(() => {});
   }
   async function fetchMatchEntries(weekKey) {
     if (!db) return [];
-    const qs = await db.collection(MATCH).doc(weekKey).collection("entries").orderBy("at", "asc").get();
+    const qs = await withTimeout(db.collection(MATCH).doc(weekKey).collection("entries").orderBy("at", "asc").get());
     return qs.docs.map((d) => ({ uid: d.id, ...d.data() }));
   }
 
@@ -197,11 +200,19 @@ const CloudSync = (function () {
   async function claimNickname(nick, oldNick) {
     if (!user || !db) throw new Error("not-logged-in");
     const ref = db.collection(NICKNAMES).doc(nick);
-    const snap = await ref.get();
+    const snap = await withTimeout(ref.get());
     if (snap.exists && snap.data().uid !== user.uid) return false;
-    if (!snap.exists) await ref.set({ uid: user.uid });
+    if (!snap.exists) {
+      try { await withTimeout(ref.set({ uid: user.uid })); }
+      catch (e) {
+        // 兩人「同時」搶同一個暱稱：後到的寫入會被安全規則擋下（permission-denied）
+        // → 友善地視為「被別人用了」回 false，不拋錯、不讓畫面卡住（使用者回報的轉圈圈來源之一）
+        if (e && (e.code === "permission-denied" || /permission/i.test(String(e)))) return false;
+        throw e;
+      }
+    }
     if (oldNick && oldNick !== nick) {
-      await db.collection(NICKNAMES).doc(oldNick).delete().catch(() => {}); // 不是自己的登記會被規則擋，忽略即可
+      db.collection(NICKNAMES).doc(oldNick).delete().catch(() => {}); // 清舊名改背景執行：不等它，改名不會被這步卡住
     }
     return true;
   }
