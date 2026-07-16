@@ -718,3 +718,22 @@ main, header { position: relative; z-index: 1; }
   #topbar .stat { font-size: .95rem; }
   .icon-btn { font-size: 1.2rem; padding: 4px 5px; }
 }
+
+/* 🎮 動作小遊戲 2.0 */
+#action-area { padding: 4px 2px; }
+.act-hint { text-align: center; color: var(--text); margin: 8px 0 12px; line-height: 1.6; }
+.act-row { display: flex; align-items: center; gap: 10px; margin: 10px 0; color: var(--text-light); font-size: .9rem; }
+.act-track { flex: 1; height: 14px; background: var(--card-line); border-radius: 8px; overflow: hidden; }
+.act-fill { height: 100%; width: 0; background: var(--primary); border-radius: 8px; transition: width .08s linear; }
+.act-fill.act-foe { background: #ff4b4b; }
+.act-tap { touch-action: manipulation; user-select: none; -webkit-user-select: none; } /* 快速連點不觸發縮放/選字 */
+.dv-foe { text-align: center; font-size: 2rem; margin: 6px 0; transition: font-size .3s; }
+.dv-aim { position: relative; height: 26px; background: var(--card); border: 2px solid var(--card-line); border-radius: 12px; margin: 12px 0; }
+.dv-zone { position: absolute; top: 0; bottom: 0; background: rgba(88, 204, 2, .35); border-radius: 8px; }
+.dv-marker { position: absolute; top: -4px; bottom: -4px; width: 6px; margin-left: -3px; background: #ff9600; border-radius: 3px; }
+.jr-stage { position: relative; height: 300px; border: 2px dashed var(--card-line); border-radius: 20px; margin: 8px 0; touch-action: none; display: flex; align-items: center; justify-content: center; }
+.jr-stage.jr-small { height: 110px; }
+.jr-city { font-size: 4rem; user-select: none; pointer-events: none; }
+.jr-laps { position: absolute; top: 8px; right: 14px; font-weight: bold; color: var(--text); }
+.jr-shake { animation: jrshake .4s; }
+@keyframes jrshake { 25% { transform: rotate(-6deg) } 75% { transform: rotate(6deg) } }

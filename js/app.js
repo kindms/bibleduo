@@ -309,14 +309,14 @@
       const btn = document.createElement('button');
       btn.className = 'book-feature mg-card';
       btn.innerHTML = `<span class="bf-emoji">${cfg.emoji}</span><span class="bf-text"><b>${cfg.title}</b><small>${won ? '已通關 ⭐ 可重玩' : (cfg.tag || '小遊戲・答題對決')}</small></span><span class="bf-arrow">›</span>`;
-      btn.onclick = () => startMinigame(gid);
+      btn.onclick = () => (ACTION_GAMES[gid] ? ACTION_GAMES[gid]() : startMinigame(gid)); // 有 2.0 動作版就開新版
       nodes.push(btn);
     }
     return nodes;
   }
   $('#btn-back-books').onclick = () => { renderBooks(); show('#screen-books'); };
   $('#btn-home').onclick = () => {
-    stopSprintTimer(); sprint = null; flip = null; mg = null; noah = null; // 從小遊戲直接回家要停計時器/清狀態
+    stopSprintTimer(); sprint = null; flip = null; mg = null; noah = null; endActionState(); // 從小遊戲直接回家要停計時器/清狀態（含動作遊戲的 rAF/麥克風）
     lesson = null; renderTopbar(); renderBooks(); show('#screen-books');
   };
 
@@ -1300,11 +1300,277 @@
     if (confirm('要離開挪亞方舟嗎？（不會有任何損失）')) { noah = null; openBook('GEN'); }
   };
 
+  // ===== 🎮 動作小遊戲 2.0（每款不同操作；有 2.0 版的故事，入口自動改開新版）=====
+  const ACTION_GAMES = {}; // gameId → 啟動函數
+  let action = null;       // { book, state, cleanup }
+  function startAction(title, book, cleanup) {
+    action = { book, cleanup: cleanup || null };
+    $('#action-title').textContent = title;
+    show('#screen-action');
+    return $('#action-area');
+  }
+  function endActionState() {
+    if (action && action.cleanup) { try { action.cleanup(); } catch (e) { /* 清理失敗不擋流程 */ } }
+    action = null;
+  }
+  $('#btn-action-quit').onclick = () => {
+    if (!confirm('要離開這個小遊戲嗎？（不會有任何損失）')) return;
+    const bk = action && action.book;
+    endActionState();
+    if (bk) openBook(bk); else { renderBooks(); show('#screen-books'); }
+  };
+  function winAction(id, book, win, again) {
+    endActionState();
+    const first = !state.minigames[id];
+    const gained = first ? 30 : 5;
+    if (first) state.minigames[id] = true;
+    state.xp += gained;
+    ensureWeek();
+    state.weekXp += gained;
+    bumpStreak();
+    store.save(state);
+    sndWin();
+    throwConfetti();
+    $('#result-box').innerHTML = `
+      <div class="r-emoji">${win.emoji || '🎉'}</div>
+      <h2>${win.title || '獲勝！'}</h2>
+      <p>${win.text}</p>
+      <div class="result-stats"><div class="r-stat">＋${gained}<span>經驗值${first ? '' : '（重玩）'}</span></div></div>
+      <button class="big-btn" id="btn-act-again">再玩一次</button>
+      <button class="ghost-btn" id="btn-continue">回書卷</button>`;
+    $('#btn-act-again').onclick = again;
+    $('#btn-continue').onclick = () => { renderTopbar(); openBook(book); };
+    renderTopbar();
+    show('#screen-result');
+  }
+  function loseAction(book, text, again) {
+    endActionState();
+    sndBad();
+    $('#result-box').innerHTML = `
+      <div class="r-emoji">${mascot().emoji}💭</div>
+      <h2>差一點！</h2>
+      <p>${text}</p>
+      <button class="big-btn" id="btn-act-again">再挑戰</button>
+      <button class="ghost-btn" id="btn-continue">回書卷</button>`;
+    $('#btn-act-again').onclick = again;
+    $('#btn-continue').onclick = () => { renderTopbar(); openBook(book); };
+    renderTopbar();
+    show('#screen-result');
+  }
+
+  // —— 🗿 大衛甩石：開場 1 題 → 快速連點蓄力 → 準星晃進額頭區的瞬間放手 ——
+  ACTION_GAMES.david = function startDavid2() {
+    const S = { phase: 'quiz', stones: 5, dist: 4, power: 0, marker: 0, dir: 1, zoneHalf: 0, raf: 0, easier: false };
+    const area = startAction('🗿 大衛甩石', '1SA', () => cancelAnimationFrame(S.raf));
+    action.state = S;
+    const NEED = () => (S.easier ? 80 : 100);
+    const q = MINIGAMES.david.manualQs[Math.floor(Math.random() * MINIGAMES.david.manualQs.length)];
+    area.innerHTML = `
+      <div class="q-title">${escapeHtml(q.q)}</div>
+      <div class="choices" id="dv-quiz"></div>
+      <p class="fr-tip">答對＝出手更沉穩（蓄力需求 -20%）；答錯也能玩，放心！</p>`;
+    const box = $('#dv-quiz');
+    const btns = [];
+    for (const o of shuffleArr(q.options)) {
+      const b = document.createElement('button');
+      b.className = 'choice';
+      b.textContent = o;
+      b.onclick = () => {
+        if (S.phase !== 'quiz') return;
+        S.phase = 'quizdone';
+        const ok = o === q.answer;
+        b.classList.add(ok ? 'correct' : 'wrong');
+        if (!ok) { const ri = btns.findIndex((x) => x.textContent === q.answer); if (ri >= 0) btns[ri].classList.add('correct'); }
+        S.easier = ok;
+        if (ok) sndGood(); else sndBad();
+        setTimeout(renderThrow, ok ? 450 : 950);
+      };
+      btns.push(b);
+      box.appendChild(b);
+    }
+    function renderThrow() {
+      S.phase = 'charge'; S.power = 0;
+      area.innerHTML = `
+        <div class="dv-foe" id="dv-foe">⚔️</div>
+        <div class="act-row"><span>逼近</span><div class="act-track"><div class="act-fill act-foe" id="dv-dist"></div></div><span>🪨×<b id="dv-stones">${S.stones}</b></span></div>
+        <div class="act-row"><span>蓄力</span><div class="act-track"><div class="act-fill" id="dv-power"></div></div></div>
+        <div class="dv-aim hidden" id="dv-aim"><div class="dv-zone" id="dv-zone"></div><div class="dv-marker" id="dv-marker"></div></div>
+        <button class="big-btn act-tap" id="dv-btn">🌀 快速連點蓄力！</button>
+        <p class="fr-tip" id="dv-hint">連點把甩石索轉起來——蓄滿後，看準時機放手！</p>`;
+      updateFoe();
+      $('#dv-btn').onclick = () => {
+        if (S.phase === 'charge') {
+          S.power = Math.min(NEED(), S.power + 9);
+          if (S.power >= NEED()) startAim(); // 門檻判定不只靠動畫幀，點擊當下也檢查
+        } else if (S.phase === 'aim') release();
+      };
+      loop();
+    }
+    function updateFoe() {
+      $('#dv-foe').style.fontSize = `${2 + (4 - S.dist) * 0.8}rem`;
+      $('#dv-dist').style.width = `${((4 - S.dist) / 4) * 100}%`;
+      const st = $('#dv-stones'); if (st) st.textContent = S.stones;
+    }
+    function loop() {
+      cancelAnimationFrame(S.raf);
+      const step = () => {
+        if (S.phase === 'charge') {
+          S.power = Math.max(0, S.power - 0.45); // 不點就洩力，逼你快點
+          const el = $('#dv-power'); if (el) el.style.width = `${(S.power / NEED()) * 100}%`;
+          if (S.power >= NEED()) startAim();
+        } else if (S.phase === 'aim') {
+          S.marker += S.dir * (1.5 + S.dist * 0.4);
+          if (S.marker >= 100) { S.marker = 100; S.dir = -1; }
+          if (S.marker <= 0) { S.marker = 0; S.dir = 1; }
+          const el = $('#dv-marker'); if (el) el.style.left = `${S.marker}%`;
+        }
+        S.raf = requestAnimationFrame(step);
+      };
+      S.raf = requestAnimationFrame(step);
+    }
+    function startAim() {
+      S.phase = 'aim'; S.marker = 0; S.dir = 1;
+      S.zoneHalf = 9 + (4 - S.dist) * 5; // 巨人越近、額頭目標越大（越好中）
+      $('#dv-aim').classList.remove('hidden');
+      const zone = $('#dv-zone');
+      zone.style.left = `${50 - S.zoneHalf}%`;
+      zone.style.width = `${S.zoneHalf * 2}%`;
+      $('#dv-btn').textContent = '🎯 放手！';
+      $('#dv-hint').textContent = '橘色準星掃進綠色「額頭區」的瞬間按下去！';
+    }
+    function release() {
+      if (Math.abs(S.marker - 50) <= S.zoneHalf) {
+        winAction('david', '1SA', { emoji: '🎯', title: '正中額頭！', text: '「你來攻擊我是靠著刀槍，我來攻擊你是靠著萬軍之耶和華的名。」——石子命中，巨人面伏於地！（撒上 17:45,49）' }, ACTION_GAMES.david);
+        return;
+      }
+      S.stones--; S.dist--;
+      sndBad();
+      if (S.stones <= 0 || S.dist <= 0) {
+        loseAction('1SA', S.stones <= 0 ? '五顆石子都甩完了——回溪邊再撿五顆光滑的石子，重新來過！' : '歌利亞衝到面前了！別怕，這場仗是屬耶和華的——再試一次！', ACTION_GAMES.david);
+        return;
+      }
+      S.phase = 'charge'; S.power = 0;
+      $('#dv-aim').classList.add('hidden');
+      $('#dv-btn').textContent = '🌀 快速連點蓄力！';
+      $('#dv-hint').textContent = '沒中！石子少一顆、巨人又近一步——再蓄力！';
+      updateFoe();
+    }
+  };
+
+  // —— 🎺 耶利哥七圈：手指繞城畫七個圈 → 大聲呼喊（麥克風音量；備援連點）——
+  ACTION_GAMES.jericho = function startJericho2() {
+    const S = { phase: 'circle', laps: 0, acc: 0, lastAng: null, raf: 0, stream: null, shout: 0, holdMs: 0 };
+    const area = startAction('🎺 耶利哥七圈', 'JOS', () => {
+      cancelAnimationFrame(S.raf);
+      if (S.stream) S.stream.getTracks().forEach((t) => t.stop());
+    });
+    action.state = S;
+    area.innerHTML = `
+      <p class="act-hint">頭六日一天繞一圈、第七日繞七圈——現在，手指繞著城<b>畫七個圈</b>！</p>
+      <div class="jr-stage" id="jr-stage"><div class="jr-city" id="jr-city">🏰</div><div class="jr-laps" id="jr-laps">0/7 圈</div></div>`;
+    const stage = $('#jr-stage');
+    const angOf = (e) => {
+      const r = stage.getBoundingClientRect();
+      return Math.atan2(e.clientY - (r.top + r.height / 2), e.clientX - (r.left + r.width / 2)) * 180 / Math.PI;
+    };
+    let drawing = false;
+    stage.onpointerdown = (e) => { if (S.phase !== 'circle') return; drawing = true; S.lastAng = angOf(e); };
+    stage.onpointerup = () => { drawing = false; };
+    stage.onpointermove = (e) => {
+      if (!drawing || S.phase !== 'circle') return;
+      const a = angOf(e);
+      let d = a - S.lastAng;
+      if (d > 180) d -= 360;
+      if (d < -180) d += 360;
+      S.lastAng = a;
+      if (Math.abs(d) > 60) return; // 座標跳點忽略
+      S.acc += Math.abs(d);
+      if (S.acc >= 360) {
+        S.acc -= 360;
+        S.laps++;
+        sndGood();
+        $('#jr-laps').textContent = `${S.laps}/7 圈`;
+        const c = $('#jr-city');
+        c.classList.remove('jr-shake'); void c.offsetWidth; c.classList.add('jr-shake');
+        if (S.laps >= 7) startShout();
+      }
+    };
+    function startShout() {
+      S.phase = 'shout';
+      area.innerHTML = `
+        <p class="act-hint">🎺 第七圈繞完，祭司吹角——<b>現在對著手機大聲呼喊！</b></p>
+        <div class="jr-stage jr-small"><div class="jr-city">🏰</div></div>
+        <div class="act-row"><span>🗣️ 呼喊</span><div class="act-track"><div class="act-fill" id="jr-vol"></div></div></div>
+        <p class="fr-tip" id="jr-mic-hint">會先詢問麥克風權限；不方便出聲也可以改用連點。</p>
+        <button class="ghost-btn" id="jr-tap-mode">🖐️ 改用連點呼喊</button>`;
+      $('#jr-tap-mode').onclick = tapMode;
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { tapMode(); return; }
+      navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
+        if (S.phase !== 'shout') { stream.getTracks().forEach((t) => t.stop()); return; }
+        S.stream = stream;
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        const ctx = new Ctx();
+        const an = ctx.createAnalyser();
+        an.fftSize = 512;
+        ctx.createMediaStreamSource(stream).connect(an);
+        const buf = new Uint8Array(an.fftSize);
+        const TH = 0.11;   // 音量門檻（0~1）：對手機正常喊即可過，可調
+        const HOLD = 700;  // 需持續的毫秒數
+        let last = performance.now();
+        const step = (now) => {
+          if (S.phase !== 'shout') return;
+          an.getByteTimeDomainData(buf);
+          let sum = 0;
+          for (let i = 0; i < buf.length; i++) { const v = (buf[i] - 128) / 128; sum += v * v; }
+          const rms = Math.sqrt(sum / buf.length);
+          if (rms >= TH) S.holdMs += now - last; else S.holdMs = Math.max(0, S.holdMs - (now - last) * 0.6);
+          last = now;
+          const el = $('#jr-vol');
+          if (el) el.style.width = `${Math.min(100, (Math.min(rms, TH) / TH) * 55 + (S.holdMs / HOLD) * 45)}%`;
+          if (S.holdMs >= HOLD) { collapse(); return; }
+          S.raf = requestAnimationFrame(step);
+        };
+        S.raf = requestAnimationFrame(step);
+      }).catch(() => {
+        const h = $('#jr-mic-hint');
+        if (h) h.textContent = '沒拿到麥克風權限——沒關係，改用連點呼喊！';
+        tapMode();
+      });
+    }
+    function tapMode() {
+      if (S.phase !== 'shout') return;
+      S.phase = 'tap';
+      S.shout = 0;
+      cancelAnimationFrame(S.raf);
+      if (S.stream) { S.stream.getTracks().forEach((t) => t.stop()); S.stream = null; }
+      area.innerHTML = `
+        <p class="act-hint">🗣️ <b>快速連點，同心大聲呼喊！</b></p>
+        <div class="act-row"><span>呼喊聲</span><div class="act-track"><div class="act-fill" id="jr-vol"></div></div></div>
+        <button class="big-btn act-tap" id="jr-shout-btn">🗣️ 呼喊！呼喊！</button>`;
+      $('#jr-shout-btn').onclick = () => {
+        if (S.phase !== 'tap') return;
+        S.shout = Math.min(100, S.shout + 8);
+        if (S.shout >= 100) collapse();
+      };
+      const step = () => {
+        if (S.phase !== 'tap') return;
+        S.shout = Math.max(0, S.shout - 0.5);
+        const el = $('#jr-vol'); if (el) el.style.width = `${S.shout}%`;
+        S.raf = requestAnimationFrame(step);
+      };
+      S.raf = requestAnimationFrame(step);
+    }
+    function collapse() {
+      S.phase = 'done';
+      winAction('jericho', 'JOS', { emoji: '🧱', title: '城牆應聲塌陷！', text: '百姓呼喊、祭司吹角，城牆就塌陷，各人往前直上，將城奪取！（書 6:20）不是靠刀劍——是靠信心與順服。' }, ACTION_GAMES.jericho);
+    }
+  };
+
   // ===== 📖 書卷故事小遊戲（對決引擎：答對推進我方、答錯讓威脅逼近，先滿者定勝負）=====
   // 加一款遊戲＝在這裡加一份設定，章節頁入口與雲端同步都會自動長出來
   const MINIGAMES = {
     david: {
-      book: '1SA', ch: 17, emoji: '🗿', title: '大衛擊殺歌利亞', tag: '撒上 17・答題對決',
+      book: '1SA', ch: 17, emoji: '🗿', title: '大衛擊殺歌利亞', tag: '撒上 17・連點甩石',
       myEmoji: '🪨', myName: '大衛的石子', myGoal: 5,
       foeEmoji: '⚔️', foeName: '歌利亞', foeGoal: 5,
       hitText: '🎯 石子甩出，命中！', missText: '😰 歌利亞又逼近一步…',
@@ -1379,7 +1645,7 @@
       ],
     },
     jericho: {
-      book: 'JOS', ch: 6, emoji: '🎺', title: '耶利哥城牆', tag: '書 6・繞城七圈',
+      book: 'JOS', ch: 6, emoji: '🎺', title: '耶利哥城牆', tag: '書 6・畫圈吶喊',
       myEmoji: '🎺', myName: '繞城的圈數', myGoal: 7,
       foeEmoji: '😨', foeName: '百姓信心動搖', foeGoal: 5,
       hitText: '🎺 又繞了一圈，腳步不停！', missText: '😨 城裡傳來嘲笑，有人信心動搖了…',
@@ -2553,7 +2819,7 @@
   };
 
   // 測試用鉤子（自動化驗證流程時讀取關卡狀態）
-  window.__bd = { get lesson() { return lesson; }, get state() { return state; }, get sprint() { return sprint; }, get flip() { return flip; }, get mg() { return mg; }, mergeStates, renderBoard, renderQuestion, similarity };
+  window.__bd = { get lesson() { return lesson; }, get state() { return state; }, get sprint() { return sprint; }, get flip() { return flip; }, get mg() { return mg; }, get action() { return action; }, mergeStates, renderBoard, renderQuestion, similarity };
 
   // ===== 啟動 =====
   (async function init() {
