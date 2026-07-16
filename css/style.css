@@ -679,3 +679,25 @@ main, header { position: relative; z-index: 1; }
 }
 .net-error .ne-emoji { font-size: 3rem; margin-bottom: 8px; }
 .net-error p { margin: 0 0 16px; }
+
+/* ===== 👥 好友（Phase 1）===== */
+.fr-card { background: var(--card, #fff); border: 2px solid var(--card-line, #e5e5e5); border-radius: 16px; padding: 14px; margin-bottom: 12px; }
+.fr-center { text-align: center; }
+.fr-center p { margin-bottom: 12px; color: var(--text); line-height: 1.6; }
+.fr-h { font-size: .95rem; margin-bottom: 8px; color: var(--text); }
+.fr-code-row { display: flex; align-items: center; gap: 10px; }
+.fr-code-row span { font-size: .85rem; color: var(--text-light); }
+.fr-code-row b { font-size: 1.25rem; letter-spacing: 2px; color: var(--text); flex: 1; }
+.fr-code-row button { border: 2px solid var(--card-line, #e5e5e5); background: none; border-radius: 10px; padding: 6px 12px; font-size: .85rem; color: var(--text); cursor: pointer; }
+.fr-tip { font-size: .8rem; color: var(--text-light); margin: 10px 0 8px; line-height: 1.5; }
+.fr-add-row { display: flex; gap: 8px; }
+.fr-add-row input { flex: 1; min-width: 0; border: 2px solid var(--card-line, #e5e5e5); border-radius: 12px; padding: 10px 12px; font-size: 1rem; background: var(--card, #fff); color: var(--text); }
+.fr-add-row .big-btn { width: auto; padding: 10px 16px; margin: 0; }
+.fr-req-row, .fr-friend-row { display: flex; align-items: center; gap: 8px; padding: 9px 4px; border-top: 1px solid var(--card-line, #eee); }
+.fr-name { flex: 1; font-weight: 700; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fr-dim { font-weight: 400; color: var(--text-light); font-size: .85rem; }
+.fr-week { font-size: .8rem; color: var(--text-light); white-space: nowrap; }
+.fr-ok, .fr-no { border: none; border-radius: 10px; padding: 7px 12px; font-size: .85rem; cursor: pointer; }
+.fr-ok { background: var(--primary, #58cc02); color: #fff; }
+.fr-no { background: var(--card-line, #e5e5e5); color: var(--text); }
+.fr-x { border: none; background: none; color: var(--text-light); font-size: .9rem; cursor: pointer; padding: 4px 6px; }

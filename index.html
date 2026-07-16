@@ -51,7 +51,8 @@
     <div class="feature-grid">
       <button class="feat" id="btn-sprint"><span class="feat-emoji">⚡</span><b>金句衝刺</b><small id="sprint-best">60 秒限時挑戰</small></button>
       <button class="feat" id="btn-flip"><span class="feat-emoji">🃏</span><b>經文翻牌</b><small>上下句配對記憶</small></button>
-      <button class="feat feat-wide" id="btn-badges"><span class="feat-emoji">🏅</span><span class="feat-wide-text"><b>成就徽章</b><small id="badge-count">0/37</small></span></button>
+      <button class="feat" id="btn-friends"><span class="feat-emoji">👥</span><b>好友</b><small id="friends-hint">揪團一起讀經</small></button>
+      <button class="feat" id="btn-badges"><span class="feat-emoji">🏅</span><b>成就徽章</b><small id="badge-count">0/37</small></button>
     </div>
 
     <!-- 打扮面板（首頁預設展開，點 🎨 才收起） -->
@@ -131,6 +132,16 @@
     </div>
     <p class="puzzle-hint">翻開兩張牌，找出同一節經文的「上句＋下句」，全部配對就完成！<span id="flip-ref" class="flip-ref"></span></p>
     <div class="flip-grid" id="flip-grid"></div>
+  </main>
+
+  <!-- 畫面：👥 好友 -->
+  <main id="screen-friends" class="screen hidden">
+    <div class="book-header">
+      <button class="back-btn" id="btn-back-friends">←</button>
+      <h2>👥 好友</h2>
+      <span></span>
+    </div>
+    <div id="friends-body"></div>
   </main>
 
   <!-- 畫面：🚢 挪亞方舟（動物翻牌配對） -->

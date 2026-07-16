@@ -47,6 +47,7 @@
   if (!state.puzzles) state.puzzles = { beatitudes: [] }; // 舊存檔補欄位
   if (!state.stats) state.stats = {}; // 各種計數器（衝刺最高分、翻牌次數、複習次數、朗讀成功數…），徽章用
   if (!state.minigames) state.minigames = {}; // 書卷故事小遊戲通關紀錄 { gameId: true }
+  if (!state.friends) state.friends = []; // 好友 uid 清單（雲端同步取聯集）
   // review: 錯題間隔複習佇列 [{key, q, book, due, stage}]；答錯隔天到期，答對依 1→3→7 天延後，對滿三次畢業移除
   // done: { MRK: [1,2,3] } 已完成章
 
@@ -2048,6 +2049,7 @@
       stats: mergeStats(local.stats, cloud.stats),
       story: { JON: [...new Set([...((local.story || {}).JON || []), ...((cloud.story || {}).JON || [])])] },
       minigames: Object.assign({}, cloud.minigames, local.minigames), // 任一裝置通關就算通關
+      friends: [...new Set([...(local.friends || []), ...(cloud.friends || [])])], // 好友清單取聯集
     };
   }
   // 計數器合併：每個欄位取較大值（兩邊各玩各的都不吃虧）
@@ -2100,6 +2102,7 @@
     renderUserUi();
     renderTopbar();
     if (bookIndex) renderBooks();
+    syncFriendInbox(); // 好友邀請背景同步＋首頁好友格提示
   });
 
   // ===== 排行榜 =====
@@ -2165,14 +2168,172 @@
   }
   $('#btn-nickname').onclick = openNameEditor;
   $('#btn-name-cancel').onclick = () => $('#name-overlay').classList.add('hidden');
-  $('#btn-name-save').onclick = () => {
-    state.nickname = $('#name-input').value.trim().slice(0, 12);
+  $('#btn-name-save').onclick = async () => {
+    const nick = $('#name-input').value.trim().slice(0, 12);
+    if (!nick) { alert('暱稱不能是空白的喔！'); return; }
+    // 暱稱唯一：登入者改名要先到登記簿佔位，被別人用了就換一個（好友搜尋才不會搞混）
+    if (CloudSync.isLoggedIn() && nick !== state.nickname) {
+      const btn = $('#btn-name-save');
+      btn.disabled = true; btn.textContent = '檢查中…';
+      let ok = false;
+      try { ok = await CloudSync.claimNickname(nick, state.nickname || ''); }
+      catch (e) { console.warn('暱稱登記失敗', e); btn.disabled = false; btn.textContent = '儲存'; alert('網路不穩，暱稱沒改成功，請再試一次。'); return; }
+      btn.disabled = false; btn.textContent = '儲存';
+      if (!ok) { alert('這個暱稱已經有人用了，換一個吧！'); return; }
+    }
+    state.nickname = nick;
     store.save(state);
     $('#name-overlay').classList.add('hidden');
     $('#board-list').innerHTML = '<p class="board-hint">名字已更新，同步中…</p>';
     setTimeout(renderBoard, 1500); // 等雲端寫入完成再刷新
   };
   $('#name-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#btn-name-save').click(); });
+
+  // ===== 👥 好友系統（Phase 1：好友碼、邀請/同意、好友清單）=====
+  // 「對方已同意」的邀請收尾：把對方補進我的好友清單，然後刪掉邀請文件
+  async function processAcceptedRequests(accepted) {
+    let changed = false;
+    for (const r of accepted) {
+      if (!state.friends.includes(r.to)) { state.friends.push(r.to); changed = true; }
+      CloudSync.removeRequest(r.id);
+    }
+    if (changed) store.save(state);
+  }
+  // 登入後背景同步：收尾已同意的邀請＋更新首頁好友格的提示文字
+  async function syncFriendInbox() {
+    if (!CloudSync.isLoggedIn()) { $('#friends-hint').textContent = '揪團一起讀經'; return; }
+    try {
+      const req = await CloudSync.fetchRequests();
+      await processAcceptedRequests(req.accepted);
+      const n = req.incoming.length;
+      $('#friends-hint').textContent = n ? `🔔 ${n} 個邀請待處理` : (state.friends.length ? `${state.friends.length} 位好友` : '揪團一起讀經');
+    } catch (e) { console.warn('好友同步失敗', e); }
+  }
+  async function renderFriends() {
+    const body = $('#friends-body');
+    if (!CloudSync.isLoggedIn()) {
+      body.innerHTML = `<div class="fr-card fr-center">
+        <p>加好友要先用 Google 登入，<br>好友和進度都會存在雲端。</p>
+        <button class="big-btn" id="btn-friends-login">用 Google 登入</button></div>`;
+      $('#btn-friends-login').onclick = () => CloudSync.login();
+      return;
+    }
+    body.innerHTML = '<p class="board-hint">載入中…</p>';
+    let req, profiles;
+    try {
+      req = await CloudSync.fetchRequests();
+      await processAcceptedRequests(req.accepted);
+      profiles = await CloudSync.fetchProfiles(state.friends);
+    } catch (e) {
+      console.warn('好友資料載入失敗', e);
+      body.innerHTML = '<p class="board-hint">好友資料載入失敗，請檢查網路後再試。</p>';
+      return;
+    }
+    body.innerHTML = '';
+    // --- 我的好友碼＋加好友 ---
+    const card = document.createElement('div');
+    card.className = 'fr-card';
+    card.innerHTML = `
+      <div class="fr-code-row"><span>我的好友碼</span><b id="fr-mycode">${CloudSync.myFriendCode()}</b><button id="btn-copy-code">複製</button></div>
+      <p class="fr-tip">把好友碼傳給朋友，或在下面輸入對方的好友碼／暱稱：</p>
+      <div class="fr-add-row"><input id="fr-add-input" maxlength="20" placeholder="好友碼（T-XXXXXX）或暱稱"><button id="btn-fr-add" class="big-btn">加好友</button></div>`;
+    body.appendChild(card);
+    $('#btn-copy-code').onclick = async () => {
+      const code = CloudSync.myFriendCode();
+      try { await navigator.clipboard.writeText(code); $('#btn-copy-code').textContent = '已複製✓'; }
+      catch { prompt('手動複製你的好友碼：', code); }
+      setTimeout(() => { const b = $('#btn-copy-code'); if (b) b.textContent = '複製'; }, 1500);
+    };
+    $('#btn-fr-add').onclick = addFriendFlow;
+    $('#fr-add-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') addFriendFlow(); });
+    // --- 收到的邀請 ---
+    if (req.incoming.length) {
+      const sec = document.createElement('div');
+      sec.className = 'fr-card';
+      sec.innerHTML = `<h3 class="fr-h">🔔 收到的邀請</h3>`;
+      for (const r of req.incoming) {
+        const row = document.createElement('div');
+        row.className = 'fr-req-row';
+        row.innerHTML = `<span class="fr-name">${escapeHtml(r.fromNick || '無名小卒')}</span>
+          <button class="fr-ok">同意</button><button class="fr-no">婉拒</button>`;
+        row.querySelector('.fr-ok').onclick = async () => {
+          try {
+            if (!state.friends.includes(r.from)) { state.friends.push(r.from); store.save(state); }
+            await CloudSync.answerRequest(r.id, true);
+          } catch (e) { console.warn('同意邀請失敗', e); alert('網路不穩，請再試一次。'); }
+          renderFriends();
+        };
+        row.querySelector('.fr-no').onclick = async () => {
+          await CloudSync.removeRequest(r.id); // 婉拒＝直接刪除邀請，對方可再邀
+          renderFriends();
+        };
+        sec.appendChild(row);
+      }
+      body.appendChild(sec);
+    }
+    // --- 等待對方同意 ---
+    if (req.outgoing.length) {
+      const sec = document.createElement('div');
+      sec.className = 'fr-card';
+      sec.innerHTML = `<h3 class="fr-h">⏳ 等待對方同意</h3>` + req.outgoing.map((r) =>
+        `<div class="fr-req-row"><span class="fr-name fr-dim">已邀請，等回應中…</span><button class="fr-no" data-rid="${r.id}">取消</button></div>`).join('');
+      sec.querySelectorAll('.fr-no').forEach((b) => {
+        b.onclick = async () => { await CloudSync.removeRequest(b.dataset.rid); renderFriends(); };
+      });
+      body.appendChild(sec);
+    }
+    // --- 好友清單 ---
+    const list = document.createElement('div');
+    list.className = 'fr-card';
+    list.innerHTML = `<h3 class="fr-h">💛 我的好友（${profiles.length}）</h3>`;
+    if (!profiles.length) {
+      list.innerHTML += '<p class="fr-tip">還沒有好友——把上面的好友碼傳到小組群組吧！</p>';
+    } else {
+      const wk = weekKeyOf();
+      for (const p of profiles.sort((a, b) => (b.weekKey === wk ? b.weekXp || 0 : 0) - (a.weekKey === wk ? a.weekXp || 0 : 0))) {
+        const m = MASCOTS[p.mascot] || MASCOTS.dove;
+        const wxp = p.weekKey === wk ? (p.weekXp || 0) : 0;
+        const row = document.createElement('div');
+        row.className = 'fr-friend-row';
+        row.innerHTML = `<span class="b-mascot">${m.emoji}</span>
+          <span class="fr-name">${escapeHtml(p.nick || '無名小卒')}</span>
+          <span class="fr-week">${wxp ? `本週 ⭐${wxp}` : '本週還沒玩'}</span>
+          <button class="fr-x" title="移除好友">✕</button>`;
+        row.querySelector('.fr-x').onclick = () => {
+          if (!confirm(`要把 ${p.nick || '這位好友'} 從好友清單移除嗎？`)) return;
+          state.friends = state.friends.filter((u) => u !== p.uid);
+          store.save(state);
+          renderFriends();
+        };
+        list.appendChild(row);
+      }
+    }
+    body.appendChild(list);
+  }
+  async function addFriendFlow() {
+    const input = $('#fr-add-input');
+    const v = input.value.trim();
+    if (!v) return;
+    const btn = $('#btn-fr-add');
+    btn.disabled = true; btn.textContent = '搜尋中…';
+    try {
+      const target = /^t-/i.test(v) ? await CloudSync.findByCode(v) : await CloudSync.findByNick(v);
+      if (!target) { alert('找不到這個人，確認好友碼或暱稱有沒有打錯（對方要至少玩過一關才找得到）。'); return; }
+      if (target.uid === CloudSync.uid()) { alert('這是你自己的代碼啦 😄'); return; }
+      if (state.friends.includes(target.uid)) { alert(`${target.nick} 已經是你的好友了！`); return; }
+      await CloudSync.sendFriendRequest(target.uid, state.nickname || (currentUser && currentUser.name) || '');
+      input.value = '';
+      alert(`已送出邀請給「${target.nick}」，等對方同意就成為好友！`);
+      renderFriends();
+    } catch (e) {
+      console.warn('加好友失敗', e);
+      alert('網路不穩或服務忙碌，請再試一次。');
+    } finally {
+      btn.disabled = false; btn.textContent = '加好友';
+    }
+  }
+  $('#btn-friends').onclick = () => { show('#screen-friends'); renderFriends(); };
+  $('#btn-back-friends').onclick = () => { syncFriendInbox(); renderBooks(); show('#screen-books'); };
 
   // ===== 回報題目 =====
   $('#btn-report').onclick = async () => {
