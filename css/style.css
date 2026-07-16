@@ -706,3 +706,15 @@ main, header { position: relative; z-index: 1; }
 .fr-bonus { border-color: var(--card-line, #e5e5e5); }
 .fr-bonus.on { border-color: var(--primary, #58cc02); }
 .fr-bonus .fr-pct { color: var(--primary, #58cc02); }
+
+/* 頂列好友鈕＋邀請紅點 */
+#btn-friends-top { position: relative; }
+#btn-friends-top .dot { position: absolute; top: 2px; right: 2px; width: 9px; height: 9px; border-radius: 50%; background: #ff4b4b; }
+#btn-friends-top .dot.hidden { display: none; }
+
+/* 窄螢幕頂列：加了 👥 之後共 5 顆按鈕＋3 個數字，縮小間距才放得下 */
+@media (max-width: 430px) {
+  #topbar { gap: 6px; padding: 10px 10px; }
+  #topbar .stat { font-size: .95rem; }
+  .icon-btn { font-size: 1.2rem; padding: 4px 5px; }
+}

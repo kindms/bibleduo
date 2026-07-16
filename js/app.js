@@ -2218,12 +2218,13 @@
   }
   // 登入後背景同步：收尾已同意的邀請＋更新首頁好友格的提示文字
   async function syncFriendInbox() {
-    if (!CloudSync.isLoggedIn()) { $('#friends-hint').textContent = '揪團一起讀經'; return; }
+    if (!CloudSync.isLoggedIn()) { $('#friends-hint').textContent = '揪團一起讀經'; $('#friends-dot').classList.add('hidden'); return; }
     try {
       const req = await CloudSync.fetchRequests();
       await processAcceptedRequests(req.accepted);
       const n = req.incoming.length;
       $('#friends-hint').textContent = n ? `🔔 ${n} 個邀請待處理` : (state.friends.length ? `${state.friends.length} 位好友` : '揪團一起讀經');
+      $('#friends-dot').classList.toggle('hidden', !n); // 頂列 👥 的紅點：有邀請待處理才亮
       await refreshFriendBonus();
     } catch (e) { console.warn('好友同步失敗', e); }
   }
@@ -2332,7 +2333,7 @@
     }
     // --- 🎲 每週隨機夥伴（報名制）---
     const mc = document.createElement('div');
-    mc.className = 'fr-card';
+    mc.className = 'fr-card fr-match';
     if (!fb.match.joined) {
       mc.innerHTML = `<h3 class="fr-h">🎲 每週隨機夥伴</h3>
         <p class="fr-tip">報名後系統會把你和另一位報名者配成一組；兩人本週各完成 ${QUEST_CH} 章，雙方經驗加成都 +20%（可與好友組隊疊加，上限 ${BONUS_CAP}%）。每週一重新配對。</p>
@@ -2371,7 +2372,7 @@
     };
     // --- 我的好友碼＋加好友 ---
     const card = document.createElement('div');
-    card.className = 'fr-card';
+    card.className = 'fr-card fr-addcard';
     card.innerHTML = `
       <div class="fr-code-row"><span>我的好友碼</span><b id="fr-mycode">${CloudSync.myFriendCode()}</b><button id="btn-copy-code">複製</button></div>
       <p class="fr-tip">把好友碼傳給朋友，或在下面輸入對方的好友碼／暱稱：</p>
@@ -2388,7 +2389,7 @@
     // --- 收到的邀請 ---
     if (req.incoming.length) {
       const sec = document.createElement('div');
-      sec.className = 'fr-card';
+      sec.className = 'fr-card fr-inc';
       sec.innerHTML = `<h3 class="fr-h">🔔 收到的邀請</h3>`;
       for (const r of req.incoming) {
         const row = document.createElement('div');
@@ -2413,7 +2414,7 @@
     // --- 等待對方同意 ---
     if (req.outgoing.length) {
       const sec = document.createElement('div');
-      sec.className = 'fr-card';
+      sec.className = 'fr-card fr-out';
       sec.innerHTML = `<h3 class="fr-h">⏳ 等待對方同意</h3>` + req.outgoing.map((r) =>
         `<div class="fr-req-row"><span class="fr-name fr-dim">已邀請，等回應中…</span><button class="fr-no" data-rid="${r.id}">取消</button></div>`).join('');
       sec.querySelectorAll('.fr-no').forEach((b) => {
@@ -2423,7 +2424,7 @@
     }
     // --- 好友清單 ---
     const list = document.createElement('div');
-    list.className = 'fr-card';
+    list.className = 'fr-card fr-list';
     list.innerHTML = `<h3 class="fr-h">💛 我的好友（${profiles.length}）</h3>`;
     if (!profiles.length) {
       list.innerHTML += '<p class="fr-tip">還沒有好友——把上面的好友碼傳到小組群組吧！</p>';
@@ -2449,6 +2450,11 @@
       }
     }
     body.appendChild(list);
+    // 版面順序（Burger 指定好友清單放最上）：清單 → 收到的邀請 → 加成狀態 → 隨機夥伴 → 等待中 → 加好友
+    for (const sel of ['.fr-list', '.fr-inc', '.fr-bonus', '.fr-match', '.fr-out', '.fr-addcard']) {
+      const n = body.querySelector(sel);
+      if (n) body.appendChild(n); // appendChild 會把既有節點搬到最後，事件不會掉
+    }
   }
   async function addFriendFlow() {
     const input = $('#fr-add-input');
@@ -2473,6 +2479,7 @@
     }
   }
   $('#btn-friends').onclick = () => { show('#screen-friends'); renderFriends(); };
+  $('#btn-friends-top').onclick = () => { show('#screen-friends'); renderFriends(); }; // 頂列 👥 也能進好友頁
   $('#btn-back-friends').onclick = () => { syncFriendInbox(); renderBooks(); show('#screen-books'); };
 
   // ===== 回報題目 =====
