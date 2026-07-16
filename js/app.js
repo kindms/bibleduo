@@ -2450,11 +2450,53 @@
       }
     }
     body.appendChild(list);
-    // 版面順序（Burger 指定好友清單放最上）：清單 → 收到的邀請 → 加成狀態 → 隨機夥伴 → 等待中 → 加好友
-    for (const sel of ['.fr-list', '.fr-inc', '.fr-bonus', '.fr-match', '.fr-out', '.fr-addcard']) {
+    // --- ✨ 本週推薦好友 ---
+    const reco = await pickRecommend(req);
+    if (reco) {
+      const rm = MASCOTS[reco.mascot] || MASCOTS.dove;
+      const wxp = reco.weekKey === weekKeyOf() ? (reco.weekXp || 0) : 0;
+      const rc = document.createElement('div');
+      rc.className = 'fr-card fr-reco';
+      rc.innerHTML = `<h3 class="fr-h">✨ 本週推薦好友</h3>
+        <div class="fr-friend-row"><span class="b-mascot">${rm.emoji}</span>
+          <span class="fr-name">${escapeHtml(reco.nick || '無名小卒')}</span>
+          <span class="fr-week">${wxp ? `本週 ⭐${wxp}` : `累積 ⭐${reco.xp || 0}`}</span>
+          <button class="fr-ok" id="btn-reco-add">加好友</button></div>
+        <p class="fr-tip">每週一系統換一位推薦——認識新同伴，一起讀經更有勁！</p>`;
+      body.appendChild(rc);
+      rc.querySelector('#btn-reco-add').onclick = async () => {
+        const b = rc.querySelector('#btn-reco-add');
+        b.disabled = true; b.textContent = '送出中…';
+        try {
+          await CloudSync.sendFriendRequest(reco.uid, state.nickname || (currentUser && currentUser.name) || '');
+          alert(`已送出邀請給「${reco.nick || '對方'}」，等對方同意就成為好友！`);
+        } catch (e) { console.warn('推薦加好友失敗', e); alert('網路不穩，請再試一次。'); }
+        renderFriends();
+      };
+    }
+    // 版面順序（Burger 指定好友清單放最上）：清單 → 收到的邀請 → 加成狀態 → 隨機夥伴 → 等待中 → 推薦 → 加好友
+    for (const sel of ['.fr-list', '.fr-inc', '.fr-bonus', '.fr-match', '.fr-out', '.fr-reco', '.fr-addcard']) {
       const n = body.querySelector(sel);
       if (n) body.appendChild(n); // appendChild 會把既有節點搬到最後，事件不會掉
     }
+  }
+  // ✨ 每週推薦好友：從排行榜活躍玩家挑一位（排除自己/好友/已互發邀請者）
+  // 種子＝週次＋我的 uid → 整週固定同一位、下週自動換、每人看到的都不同
+  async function pickRecommend(req) {
+    const wk = weekKeyOf();
+    let pool = [];
+    try {
+      const [wkRows, totRows] = await Promise.all([CloudSync.fetchBoard('week', wk), CloudSync.fetchBoard('total')]);
+      const seen = {};
+      for (const r of [...wkRows, ...totRows]) { if (r.uid && !seen[r.uid]) { seen[r.uid] = true; pool.push(r); } }
+    } catch (e) { console.warn('推薦好友載入失敗', e); return null; }
+    const excl = new Set([CloudSync.uid(), ...(state.friends || []), ...req.outgoing.map((r) => r.to), ...req.incoming.map((r) => r.from)]);
+    pool = pool.filter((p) => !excl.has(p.uid));
+    if (!pool.length) return null;
+    const h = (s) => { let x = 0; for (let i = 0; i < s.length; i++) x = (x * 131 + s.charCodeAt(i)) >>> 0; return x; };
+    const me = CloudSync.uid();
+    pool.sort((a, b) => h(wk + '|' + me + '|' + a.uid) - h(wk + '|' + me + '|' + b.uid));
+    return pool[0];
   }
   async function addFriendFlow() {
     const input = $('#fr-add-input');
