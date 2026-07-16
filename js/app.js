@@ -2227,26 +2227,66 @@
       await refreshFriendBonus();
     } catch (e) { console.warn('好友同步失敗', e); }
   }
-  // --- 組隊經驗加成（Phase 2）---
-  // 規則：本週有 ≥1 位好友也有玩 → +20%；我＋至少 2 位好友都完成週任務（各 3 章）→ +30%（取代 20%）
-  // 加成只套用「章節過關」與「錯題複習」的經驗值；隨機夥伴的 +20% 疊加屬 Phase 3
+  // --- 組隊經驗加成（Phase 2＋Phase 3）---
+  // 固定好友：本週有 ≥1 位好友也有玩 → +20%；我＋至少 2 位好友都完成週任務（各 3 章）→ +30%（取代 20%）
+  // 隨機夥伴（報名制）：全組都完成週任務 → 再疊 +20%；合計上限 50%
+  // 加成只套用「章節過關」與「錯題複習」的經驗值，小遊戲/衝刺不加（防刷）
   const QUEST_CH = 3; // 週任務門檻：本週完成 3 章
-  let friendBonus = { pct: 0, active: 0, questMates: 0, meQuest: false, profiles: [] };
+  const BONUS_CAP = 50;
+  let friendBonus = { pct: 0, teamPct: 0, partnerPct: 0, active: 0, questMates: 0, meQuest: false, profiles: [], match: { joined: false, waiting: false, partners: [] } };
+  // 配對：照報名順序兩兩成對（週中有新人報名，已成形的組不會被打散）；
+  // 單數時最後一位暫併入前一組成三人，等下一位報名再獨立成對
+  function matchGroupOf(entries, myUid) {
+    const groups = [];
+    for (let i = 0; i + 1 < entries.length; i += 2) groups.push([entries[i], entries[i + 1]]);
+    if (entries.length % 2 === 1) {
+      const tail = entries[entries.length - 1];
+      if (groups.length) groups[groups.length - 1].push(tail);
+      else groups.push([tail]); // 全池只有一人：獨自等待
+    }
+    return groups.find((g) => g.some((e) => e.uid === myUid)) || null;
+  }
   async function refreshFriendBonus() {
-    if (!CloudSync.isLoggedIn() || !(state.friends || []).length) {
-      friendBonus = { pct: 0, active: 0, questMates: 0, meQuest: false, profiles: [] };
+    if (!CloudSync.isLoggedIn()) {
+      friendBonus = { pct: 0, teamPct: 0, partnerPct: 0, active: 0, questMates: 0, meQuest: false, profiles: [], match: { joined: false, waiting: false, partners: [] } };
       return friendBonus;
     }
     try {
       const wk = weekKeyOf();
-      const profiles = await CloudSync.fetchProfiles(state.friends);
-      const active = profiles.filter((p) => p.weekKey === wk && (p.weekXp || 0) > 0);
-      const questMates = profiles.filter((p) => p.weekKey === wk && (p.weekCh || 0) >= QUEST_CH);
       const meQuest = state.weekKey === wk && (state.weekCh || 0) >= QUEST_CH;
-      let pct = 0;
-      if (active.length >= 1) pct = 20;
-      if (meQuest && questMates.length >= 2) pct = 30; // 三人小隊全數達標
-      friendBonus = { pct, active: active.length, questMates: questMates.length, meQuest, profiles };
+      // 固定好友的組隊加成
+      let teamPct = 0, active = [], questMates = [], profiles = [];
+      if ((state.friends || []).length) {
+        profiles = await CloudSync.fetchProfiles(state.friends);
+        active = profiles.filter((p) => p.weekKey === wk && (p.weekXp || 0) > 0);
+        questMates = profiles.filter((p) => p.weekKey === wk && (p.weekCh || 0) >= QUEST_CH);
+        if (active.length >= 1) teamPct = 20;
+        if (meQuest && questMates.length >= 2) teamPct = 30; // 三人小隊全數達標
+      }
+      // 每週隨機夥伴的疊加
+      let partnerPct = 0;
+      const match = { joined: false, waiting: false, partners: [] };
+      const entries = await CloudSync.fetchMatchEntries(wk);
+      const g = matchGroupOf(entries, CloudSync.uid());
+      if (g) {
+        match.joined = true;
+        const partnerUids = g.filter((e) => e.uid !== CloudSync.uid()).map((e) => e.uid);
+        if (!partnerUids.length) match.waiting = true;
+        else {
+          const pp = await CloudSync.fetchProfiles(partnerUids);
+          match.partners = partnerUids.map((u) => {
+            const p = pp.find((x) => x.uid === u) || {};
+            const entry = g.find((e) => e.uid === u) || {};
+            const ch = p.weekKey === wk ? (p.weekCh || 0) : 0;
+            return { uid: u, nick: p.nick || entry.nick || '無名小卒', mascot: p.mascot || entry.mascot || 'dove', weekCh: ch, done: ch >= QUEST_CH };
+          });
+          if (meQuest && match.partners.every((p) => p.done)) partnerPct = 20; // 全組達標，大家都 +20%
+        }
+      }
+      friendBonus = {
+        pct: Math.min(BONUS_CAP, teamPct + partnerPct), teamPct, partnerPct,
+        active: active.length, questMates: questMates.length, meQuest, profiles, match,
+      };
     } catch (e) { console.warn('好友加成計算失敗（先用舊值）', e); }
     return friendBonus;
   }
@@ -2272,23 +2312,63 @@
       return;
     }
     body.innerHTML = '';
-    // --- 本週組隊狀態（有好友才顯示）---
-    if (state.friends.length) {
-      ensureWeek();
-      const fb = friendBonus;
-      const myCh = state.weekCh || 0;
+    // --- 本週加成狀態（有好友或已報名配對才顯示）---
+    ensureWeek();
+    const fb = friendBonus;
+    const myCh = state.weekCh || 0;
+    const myQuestText = `${Math.min(myCh, QUEST_CH)}/${QUEST_CH} 章${myCh >= QUEST_CH ? ' ✅' : ''}`;
+    if (state.friends.length || fb.match.joined) {
       const status = document.createElement('div');
       status.className = 'fr-card fr-bonus' + (fb.pct ? ' on' : '');
-      const nextHint = fb.pct >= 30
-        ? '已達本週最高組隊加成！'
-        : fb.meQuest && fb.questMates >= 2 ? ''
-        : fb.pct === 20 ? `想升級 +30%：你完成 ${QUEST_CH} 章（目前 ${Math.min(myCh, QUEST_CH)}/${QUEST_CH}），且至少 2 位好友也完成 ${QUEST_CH} 章（目前 ${fb.questMates} 位）`
+      const teamHint = !state.friends.length ? ''
+        : fb.teamPct >= 30 ? ''
+        : fb.teamPct === 20 ? `想升級 +30%：你完成 ${QUEST_CH} 章（目前 ${myQuestText}），且至少 2 位好友也完成（目前 ${fb.questMates} 位）`
         : '只要有一位好友本週玩過任一關，你們都 +20%！';
-      status.innerHTML = `<h3 class="fr-h">🤝 本週組隊加成：<b class="fr-pct">${fb.pct ? `+${fb.pct}%` : '尚未啟動'}</b></h3>
-        <p class="fr-tip">本週有玩的好友：${fb.active} 位・完成週任務（${QUEST_CH} 章）的好友：${fb.questMates} 位・我的週任務：${Math.min(myCh, QUEST_CH)}/${QUEST_CH} 章${myCh >= QUEST_CH ? ' ✅' : ''}</p>
-        ${nextHint ? `<p class="fr-tip">💡 ${nextHint}</p>` : ''}`;
+      status.innerHTML = `<h3 class="fr-h">🤝 本週加成合計：<b class="fr-pct">${fb.pct ? `+${fb.pct}%` : '尚未啟動'}</b>${fb.pct >= BONUS_CAP ? '（已達上限）' : ''}</h3>
+        <p class="fr-tip">固定好友組隊：+${fb.teamPct}%（本週有玩 ${fb.active} 位・達標 ${fb.questMates} 位）</p>
+        <p class="fr-tip">隨機夥伴任務：+${fb.partnerPct}%${fb.match.joined ? '' : '（尚未報名）'}・我的週任務：${myQuestText}</p>
+        ${teamHint ? `<p class="fr-tip">💡 ${teamHint}</p>` : ''}`;
       body.appendChild(status);
     }
+    // --- 🎲 每週隨機夥伴（報名制）---
+    const mc = document.createElement('div');
+    mc.className = 'fr-card';
+    if (!fb.match.joined) {
+      mc.innerHTML = `<h3 class="fr-h">🎲 每週隨機夥伴</h3>
+        <p class="fr-tip">報名後系統會把你和另一位報名者配成一組；兩人本週各完成 ${QUEST_CH} 章，雙方經驗加成都 +20%（可與好友組隊疊加，上限 ${BONUS_CAP}%）。每週一重新配對。</p>
+        <button class="big-btn" id="btn-match-join">參加本週配對</button>`;
+    } else if (fb.match.waiting) {
+      mc.innerHTML = `<h3 class="fr-h">🎲 每週隨機夥伴：已報名 ⏳</h3>
+        <p class="fr-tip">等下一位夥伴加入就自動配對——揪身邊的人也來報名吧！</p>
+        <button class="ghost-btn" id="btn-match-leave">取消報名</button>`;
+    } else {
+      const rows = fb.match.partners.map((p) => {
+        const m = MASCOTS[p.mascot] || MASCOTS.dove;
+        return `<div class="fr-friend-row"><span class="b-mascot">${m.emoji}</span>
+          <span class="fr-name">${escapeHtml(p.nick)}</span>
+          <span class="fr-week">📖${p.weekCh}/${QUEST_CH}章${p.done ? '✅' : ''}</span></div>`;
+      }).join('');
+      const allDone = fb.partnerPct > 0;
+      const hint = allDone
+        ? '🎉 全組達標，本週 +20% 已解鎖！'
+        : `全組（含你）本週各完成 ${QUEST_CH} 章就 +20%。我的進度：${myQuestText}`;
+      mc.innerHTML = `<h3 class="fr-h">🎲 本週隨機夥伴${fb.match.partners.length > 1 ? '（三人組）' : ''}</h3>
+        ${rows}<p class="fr-tip">${hint}</p>`;
+    }
+    body.appendChild(mc);
+    const joinBtn = $('#btn-match-join');
+    if (joinBtn) joinBtn.onclick = async () => {
+      joinBtn.disabled = true;
+      try { await CloudSync.joinMatch(weekKeyOf(), state.nickname || (currentUser && currentUser.name) || '', state.mascot); }
+      catch (e) { console.warn('報名失敗', e); alert('網路不穩，報名沒成功，請再試一次。'); }
+      renderFriends();
+    };
+    const leaveBtn = $('#btn-match-leave');
+    if (leaveBtn) leaveBtn.onclick = async () => {
+      leaveBtn.disabled = true;
+      await CloudSync.leaveMatch(weekKeyOf());
+      renderFriends();
+    };
     // --- 我的好友碼＋加好友 ---
     const card = document.createElement('div');
     card.className = 'fr-card';

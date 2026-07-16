@@ -172,6 +172,27 @@ const CloudSync = (function () {
     const snaps = await Promise.all(uids.map((u) => db.collection(BOARD).doc(u).get()));
     return snaps.filter((s) => s.exists).map((s) => ({ uid: s.id, ...s.data() }));
   }
+  // ===== 每週隨機夥伴（Phase 3）=====
+  // 報名池 bibleduo_matchpool/{週鑰}/entries/{uid}；配對用「報名順序」兩兩成對，
+  // 大家各自照同樣順序算，結果一致，不需要伺服器排程
+  const MATCH = "bibleduo_matchpool";
+  async function joinMatch(weekKey, nick, mascot) {
+    if (!user || !db) throw new Error("not-logged-in");
+    await db.collection(MATCH).doc(weekKey).collection("entries").doc(user.uid).set({
+      nick: nick || "無名小卒", mascot: mascot || "dove",
+      at: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+  }
+  async function leaveMatch(weekKey) {
+    if (!user || !db) return;
+    await db.collection(MATCH).doc(weekKey).collection("entries").doc(user.uid).delete().catch(() => {});
+  }
+  async function fetchMatchEntries(weekKey) {
+    if (!db) return [];
+    const qs = await db.collection(MATCH).doc(weekKey).collection("entries").orderBy("at", "asc").get();
+    return qs.docs.map((d) => ({ uid: d.id, ...d.data() }));
+  }
+
   // 暱稱唯一登記：成功回 true；被別人用了回 false
   async function claimNickname(nick, oldNick) {
     if (!user || !db) throw new Error("not-logged-in");
@@ -188,6 +209,7 @@ const CloudSync = (function () {
   return {
     init, login, logout, save, fetchBoard, sendReport,
     myFriendCode, findByCode, findByNick, sendFriendRequest, fetchRequests, answerRequest, removeRequest, fetchProfiles, claimNickname,
+    joinMatch, leaveMatch, fetchMatchEntries,
     isLoggedIn: () => !!user, uid: () => (user ? user.uid : null),
   };
 })();
