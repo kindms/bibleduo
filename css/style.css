@@ -842,6 +842,43 @@ main, header { position: relative; z-index: 1; }
 .hw-icon { font-size: 4rem; }
 .hw-text { font-weight: bold; color: var(--text); text-align: center; padding: 0 16px; }
 
+/* 🛡️ 穿上全副軍裝 */
+.am-body { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0; }
+.am-slot { font-size: 1rem; font-weight: bold; padding: 16px 0; background: var(--card); border: 2px dashed var(--card-line); border-radius: 14px; cursor: pointer; color: var(--text-light); }
+.am-slot.am-worn { border-style: solid; border-color: var(--primary); font-size: 1.7rem; }
+.am-items { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0; }
+.am-item { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 1.5rem; padding: 8px 2px; background: var(--card); border: 2px solid var(--card-line); border-radius: 14px; cursor: pointer; }
+.am-item small { font-size: .68rem; color: var(--text-light); font-weight: bold; }
+.am-item.selected { border-color: var(--select); background: var(--select-bg); }
+
+/* 🏃 向著標竿直跑 */
+.rc-stage { position: relative; height: 260px; border: 2px dashed var(--card-line); border-radius: 20px; margin: 8px 0; overflow: hidden; cursor: pointer; }
+.rc-runner { position: absolute; left: 18%; bottom: 10%; font-size: 2.4rem; transform: translateX(-50%) scaleX(-1); }
+.rc-obs { position: absolute; bottom: 8%; font-size: 1.9rem; transform: translateX(-50%); pointer-events: none; }
+.rc-flag { position: absolute; right: 8px; top: 8px; font-size: 1.6rem; }
+
+/* 🛡️ 抵擋吼獅 */
+.ln-stage { position: relative; height: 220px; border: 2px dashed var(--card-line); border-radius: 20px; margin: 8px 0; }
+.ln-lion { position: absolute; top: 34%; font-size: 2.4rem; transform: translateX(-50%); transition: font-size .15s, left .2s; }
+.ln-text { position: absolute; bottom: 10px; left: 0; right: 0; text-align: center; font-weight: bold; color: var(--text); padding: 0 12px; }
+
+/* 🪜 屬靈八階梯 */
+.ld-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 10px 0; }
+.ld-card { font-size: 1rem; font-weight: bold; padding: 14px 4px; background: var(--card); border: 2px solid var(--card-line); border-radius: 14px; cursor: pointer; color: var(--text); }
+.ld-card.ld-done { border-color: var(--primary); color: var(--primary-dark); background: var(--select-bg); }
+
+/* 💡 神就是光 */
+.lt-stage { position: relative; height: 300px; border: 2px solid var(--card-line); border-radius: 20px; margin: 8px 0; overflow: hidden; touch-action: none; }
+.lt-verse { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; font-size: 1.4rem; font-weight: bold; color: var(--text); background: radial-gradient(circle at 50% 45%, #fff7d6 0%, var(--card) 70%); }
+.lt-fog { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr); }
+.lt-tile { background: #232136; transition: opacity .25s; }
+.lt-tile.lt-clear { opacity: 0; pointer-events: none; }
+
+/* 🌠 尋找七星 */
+.rv-stage { position: relative; height: 330px; border: 2px solid var(--card-line); border-radius: 20px; margin: 8px 0; overflow: hidden; background: linear-gradient(180deg, #1e1b4b 0%, #312e81 100%); }
+.rv-obj { position: absolute; font-size: 1.4rem; background: none; border: none; cursor: pointer; transform: translate(-50%, -50%); padding: 4px; }
+.rv-obj.rv-got { pointer-events: none; }
+
 /* 🌊 分海快走 */
 .rs-stage { position: relative; height: 160px; border: 2px dashed var(--card-line); border-radius: 20px; margin: 8px 0; display: flex; align-items: center; justify-content: center; gap: 6px; overflow: hidden; touch-action: none; font-size: 2.2rem; }
 .rs-sea { transition: transform .1s linear; }

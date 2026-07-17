@@ -2555,6 +2555,383 @@
     S.raf = requestAnimationFrame(step);
   };
 
+  // —— 🛡️ 穿上全副軍裝：點裝備、再點正確部位穿上，六件到齊（配對穿戴）——
+  ACTION_GAMES.armor_god = function startArmor() {
+    const ARMOR = [
+      { n: '真理的帶子', e: '🎗️', slot: '腰' },
+      { n: '公義的護心鏡', e: '🦺', slot: '胸' },
+      { n: '平安福音的鞋', e: '👟', slot: '腳' },
+      { n: '信德的藤牌', e: '🛡️', slot: '左手' },
+      { n: '救恩的頭盔', e: '🪖', slot: '頭' },
+      { n: '聖靈的寶劍', e: '🗡️', slot: '右手' },
+    ];
+    const SLOTS = ['頭', '胸', '腰', '左手', '右手', '腳'];
+    const S = { phase: 'play', worn: 0, misses: 0, sel: null };
+    const area = startAction('🛡️ 穿上全副軍裝', 'EPH', null);
+    action.state = S;
+    area.innerHTML = `
+      <p class="act-hint" id="am-hint">先點下面的裝備，再點士兵身上正確的部位穿上！（弗 6:11-17）</p>
+      <div class="am-body" id="am-body">${SLOTS.map((s) => `<button class="am-slot act-tap" data-s="${s}">${s}</button>`).join('')}</div>
+      <div class="am-items" id="am-items">${shuffleArr(ARMOR.map((_, i) => i)).map((i) => `<button class="am-item act-tap" data-i="${i}">${ARMOR[i].e}<small>${ARMOR[i].n}</small></button>`).join('')}</div>
+      <div class="act-row"><span>🔥 火箭</span><div class="act-track"><div class="act-fill act-foe" id="am-foe"></div></div></div>`;
+    document.querySelectorAll('.am-item').forEach((b) => {
+      b.onclick = () => {
+        if (S.phase !== 'play' || b.disabled) return;
+        document.querySelectorAll('.am-item').forEach((x) => x.classList.remove('selected'));
+        b.classList.add('selected');
+        S.sel = Number(b.dataset.i);
+        $('#am-hint').textContent = `拿著「${ARMOR[S.sel].n}」——要穿在哪裡？`;
+      };
+    });
+    document.querySelectorAll('.am-slot').forEach((b) => {
+      b.onclick = () => {
+        if (S.phase !== 'play' || S.sel === null || b.classList.contains('am-worn')) return;
+        const it = ARMOR[S.sel];
+        if (b.dataset.s === it.slot) {
+          b.textContent = it.e;
+          b.classList.add('am-worn');
+          const card = document.querySelector(`.am-item[data-i="${S.sel}"]`);
+          card.disabled = true; card.classList.remove('selected'); card.style.opacity = .3;
+          S.sel = null;
+          S.worn++;
+          sndGood();
+          $('#am-hint').textContent = S.worn >= 6 ? '' : '穿上了！繼續拿下一件。';
+          if (S.worn >= 6) {
+            S.phase = 'done';
+            winAction('armor_god', 'EPH', MINIGAMES.armor_god.win, ACTION_GAMES.armor_god);
+          }
+        } else {
+          S.misses++;
+          sndBad();
+          $('#am-foe').style.width = `${(S.misses / 3) * 100}%`;
+          $('#am-hint').textContent = `「${it.n}」不是穿在${b.dataset.s}——再想想！`;
+          const body = $('#am-body');
+          body.classList.remove('jr-shake'); void body.offsetWidth; body.classList.add('jr-shake');
+          if (S.misses >= 3) {
+            S.phase = 'done';
+            loseAction('EPH', MINIGAMES.armor_god.lose.text, ACTION_GAMES.armor_god);
+          }
+        }
+      };
+    });
+  };
+
+  // —— 🏃 向著標竿直跑：障礙逼近，時機起跳越過，一路跑到標竿（跨欄跑者）——
+  ACTION_GAMES.php_race = function startRace() {
+    const GOAL = 12, JUMP_MS = 680;
+    const S = { phase: 'play', passed: 0, hits: 0, jumpT: -1, obs: [], sinceObs: 900, raf: 0 };
+    const area = startAction('🏃 向著標竿直跑', 'PHP', () => cancelAnimationFrame(S.raf));
+    action.state = S;
+    area.innerHTML = `
+      <div class="act-row"><span>🏁 路程</span><div class="act-track"><div class="act-fill" id="rc-bar"></div></div><b id="rc-count">0/${GOAL}</b></div>
+      <div class="act-row"><span>💚 體力</span><b id="rc-hearts">💚💚💚</b></div>
+      <div class="rc-stage act-tap" id="rc-stage"><div class="rc-runner" id="rc-runner">🏃</div><div class="rc-flag">🏁</div></div>
+      <p class="fr-tip">點畫面起跳，越過迎面而來的障礙——忘記背後，努力面前，向著標竿直跑！（腓 3:13-14）</p>`;
+    const stage = $('#rc-stage');
+    stage.onpointerdown = (e) => { e.preventDefault(); if (S.phase === 'play' && S.jumpT < 0) S.jumpT = 0; };
+    S.tick = (dt) => {
+      if (S.phase !== 'play') return;
+      const f = dt / 16.7;
+      if (S.jumpT >= 0) {
+        S.jumpT += dt;
+        if (S.jumpT >= JUMP_MS) S.jumpT = -1;
+      }
+      const jumpY = S.jumpT >= 0 ? Math.sin((S.jumpT / JUMP_MS) * Math.PI) * 40 : 0;
+      $('#rc-runner').style.bottom = `${10 + jumpY}%`;
+      S.sinceObs += dt;
+      const interval = Math.max(950, 1600 - S.passed * 55);
+      if (S.sinceObs >= interval) {
+        S.sinceObs = 0;
+        const el = document.createElement('div');
+        el.className = 'rc-obs';
+        el.textContent = ['🪨', '🚧', '🌵'][Math.floor(Math.random() * 3)];
+        stage.appendChild(el);
+        S.obs.push({ x: 104, el, done: false });
+      }
+      for (let i = S.obs.length - 1; i >= 0; i--) {
+        const o = S.obs[i];
+        o.x -= (0.62 + S.passed * 0.02) * f;
+        o.el.style.left = `${o.x}%`;
+        if (!o.done && o.x < 23 && o.x > 13) { // 與跑者重疊：看有沒有跳起來
+          if (jumpY < 15) {
+            o.done = true;
+            S.hits++;
+            sndBad();
+            stage.classList.remove('jr-shake'); void stage.offsetWidth; stage.classList.add('jr-shake');
+            $('#rc-hearts').textContent = '💚'.repeat(Math.max(0, 3 - S.hits)) || '…';
+            if (S.hits >= 3) {
+              S.phase = 'done';
+              loseAction('PHP', MINIGAMES.php_race.lose.text, ACTION_GAMES.php_race);
+              return;
+            }
+          }
+        }
+        if (!o.done && o.x <= 13) {
+          o.done = true;
+          S.passed++;
+          sndGood();
+          $('#rc-count').textContent = `${S.passed}/${GOAL}`;
+          $('#rc-bar').style.width = `${(S.passed / GOAL) * 100}%`;
+          if (S.passed >= GOAL) {
+            S.phase = 'done';
+            winAction('php_race', 'PHP', MINIGAMES.php_race.win, ACTION_GAMES.php_race);
+            return;
+          }
+        }
+        if (o.x < -10) { o.el.remove(); S.obs.splice(i, 1); }
+      }
+    };
+    let last = performance.now();
+    const step = (now) => {
+      if (!action || action.state !== S) return;
+      S.tick(Math.min(50, now - last));
+      last = now;
+      if (S.phase === 'play') S.raf = requestAnimationFrame(step);
+    };
+    S.raf = requestAnimationFrame(step);
+  };
+
+  // —— 🛡️ 抵擋吼獅：獅子從左/中/右撲來，撲擊瞬間舉起正確方向的盾牌（方向格擋）——
+  ACTION_GAMES.peter_lion = function startLion() {
+    const GOAL = 7, DIRS = ['左', '中', '右'];
+    const S = { phase: 'crouch', blocked: 0, misses: 0, dir: 1, t: 0, crouchMs: 1400, windowMs: 850, raf: 0 };
+    const area = startAction('🛡️ 抵擋吼獅', '1PE', () => cancelAnimationFrame(S.raf));
+    action.state = S;
+    area.innerHTML = `
+      <div class="act-row"><span>🛡️ 擋下</span><div class="act-track"><div class="act-fill" id="ln-bar"></div></div><b id="ln-count">0/${GOAL}</b></div>
+      <div class="act-row"><span>💔 失手</span><b id="ln-miss">—</b></div>
+      <div class="ln-stage" id="ln-stage"><div class="ln-lion" id="ln-lion">🦁</div><div class="ln-text" id="ln-text">獅子在暗處徘徊…</div></div>
+      <div class="st-btns">
+        <button class="big-btn act-tap" data-d="0">◀️🛡️</button>
+        <button class="big-btn act-tap" data-d="1">🛡️</button>
+        <button class="big-btn act-tap" data-d="2">🛡️▶️</button>
+      </div>
+      <p class="fr-tip">看獅子從哪個方向蹲低——「撲上來了！」的瞬間，按那個方向的盾牌！太早按會露出破綻。（彼前 5:8-9）</p>`;
+    const newRound = () => {
+      S.phase = 'crouch';
+      S.t = 0;
+      S.dir = Math.floor(Math.random() * 3);
+      S.crouchMs = 1000 + Math.random() * 1400;
+      S.windowMs = Math.max(520, 850 - S.blocked * 45);
+      $('#ln-lion').style.left = `${[18, 50, 82][S.dir]}%`;
+      $('#ln-lion').style.fontSize = '2.4rem';
+      $('#ln-text').textContent = `獅子在${DIRS[S.dir]}邊蹲低了…等牠撲上來再舉盾！`;
+    };
+    const miss = (why) => {
+      S.misses++;
+      sndBad();
+      $('#ln-miss').textContent = '💔'.repeat(S.misses);
+      if (S.misses >= 3) {
+        S.phase = 'done';
+        loseAction('1PE', MINIGAMES.peter_lion.lose.text, ACTION_GAMES.peter_lion);
+        return;
+      }
+      $('#ln-text').textContent = `${why}——再站穩！`;
+      newRound();
+    };
+    document.querySelectorAll('#screen-action .st-btns .big-btn, #action-area .st-btns .big-btn').forEach((b) => {
+      b.onclick = () => {
+        if (S.phase === 'crouch') { miss('太早舉盾，露出破綻'); return; }
+        if (S.phase !== 'pounce') return;
+        if (Number(b.dataset.d) === S.dir) {
+          S.blocked++;
+          sndGood();
+          $('#ln-count').textContent = `${S.blocked}/${GOAL}`;
+          $('#ln-bar').style.width = `${(S.blocked / GOAL) * 100}%`;
+          if (S.blocked >= GOAL) {
+            S.phase = 'done';
+            winAction('peter_lion', '1PE', MINIGAMES.peter_lion.win, ACTION_GAMES.peter_lion);
+            return;
+          }
+          $('#ln-text').textContent = '擋下來了！牠退回暗處…';
+          newRound();
+        } else {
+          miss('舉錯邊了，獅子擦身而過');
+        }
+      };
+    });
+    S.tick = (dt) => {
+      if (S.phase === 'crouch') {
+        S.t += dt;
+        if (S.t >= S.crouchMs) {
+          S.phase = 'pounce';
+          S.t = 0;
+          $('#ln-lion').style.fontSize = '3.6rem';
+          $('#ln-text').textContent = `🦁 從${DIRS[S.dir]}邊撲上來了！舉盾！`;
+        }
+      } else if (S.phase === 'pounce') {
+        S.t += dt;
+        if (S.t >= S.windowMs) miss('沒擋住這一撲');
+      }
+    };
+    newRound();
+    let last = performance.now();
+    const step = (now) => {
+      if (!action || action.state !== S) return;
+      S.tick(Math.min(50, now - last));
+      last = now;
+      if (S.phase !== 'done') S.raf = requestAnimationFrame(step);
+    };
+    S.raf = requestAnimationFrame(step);
+  };
+
+  // —— 🪜 屬靈八階梯：把彼後 1:5-7 的八樣美德，按階梯順序點出來（順序挑戰）——
+  ACTION_GAMES.peter_ladder = function startLadder() {
+    const STEPS = ['信心', '德行', '知識', '節制', '忍耐', '虔敬', '愛弟兄的心', '愛眾人的心'];
+    const S = { phase: 'play', at: 0, misses: 0 };
+    const area = startAction('🪜 屬靈八階梯', '2PE', null);
+    action.state = S;
+    area.innerHTML = `
+      <p class="act-hint" id="ld-hint">「有了信心，又要加上德行……」把八樣美德照階梯順序點出來！（彼後 1:5-7）</p>
+      <div class="act-row"><span>🪜 爬到</span><div class="act-track"><div class="act-fill" id="ld-bar"></div></div><b id="ld-count">0/8</b></div>
+      <div class="act-row"><span>💔 失誤</span><b id="ld-miss">—</b></div>
+      <div class="ld-grid" id="ld-grid">${shuffleArr(STEPS.map((_, i) => i)).map((i) => `<button class="ld-card act-tap" data-i="${i}">${STEPS[i]}</button>`).join('')}</div>`;
+    document.querySelectorAll('.ld-card').forEach((b) => {
+      b.onclick = () => {
+        if (S.phase !== 'play' || b.classList.contains('ld-done')) return;
+        const i = Number(b.dataset.i);
+        if (i === S.at) {
+          b.classList.add('ld-done');
+          b.textContent = `${S.at + 1}. ${STEPS[i]}`;
+          S.at++;
+          sndGood();
+          $('#ld-count').textContent = `${S.at}/8`;
+          $('#ld-bar').style.width = `${(S.at / 8) * 100}%`;
+          $('#ld-hint').textContent = S.at >= 8 ? '' : `有了${STEPS[S.at - 1]}，又要加上……？`;
+          if (S.at >= 8) {
+            S.phase = 'done';
+            winAction('peter_ladder', '2PE', MINIGAMES.peter_ladder.win, ACTION_GAMES.peter_ladder);
+          }
+        } else {
+          S.misses++;
+          sndBad();
+          $('#ld-miss').textContent = '💔'.repeat(S.misses);
+          $('#ld-hint').textContent = `還沒到「${STEPS[i]}」——想想：有了${S.at ? STEPS[S.at - 1] : '殷勤'}，接著加上甚麼？`;
+          if (S.misses >= 3) {
+            S.phase = 'done';
+            loseAction('2PE', MINIGAMES.peter_ladder.lose.text, ACTION_GAMES.peter_ladder);
+          }
+        }
+      };
+    });
+  };
+
+  // —— 💡 神就是光：手指擦開迷霧，讓光照亮整段經文（限時擦亮）——
+  ACTION_GAMES.john_light = function startLight() {
+    const COLS = 8, ROWS = 8, LIMIT_MS = 30000;
+    const S = { phase: 'play', cleared: 0, total: COLS * ROWS, t: 0, raf: 0 };
+    const area = startAction('💡 神就是光', '1JN', () => cancelAnimationFrame(S.raf));
+    action.state = S;
+    area.innerHTML = `
+      <div class="act-row"><span>🌘 天亮前</span><div class="act-track"><div class="act-fill act-foe" id="lt-time"></div></div></div>
+      <div class="lt-stage" id="lt-stage">
+        <div class="lt-verse">「神就是光，<br>在他毫無黑暗。」<br><small>約翰一書 1:5</small></div>
+        <div class="lt-fog" id="lt-fog">${Array.from({ length: COLS * ROWS }, (_, i) => `<span class="lt-tile" data-i="${i}"></span>`).join('')}</div>
+      </div>
+      <p class="fr-tip">手指掃過畫面，把黑暗一格一格擦掉——讓整節經文亮出來！</p>`;
+    const stage = $('#lt-stage');
+    const tiles = [...document.querySelectorAll('.lt-tile')];
+    const wipe = (e) => {
+      if (S.phase !== 'play') return;
+      const r = stage.getBoundingClientRect();
+      const cx = Math.floor(((e.clientX - r.left) / r.width) * COLS);
+      const cy = Math.floor(((e.clientY - r.top) / r.height) * ROWS);
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const x = cx + dx, y = cy + dy;
+        if (x < 0 || x >= COLS || y < 0 || y >= ROWS) continue;
+        const t = tiles[y * COLS + x];
+        if (!t.classList.contains('lt-clear')) {
+          t.classList.add('lt-clear');
+          S.cleared++;
+        }
+      }
+      if (S.cleared >= S.total) {
+        S.phase = 'done';
+        sndGood();
+        winAction('john_light', '1JN', MINIGAMES.john_light.win, ACTION_GAMES.john_light);
+      }
+    };
+    stage.onpointerdown = wipe;
+    stage.onpointermove = (e) => { if (e.buttons || e.pressure > 0) wipe(e); };
+    S.tick = (dt) => {
+      if (S.phase !== 'play') return;
+      S.t += dt;
+      $('#lt-time').style.width = `${Math.min(100, (S.t / LIMIT_MS) * 100)}%`;
+      if (S.t >= LIMIT_MS) {
+        S.phase = 'done';
+        loseAction('1JN', MINIGAMES.john_light.lose.text, ACTION_GAMES.john_light);
+      }
+    };
+    let last = performance.now();
+    const step = (now) => {
+      if (!action || action.state !== S) return;
+      S.tick(Math.min(50, now - last));
+      last = now;
+      if (S.phase === 'play') S.raf = requestAnimationFrame(step);
+    };
+    S.raf = requestAnimationFrame(step);
+  };
+
+  // —— 🌠 尋找七星：夜空裡藏了七顆 ⭐（七教會的使者），限時全部找出來（尋物）——
+  ACTION_GAMES.rev_stars = function startStars() {
+    const GOAL = 7, LIMIT_MS = 45000, DECOYS = ['🌟', '✨', '💫', '🌙'];
+    const S = { phase: 'play', found: 0, t: 0, raf: 0 };
+    const area = startAction('🌠 尋找七星', 'REV', () => cancelAnimationFrame(S.raf));
+    action.state = S;
+    let sky = '';
+    const spots = shuffleArr(Array.from({ length: 35 }, (_, i) => i));
+    for (let k = 0; k < 35; k++) {
+      const isStar = spots.indexOf(k) < GOAL;
+      const x = 6 + Math.random() * 88, y = 6 + Math.random() * 86;
+      sky += `<button class="rv-obj act-tap${isStar ? ' rv-star' : ''}" style="left:${x}%;top:${y}%">${isStar ? '⭐' : DECOYS[Math.floor(Math.random() * DECOYS.length)]}</button>`;
+    }
+    area.innerHTML = `
+      <div class="act-row"><span>⭐ 找到</span><div class="act-track"><div class="act-fill" id="rv-bar"></div></div><b id="rv-count">0/${GOAL}</b></div>
+      <div class="act-row"><span>⏳ 時間</span><div class="act-track"><div class="act-fill act-foe" id="rv-time"></div></div></div>
+      <div class="rv-stage" id="rv-stage">${sky}</div>
+      <p class="fr-tip">七星就是七個教會的使者（啟 1:20）——只找 ⭐，別被 🌟✨💫 騙了！點錯會扣 3 秒。</p>`;
+    document.querySelectorAll('.rv-obj').forEach((b) => {
+      b.onclick = () => {
+        if (S.phase !== 'play') return;
+        if (b.classList.contains('rv-star')) {
+          if (b.classList.contains('rv-got')) return;
+          b.classList.add('rv-got');
+          b.textContent = '✅';
+          S.found++;
+          sndGood();
+          $('#rv-count').textContent = `${S.found}/${GOAL}`;
+          $('#rv-bar').style.width = `${(S.found / GOAL) * 100}%`;
+          if (S.found >= GOAL) {
+            S.phase = 'done';
+            winAction('rev_stars', 'REV', MINIGAMES.rev_stars.win, ACTION_GAMES.rev_stars);
+          }
+        } else {
+          S.t += 3000; // 點錯扣 3 秒
+          sndBad();
+          const st = $('#rv-stage');
+          st.classList.remove('jr-shake'); void st.offsetWidth; st.classList.add('jr-shake');
+        }
+      };
+    });
+    S.tick = (dt) => {
+      if (S.phase !== 'play') return;
+      S.t += dt;
+      $('#rv-time').style.width = `${Math.min(100, (S.t / LIMIT_MS) * 100)}%`;
+      if (S.t >= LIMIT_MS) {
+        S.phase = 'done';
+        loseAction('REV', MINIGAMES.rev_stars.lose.text, ACTION_GAMES.rev_stars);
+      }
+    };
+    let last = performance.now();
+    const step = (now) => {
+      if (!action || action.state !== S) return;
+      S.tick(Math.min(50, now - last));
+      last = now;
+      if (S.phase === 'play') S.raf = requestAnimationFrame(step);
+    };
+    S.raf = requestAnimationFrame(step);
+  };
+
   // ===== 📖 書卷故事小遊戲（對決引擎：答對推進我方、答錯讓威脅逼近，先滿者定勝負）=====
   // 加一款遊戲＝在這裡加一份設定，章節頁入口與雲端同步都會自動長出來
   const MINIGAMES = {
@@ -3371,6 +3748,172 @@
         { q: '阿尼西母從前與你沒有益處，如今呢？', options: ['與你我都有益處', '仍然沒有用處', '只對保羅有益', '只對主人有益'], answer: '與你我都有益處', basis: '門 11' },
       ],
     },
+    // ===== 第 4 波（2026-07-18）＝66 卷全覆蓋：6 款動作＋5 款對決 =====
+    armor_god: {
+      book: 'EPH', ch: 6, emoji: '🛡️', title: '穿上全副軍裝', tag: '弗 6・穿戴配對',
+      myEmoji: '🛡️', myName: '六件軍裝到齊', myGoal: 6,
+      foeEmoji: '🔥', foeName: '惡者的火箭', foeGoal: 3,
+      hitText: '🛡️ 又穿上一件，站得更穩！', missText: '🔥 火箭擦過，破綻露出來了…',
+      win: { emoji: '🛡️', title: '全副軍裝穿上了！', text: '「要穿戴神所賜的全副軍裝，就能抵擋魔鬼的詭計。」真理束腰、公義護胸、福音的鞋、信德的藤牌、救恩的頭盔、聖靈的寶劍——站穩了！（弗 6:11-17）' },
+      lose: { text: '裝備穿錯了位置——沒關係，一件一件來：先用真理當作帶子束腰。再穿一次！（弗 6:14）' },
+      manualQs: [
+        { q: '穿戴全副軍裝，就能抵擋誰的詭計？', options: ['魔鬼', '仇人', '外邦人', '野獸'], answer: '魔鬼', basis: '弗 6:11' },
+        { q: '用甚麼當作帶子束腰？', options: ['真理', '公義', '信德', '救恩'], answer: '真理', basis: '弗 6:14' },
+        { q: '信德當作藤牌，可以滅盡那惡者一切的甚麼？', options: ['火箭', '長矛', '巨石', '繩索'], answer: '火箭', basis: '弗 6:16' },
+        { q: '聖靈的寶劍就是甚麼？', options: ['神的道', '人的口才', '教會傳統', '天使命令'], answer: '神的道', basis: '弗 6:17' },
+        { q: '「你們得救是本乎恩，也因着」甚麼？', options: ['信', '行為', '律法', '奉獻'], answer: '信', basis: '弗 2:8' },
+      ],
+    },
+    php_race: {
+      book: 'PHP', ch: 3, emoji: '🏃', title: '向著標竿直跑', tag: '腓 3・跨欄跑者',
+      myEmoji: '🏃', myName: '努力面前的路程', myGoal: 12,
+      foeEmoji: '🪨', foeName: '絆腳的攔阻', foeGoal: 3,
+      hitText: '🏃 跳過去了，繼續向前！', missText: '🪨 絆了一下，別回頭看…',
+      win: { emoji: '🏆', title: '跑到標竿了！', text: '「忘記背後，努力面前的，向着標竿直跑，要得神在基督耶穌裏從上面召我來得的獎賞。」（腓 3:13-14）' },
+      lose: { text: '摔倒了嗎？「我靠着那加給我力量的，凡事都能作」——爬起來，再跑一次！（腓 4:13）' },
+      manualQs: [
+        { q: '保羅說「我只有一件事」：忘記背後、怎樣？', options: ['努力面前', '回顧過去', '原地休息', '等待指示'], answer: '努力面前', basis: '腓 3:13' },
+        { q: '「向着標竿直跑」，要得甚麼？', options: ['神從上面召我來得的獎賞', '眾人的掌聲', '金銀的冠冕', '長壽與平安'], answer: '神從上面召我來得的獎賞', basis: '腓 3:14' },
+        { q: '「你們要靠主常常＿＿。我再說，你們要＿＿」？', options: ['喜樂', '儆醒', '謙卑', '忍耐'], answer: '喜樂', basis: '腓 4:4' },
+        { q: '「我靠着那加給我力量的」，怎樣？', options: ['凡事都能作', '偶爾能成功', '不再有軟弱', '百戰又百勝'], answer: '凡事都能作', basis: '腓 4:13' },
+        { q: '應當一無掛慮，凡事藉着甚麼將所要的告訴神？', options: ['禱告、祈求和感謝', '眼淚和歎息', '禁食和苦行', '奉獻和勞力'], answer: '禱告、祈求和感謝', basis: '腓 4:6' },
+      ],
+    },
+    peter_lion: {
+      book: '1PE', ch: 5, emoji: '🛡️', title: '抵擋吼獅', tag: '彼前 5・方向格擋',
+      myEmoji: '🛡️', myName: '堅固的信心', myGoal: 7,
+      foeEmoji: '🦁', foeName: '遍地遊行的吼獅', foeGoal: 3,
+      hitText: '🛡️ 用堅固的信心擋下這一撲！', missText: '🦁 吼叫聲更近了…',
+      win: { emoji: '🛡️', title: '站穩抵擋到底！', text: '「務要謹守，儆醒……你們要用堅固的信心抵擋他。」暫受苦難之後，神必要親自成全、堅固你們，賜力量給你們！（彼前 5:8-10）' },
+      lose: { text: '被撲倒了嗎？「將一切的憂慮卸給神，因為他顧念你們」——深呼吸，舉盾再戰！（彼前 5:7）' },
+      manualQs: [
+        { q: '仇敵魔鬼如同甚麼，遍地遊行？', options: ['吼叫的獅子', '狡猾的狐狸', '盤旋的老鷹', '隱藏的毒蛇'], answer: '吼叫的獅子', basis: '彼前 5:8' },
+        { q: '要用甚麼抵擋魔鬼？', options: ['堅固的信心', '鋒利的刀劍', '高大的城牆', '眾多的同伴'], answer: '堅固的信心', basis: '彼前 5:9' },
+        { q: '「將一切的憂慮卸給神」，因為甚麼？', options: ['他顧念你們', '憂慮沒有用', '別人也一樣', '時間會沖淡'], answer: '他顧念你們', basis: '彼前 5:7' },
+        { q: '你們是被揀選的族類，是有君尊的甚麼？', options: ['祭司', '君王', '先知', '勇士'], answer: '祭司', basis: '彼前 2:9' },
+        { q: '暫受苦難之後，神必要親自怎樣你們？', options: ['成全、堅固、賜力量', '責備、管教、試驗', '隱藏、遮蓋、保密', '升高、加冠、賜國'], answer: '成全、堅固、賜力量', basis: '彼前 5:10' },
+      ],
+    },
+    peter_ladder: {
+      book: '2PE', ch: 1, emoji: '🪜', title: '屬靈八階梯', tag: '彼後 1・順序挑戰',
+      myEmoji: '🪜', myName: '八樣美德的階梯', myGoal: 8,
+      foeEmoji: '😴', foeName: '閒懶不結果子', foeGoal: 3,
+      hitText: '🪜 又爬上一階！', missText: '😴 順序亂了，腳步滑了一下…',
+      win: { emoji: '🪜', title: '八階全部爬上去了！', text: '「有了信心，又要加上德行……」你們若充充足足的有這幾樣，就必不至於閒懶不結果子了！（彼後 1:5-8）' },
+      lose: { text: '滑下來了嗎？階梯還在：信心、德行、知識、節制、忍耐、虔敬、愛弟兄、愛眾人——分外殷勤，再爬一次！' },
+      manualQs: [
+        { q: '有了信心，又要加上甚麼？', options: ['德行', '知識', '節制', '忍耐'], answer: '德行', basis: '彼後 1:5' },
+        { q: '有了忍耐，又要加上甚麼？', options: ['虔敬', '愛心', '信心', '謙卑'], answer: '虔敬', basis: '彼後 1:6' },
+        { q: '八樣階梯的最後一階是甚麼？', options: ['愛眾人的心', '愛弟兄的心', '虔敬', '節制'], answer: '愛眾人的心', basis: '彼後 1:7' },
+        { q: '充充足足有這幾樣，就必不至於怎樣？', options: ['閒懶不結果子', '遭遇苦難', '被人輕看', '缺乏財物'], answer: '閒懶不結果子', basis: '彼後 1:8' },
+        { q: '主不願有一人沉淪，乃願人人都怎樣？', options: ['悔改', '富足', '聰明', '長壽'], answer: '悔改', basis: '彼後 3:9' },
+      ],
+    },
+    john_light: {
+      book: '1JN', ch: 1, emoji: '💡', title: '神就是光', tag: '約一 1・擦亮迷霧',
+      myEmoji: '💡', myName: '光照進來', myGoal: 5,
+      foeEmoji: '🌑', foeName: '黑暗', foeGoal: 5,
+      hitText: '💡 又亮了一片！', missText: '🌑 黑暗還籠罩着…',
+      win: { emoji: '💡', title: '整片都亮了！', text: '「神就是光，在他毫無黑暗。」那在你們裏面的，比那在世界上的更大！（約一 1:5、4:4）' },
+      lose: { text: '天亮前沒擦完嗎？光一直都在，只等你動手——再擦一次！' },
+      manualQs: [
+        { q: '「神就是光」，在祂毫無甚麼？', options: ['黑暗', '憂愁', '疲倦', '隱藏'], answer: '黑暗', basis: '約一 1:5' },
+        { q: '我們若認自己的罪，神必要怎樣？', options: ['赦免我們的罪、洗淨不義', '記錄我們的過犯', '暫時不追究', '要求先補償'], answer: '赦免我們的罪、洗淨不義', basis: '約一 1:9' },
+        { q: '「那在你們裏面的」，比那在世界上的怎樣？', options: ['更大', '一樣', '更小', '更快'], answer: '更大', basis: '約一 4:4' },
+        { q: '「我們愛」，因為甚麼？', options: ['神先愛我們', '愛使人快樂', '人人都需要', '律法的要求'], answer: '神先愛我們', basis: '約一 4:19' },
+        { q: '父賜給我們何等的慈愛，使我們得稱為甚麼？', options: ['神的兒女', '神的僕人', '神的朋友', '神的選民'], answer: '神的兒女', basis: '約一 3:1' },
+      ],
+    },
+    rev_stars: {
+      book: 'REV', ch: 1, emoji: '🌠', title: '尋找七星', tag: '啟 1・夜空尋物',
+      myEmoji: '⭐', myName: '找齊七星', myGoal: 7,
+      foeEmoji: '⏳', foeName: '時間流逝', foeGoal: 3,
+      hitText: '⭐ 找到一顆星！', missText: '⏳ 時間一分一秒過去…',
+      win: { emoji: '🌠', title: '七星全找到了！', text: '「那七星就是七個教會的使者，七燈臺就是七個教會。」祂是阿拉法，是俄梅戛；是首先的，也是末後的！（啟 1:20、22:13）' },
+      lose: { text: '星星還藏在夜空裡——「務要至死忠心，我就賜給你那生命的冠冕」。睜大眼睛，再找一次！（啟 2:10）' },
+      manualQs: [
+        { q: '主右手中的七星是甚麼？', options: ['七個教會的使者', '七位天使長', '七個國度', '七樣恩賜'], answer: '七個教會的使者', basis: '啟 1:20' },
+        { q: '「務要至死忠心」，我就賜給你甚麼？', options: ['生命的冠冕', '公義的冠冕', '榮耀的寶座', '永遠的基業'], answer: '生命的冠冕', basis: '啟 2:10' },
+        { q: '「看哪，我站在門外」做甚麼？', options: ['叩門', '守望', '唱歌', '呼喊'], answer: '叩門', basis: '啟 3:20' },
+        { q: '新天新地裡，神要擦去他們一切的甚麼？', options: ['眼淚', '罪孽', '記憶', '疾病'], answer: '眼淚', basis: '啟 21:4' },
+        { q: '「我是阿拉法，我是俄梅戛」，意思是？', options: ['首先的和末後的', '東方和西方', '光明和真理', '君王和祭司'], answer: '首先的和末後的', basis: '啟 22:13' },
+      ],
+    },
+    faith_cloud: {
+      book: 'HEB', ch: 12, emoji: '☁️', title: '信心的雲彩', tag: '來 11-12・答題對決',
+      myEmoji: '☁️', myName: '雲彩般的見證人', myGoal: 5,
+      foeEmoji: '🎒', foeName: '容易纏累的重擔', foeGoal: 5,
+      hitText: '☁️ 又一位見證人為你加油！', missText: '🎒 重擔又纏上來了…',
+      win: { emoji: '☁️', title: '仰望耶穌，跑完路程！', text: '「我們既有這許多的見證人，如同雲彩圍着我們，就當放下各樣的重擔……仰望為我們信心創始成終的耶穌。」（來 12:1-2）' },
+      lose: { text: '被重擔纏住了嗎？把它放下——雲彩般的見證人都在為你加油。再跑一段！' },
+      manualQs: [
+        { q: '信就是所望之事的實底，是未見之事的甚麼？', options: ['確據', '幻影', '開端', '影兒'], answer: '確據', basis: '來 11:1' },
+        { q: '許多見證人如同甚麼圍着我們？', options: ['雲彩', '城牆', '軍隊', '星宿'], answer: '雲彩', basis: '來 12:1' },
+        { q: '奔跑路程時，當仰望誰？', options: ['為我們信心創始成終的耶穌', '前面的跑者', '場邊的觀眾', '自己的腳步'], answer: '為我們信心創始成終的耶穌', basis: '來 12:2' },
+        { q: '耶穌基督昨日、今日、一直到永遠，怎樣？', options: ['是一樣的', '不斷改變', '漸漸長大', '越來越遠'], answer: '是一樣的', basis: '來 13:8' },
+        { q: '神的道比一切兩刃的劍怎樣？', options: ['更快', '更重', '更長', '更亮'], answer: '更快', basis: '來 4:12' },
+      ],
+    },
+    tongue_helm: {
+      book: 'JAS', ch: 3, emoji: '⚓', title: '勒住舌頭', tag: '雅 3・答題對決',
+      myEmoji: '⚓', myName: '掌穩小小的舵', myGoal: 5,
+      foeEmoji: '🔥', foeName: '點著樹林的小火', foeGoal: 5,
+      hitText: '⚓ 舵掌穩了，大船轉向！', missText: '🔥 小火又竄出一個火星…',
+      win: { emoji: '⚓', title: '舌頭勒住了！', text: '「船隻雖然甚大……只用小小的舵，就隨着掌舵的意思轉動。」最小的火能點着最大的樹林——但你掌住舵了！（雅 3:4-5）' },
+      lose: { text: '火燒起來了嗎？先安靜下來——行道的人從管住舌頭開始。再掌一次舵！（雅 1:22）' },
+      manualQs: [
+        { q: '船隻雖大，只用甚麼就能隨掌舵的意思轉動？', options: ['小小的舵', '巨大的帆', '粗壯的錨', '眾多水手'], answer: '小小的舵', basis: '雅 3:4' },
+        { q: '「最小的火」能點着甚麼？', options: ['最大的樹林', '小小的燈', '一堆柴火', '家中的爐'], answer: '最大的樹林', basis: '雅 3:5' },
+        { q: '「只是你們要行道」，不要單單怎樣？', options: ['聽道', '讀經', '唱詩', '聚會'], answer: '聽道', basis: '雅 1:22' },
+        { q: '缺少智慧的，應當怎麼辦？', options: ['求那厚賜與眾人的神', '去問有學問的人', '多讀幾本書', '等年紀大一點'], answer: '求那厚賜與眾人的神', basis: '雅 1:5' },
+        { q: '「你們親近神」，神就必怎樣？', options: ['親近你們', '考驗你們', '遠遠觀看', '差天使來'], answer: '親近你們', basis: '雅 4:8' },
+      ],
+    },
+    walk_truth: {
+      book: '2JN', ch: 1, emoji: '🚪', title: '守住真理', tag: '約二・答題對決',
+      myEmoji: '🚪', myName: '在真理和愛中行走', myGoal: 5,
+      foeEmoji: '🎭', foeName: '迷惑人的敲門', foeGoal: 5,
+      hitText: '🚪 認出真理，門守住了！', missText: '🎭 迷惑人的又在門外徘徊…',
+      win: { emoji: '🚪', title: '真理和愛都守住了！', text: '「我們若照他的命令行，這就是愛。」在真理中行走、在愛中彼此相待——門守住了！（約二 6）' },
+      lose: { text: '差點被迷惑了嗎？分辨的鑰匙很簡單：認耶穌基督是成了肉身來的。站穩，再守一次！（約二 7）' },
+      manualQs: [
+        { q: '約翰見對方的兒女怎樣行，就甚歡喜？', options: ['遵行真理', '賺錢養家', '征戰得勝', '多才多藝'], answer: '遵行真理', basis: '約二 4' },
+        { q: '「我們大家要彼此相愛」，這是新命令嗎？', options: ['是從起初所受的命令', '是全新的命令', '是暫時的建議', '是猶太的傳統'], answer: '是從起初所受的命令', basis: '約二 5' },
+        { q: '「我們若照他的命令行」，這就是甚麼？', options: ['愛', '律法', '重擔', '儀式'], answer: '愛', basis: '約二 6' },
+        { q: '迷惑人的不認耶穌基督是怎樣來的？', options: ['成了肉身來的', '從天使中來的', '從先知中來的', '從君王中來的'], answer: '成了肉身來的', basis: '約二 7' },
+        { q: '那不認耶穌基督成了肉身來的，稱為甚麼？', options: ['敵基督的', '失迷的羊', '小信的人', '旁觀的人'], answer: '敵基督的', basis: '約二 7' },
+      ],
+    },
+    gaius_love: {
+      book: '3JN', ch: 1, emoji: '🤝', title: '愛心接待', tag: '約三・答題對決',
+      myEmoji: '🤝', myName: '像該猶一樣接待', myGoal: 5,
+      foeEmoji: '🚫', foeName: '丟特腓拒人門外', foeGoal: 5,
+      hitText: '🤝 門開了，客旅得着款待！', missText: '🚫 丟特腓又把人擋在門外…',
+      win: { emoji: '🤝', title: '忠心的接待！', text: '「親愛的兄弟啊，凡你向作客旅之弟兄所行的都是忠心的。」不要效法惡，只要效法善——行善的屬乎神！（約三 5,11）' },
+      lose: { text: '門被關上了嗎？學該猶，別學丟特腓——把門打開，再接待一次！' },
+      manualQs: [
+        { q: '約翰說沒有比聽見甚麼更大的喜樂？', options: ['兒女們按真理而行', '教會奉獻增加', '仇敵全都消失', '自己健康長壽'], answer: '兒女們按真理而行', basis: '約三 4' },
+        { q: '該猶向作客旅之弟兄所行的，都是怎樣的？', options: ['忠心的', '勉強的', '炫耀的', '隨便的'], answer: '忠心的', basis: '約三 5' },
+        { q: '在教會中好為首、不接待約翰他們的人是誰？', options: ['丟特腓', '底馬', '亞歷山大', '許米乃'], answer: '丟特腓', basis: '約三 9' },
+        { q: '「不要效法惡」，只要效法甚麼？', options: ['善', '強者', '傳統', '多數'], answer: '善', basis: '約三 11' },
+        { q: '行善的屬乎誰？', options: ['屬乎神', '屬乎自己', '屬乎教會', '屬乎眾人'], answer: '屬乎神', basis: '約三 11' },
+      ],
+    },
+    keep_faith: {
+      book: 'JUD', ch: 1, emoji: '🏯', title: '真道堡壘', tag: '猶・答題對決',
+      myEmoji: '🏯', myName: '在真道上造就自己', myGoal: 5,
+      foeEmoji: '🕳️', foeName: '偷着進來的人', foeGoal: 5,
+      hitText: '🏯 堡壘又加固一層！', missText: '🕳️ 有人偷偷挖牆腳…',
+      win: { emoji: '🏯', title: '真道守住了！', text: '「要在至聖的真道上造就自己，在聖靈裏禱告，保守自己常在神的愛中。」那能保守你們不失腳的，是我們的救主獨一的神！（猶 20-21,24）' },
+      lose: { text: '牆被挖鬆了嗎？回到根基：真道上造就自己、聖靈裡禱告、常在神的愛中——再築一次！' },
+      manualQs: [
+        { q: '要在甚麼上造就自己？', options: ['至聖的真道', '古老的傳統', '眾人的稱讚', '豐富的知識'], answer: '至聖的真道', basis: '猶 20' },
+        { q: '要保守自己常在哪裡？', options: ['神的愛中', '安全的家中', '人群之中', '聖殿之中'], answer: '神的愛中', basis: '猶 21' },
+        { q: '「有些人你們要從」哪裡「搶出來」？', options: ['火中', '水中', '坑中', '獄中'], answer: '火中', basis: '猶 23' },
+        { q: '誰能保守你們不失腳？', options: ['我們的救主獨一的神', '謹慎的自己', '屬靈的同伴', '教會的領袖'], answer: '我們的救主獨一的神', basis: '猶 24' },
+        { q: '搶救人的時候，要存怎樣的心憐憫他們？', options: ['懼怕的心', '驕傲的心', '輕鬆的心', '論斷的心'], answer: '懼怕的心', basis: '猶 23' },
+      ],
+    },
   };
 
   let mg = null; // { id, cfg, qs, i, my, foe, answered }
@@ -3568,6 +4111,17 @@
     { emoji: '🏆', name: '美好的仗', desc: '通關「打那美好的仗」', test: s => !!((s.minigames || {}).tim_fight) },
     { emoji: '❤️‍🔥', name: '熱心為善', desc: '通關「熱心為善」', test: s => !!((s.minigames || {}).titus_good) },
     { emoji: '🏠', name: '恩典的家書', desc: '通關「回家的路」', test: s => !!((s.minigames || {}).philemon_home) },
+    { emoji: '🪖', name: '全副軍裝', desc: '通關「穿上全副軍裝」', test: s => !!((s.minigames || {}).armor_god) },
+    { emoji: '🏃', name: '向標竿直跑', desc: '通關「向著標竿直跑」', test: s => !!((s.minigames || {}).php_race) },
+    { emoji: '🛡️', name: '信心的盾牌', desc: '通關「抵擋吼獅」', test: s => !!((s.minigames || {}).peter_lion) },
+    { emoji: '🪜', name: '八階全登', desc: '通關「屬靈八階梯」', test: s => !!((s.minigames || {}).peter_ladder) },
+    { emoji: '💡', name: '毫無黑暗', desc: '通關「神就是光」', test: s => !!((s.minigames || {}).john_light) },
+    { emoji: '🌠', name: '七星在手', desc: '通關「尋找七星」', test: s => !!((s.minigames || {}).rev_stars) },
+    { emoji: '☁️', name: '雲彩見證', desc: '通關「信心的雲彩」', test: s => !!((s.minigames || {}).faith_cloud) },
+    { emoji: '⚓', name: '掌穩舌舵', desc: '通關「勒住舌頭」', test: s => !!((s.minigames || {}).tongue_helm) },
+    { emoji: '🚪', name: '真理守門', desc: '通關「守住真理」', test: s => !!((s.minigames || {}).walk_truth) },
+    { emoji: '🤝', name: '該猶的門', desc: '通關「愛心接待」', test: s => !!((s.minigames || {}).gaius_love) },
+    { emoji: '🏯', name: '真道堡壘', desc: '通關「真道堡壘」', test: s => !!((s.minigames || {}).keep_faith) },
   ];
   const earnedBadges = () => BADGES.filter(b => b.test(state));
   function renderBadges() {
