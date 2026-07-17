@@ -933,6 +933,37 @@ main, header { position: relative; z-index: 1; }
 .lk-tile span { display: block; transition: transform .15s; }
 .lk-tile.lk-ok { border-color: var(--primary); color: var(--primary-dark); }
 
+/* 🏞️ 敲通公義河道 */
+.rr-stage { position: relative; height: 300px; border: 2px dashed var(--card-line); border-radius: 20px; margin: 8px 0; overflow: hidden; }
+.rr-rock { position: absolute; transform: translate(-50%, -50%); font-size: 2.2rem; background: none; border: none; cursor: pointer; padding: 8px; transition: transform .1s; }
+.rr-water { position: absolute; left: 0; bottom: 0; height: 18px; width: 0; text-align: right; font-size: 1rem; background: rgba(28, 176, 246, .25); border-radius: 0 9px 9px 0; transition: width .3s; overflow: hidden; }
+
+/* ⛰️ 驕傲必墜 */
+.dg-stage { position: relative; height: 300px; border: 2px dashed var(--card-line); border-radius: 20px; margin: 8px 0; overflow: hidden; }
+.dg-player { position: absolute; bottom: 6px; font-size: 2.2rem; transform: translateX(-50%); transition: left .12s; }
+.dg-rock { position: absolute; font-size: 1.9rem; transform: translateX(-50%); pointer-events: none; }
+
+/* ⚖️ 三重奏 */
+.tl-stage { position: relative; height: 280px; border: 2px dashed var(--card-line); border-radius: 20px; margin: 8px 0; overflow: hidden;
+  background: linear-gradient(90deg, transparent 34%, var(--card-line) 34%, var(--card-line) 35%, transparent 35%, transparent 64%, var(--card-line) 64%, var(--card-line) 65%, transparent 65%); }
+.tl-line { position: absolute; left: 0; right: 0; top: 80%; height: 4px; background: var(--select); opacity: .6; border-radius: 2px; }
+.tl-note { position: absolute; font-size: 1.9rem; transform: translateX(-50%); pointer-events: none; }
+
+/* 🏰 保障開門 */
+.gk-stage { position: relative; height: 200px; border: 2px dashed var(--card-line); border-radius: 20px; margin: 8px 0; overflow: hidden; }
+.gk-door { position: absolute; left: 8%; top: 50%; transform: translate(-50%, -50%); font-size: 3rem; }
+.gk-comer { position: absolute; top: 50%; transform: translate(-50%, -50%); font-size: 2.2rem; }
+
+/* 🎵 跟著歌聲 */
+.ts-stage { position: relative; height: 300px; border: 2px dashed var(--card-line); border-radius: 20px; margin: 8px 0; touch-action: none; overflow: hidden; }
+.ts-dot { position: absolute; left: 62%; font-size: 2rem; transform: translate(-50%, -50%); pointer-events: none; }
+.ts-finger { position: absolute; left: 30%; font-size: 1.8rem; transform: translate(-50%, -50%); opacity: .3; pointer-events: none; }
+
+/* 🔨 上山拋木 */
+.lg-stage { position: relative; height: 320px; border: 2px dashed var(--card-line); border-radius: 20px; margin: 8px 0; touch-action: none; overflow: hidden; }
+.lg-frame { position: absolute; top: 14%; font-size: 2.6rem; transform: translate(-50%, -50%); }
+.lg-log { position: absolute; left: 50%; top: 86%; font-size: 2rem; transform: translate(-50%, -50%); pointer-events: none; }
+
 /* 🌊 分海快走 */
 .rs-stage { position: relative; height: 160px; border: 2px dashed var(--card-line); border-radius: 20px; margin: 8px 0; display: flex; align-items: center; justify-content: center; gap: 6px; overflow: hidden; touch-action: none; font-size: 2.2rem; }
 .rs-sea { transition: transform .1s linear; }

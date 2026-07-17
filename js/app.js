@@ -3405,6 +3405,430 @@
     S.raf = requestAnimationFrame(step);
   };
 
+  // —— 🏞️ 敲通公義河道：連續敲擊把堵住河道的巨石敲碎，旱季結束前讓江河滔滔（摩 5:24）——
+  ACTION_GAMES.amos_river = function startRiverRocks() {
+    const ROCKS = 8, HITS = 4, LIMIT_MS = 45000;
+    const S = { phase: 'play', broken: 0, t: 0, hp: [], raf: 0 };
+    const area = startAction('🏞️ 敲通公義河道', 'AMO', () => cancelAnimationFrame(S.raf));
+    action.state = S;
+    let html = '';
+    for (let i = 0; i < ROCKS; i++) {
+      const x = 12 + (i % 4) * 24 + Math.random() * 6;
+      const y = 18 + Math.floor(i / 4) * 42 + Math.random() * 10;
+      html += `<button class="rr-rock act-tap" data-i="${i}" style="left:${x}%;top:${y}%">🪨</button>`;
+      S.hp.push(HITS);
+    }
+    area.innerHTML = `
+      <div class="act-row"><span>⛏️ 敲碎</span><div class="act-track"><div class="act-fill" id="rr-bar"></div></div><b id="rr-count">0/${ROCKS}</b></div>
+      <div class="act-row"><span>🌵 旱季</span><div class="act-track"><div class="act-fill act-foe" id="rr-time"></div></div></div>
+      <div class="rr-stage" id="rr-stage">${html}<div class="rr-water" id="rr-water">🌊</div></div>
+      <p class="fr-tip">河道被不義的巨石堵住了——每顆石頭敲 ${HITS} 下就碎！旱季結束前全部敲通，公義就如江河滔滔。（摩 5:24）</p>`;
+    document.querySelectorAll('.rr-rock').forEach((b) => {
+      b.onclick = () => {
+        if (S.phase !== 'play') return;
+        const i = Number(b.dataset.i);
+        if (S.hp[i] <= 0) return;
+        S.hp[i]--;
+        b.style.transform = `translate(-50%,-50%) scale(${0.55 + (S.hp[i] / HITS) * 0.45})`;
+        if (S.hp[i] === 1) b.textContent = '🪨💥';
+        if (S.hp[i] <= 0) {
+          b.textContent = '💦';
+          b.disabled = true;
+          S.broken++;
+          sndGood();
+          $('#rr-count').textContent = `${S.broken}/${ROCKS}`;
+          $('#rr-bar').style.width = `${(S.broken / ROCKS) * 100}%`;
+          $('#rr-water').style.width = `${(S.broken / ROCKS) * 100}%`;
+          if (S.broken >= ROCKS) {
+            S.phase = 'done';
+            winAction('amos_river', 'AMO', MINIGAMES.amos_river.win, ACTION_GAMES.amos_river);
+          }
+        }
+      };
+    });
+    S.tick = (dt) => {
+      if (S.phase !== 'play') return;
+      S.t += dt;
+      $('#rr-time').style.width = `${Math.min(100, (S.t / LIMIT_MS) * 100)}%`;
+      if (S.t >= LIMIT_MS) {
+        S.phase = 'done';
+        loseAction('AMO', MINIGAMES.amos_river.lose.text, ACTION_GAMES.amos_river);
+      }
+    };
+    let last = performance.now();
+    const step = (now) => {
+      if (!action || action.state !== S) return;
+      S.tick(Math.min(50, now - last));
+      last = now;
+      if (S.phase === 'play') S.raf = requestAnimationFrame(step);
+    };
+    S.raf = requestAnimationFrame(step);
+  };
+
+  // —— ⛰️ 驕傲必墜：以東的高牆崩塌，左右移動閃開墜落的碎石，站穩到底（俄 3-4）——
+  ACTION_GAMES.obadiah_pride = function startDodge() {
+    const GOAL = 15, LANES = [14, 32, 50, 68, 86];
+    const S = { phase: 'play', dodged: 0, hits: 0, lane: 2, rocks: [], sinceRock: 600, raf: 0 };
+    const area = startAction('⛰️ 驕傲必墜', 'OBA', () => cancelAnimationFrame(S.raf));
+    action.state = S;
+    area.innerHTML = `
+      <div class="act-row"><span>🪨 躲過</span><div class="act-track"><div class="act-fill" id="dg-bar"></div></div><b id="dg-count">0/${GOAL}</b></div>
+      <div class="act-row"><span>💚 平安</span><b id="dg-hearts">💚💚💚</b></div>
+      <div class="dg-stage" id="dg-stage"><div class="dg-player" id="dg-player">🧍</div></div>
+      <div class="st-btns">
+        <button class="big-btn act-tap" id="dg-left">◀️ 往左</button>
+        <button class="big-btn act-tap" id="dg-right">往右 ▶️</button>
+      </div>
+      <p class="fr-tip">「你雖如大鷹高飛……我必從那裏拉下你來」——驕傲的高牆塌了，看準落點左右閃避！（俄 4）</p>`;
+    const setLane = (d) => {
+      if (S.phase !== 'play') return;
+      S.lane = Math.max(0, Math.min(4, S.lane + d));
+      $('#dg-player').style.left = `${LANES[S.lane]}%`;
+    };
+    $('#dg-left').onclick = () => setLane(-1);
+    $('#dg-right').onclick = () => setLane(1);
+    $('#dg-player').style.left = `${LANES[2]}%`;
+    const stage = $('#dg-stage');
+    S.tick = (dt) => {
+      if (S.phase !== 'play') return;
+      const f = dt / 16.7;
+      S.sinceRock += dt;
+      const interval = Math.max(650, 1100 - S.dodged * 28);
+      if (S.sinceRock >= interval) {
+        S.sinceRock = 0;
+        const lane = Math.random() < 0.55 ? S.lane : Math.floor(Math.random() * 5); // 過半瞄準玩家
+        const el = document.createElement('div');
+        el.className = 'dg-rock';
+        el.textContent = '🪨';
+        el.style.left = `${LANES[lane]}%`;
+        stage.appendChild(el);
+        S.rocks.push({ lane, y: -8, el, judged: false });
+      }
+      for (let i = S.rocks.length - 1; i >= 0; i--) {
+        const g = S.rocks[i];
+        g.y += (0.72 + S.dodged * 0.02) * f;
+        g.el.style.top = `${g.y}%`;
+        if (!g.judged && g.y >= 80) {
+          g.judged = true;
+          if (g.lane === S.lane) {
+            S.hits++;
+            sndBad();
+            stage.classList.remove('jr-shake'); void stage.offsetWidth; stage.classList.add('jr-shake');
+            $('#dg-hearts').textContent = '💚'.repeat(Math.max(0, 3 - S.hits)) || '…';
+            if (S.hits >= 3) {
+              S.phase = 'done';
+              loseAction('OBA', MINIGAMES.obadiah_pride.lose.text, ACTION_GAMES.obadiah_pride);
+              return;
+            }
+          } else {
+            S.dodged++;
+            sndGood();
+            $('#dg-count').textContent = `${S.dodged}/${GOAL}`;
+            $('#dg-bar').style.width = `${(S.dodged / GOAL) * 100}%`;
+            if (S.dodged >= GOAL) {
+              S.phase = 'done';
+              winAction('obadiah_pride', 'OBA', MINIGAMES.obadiah_pride.win, ACTION_GAMES.obadiah_pride);
+              return;
+            }
+          }
+        }
+        if (g.y > 104) { g.el.remove(); S.rocks.splice(i, 1); }
+      }
+    };
+    let last = performance.now();
+    const step = (now) => {
+      if (!action || action.state !== S) return;
+      S.tick(Math.min(50, now - last));
+      last = now;
+      if (S.phase === 'play') S.raf = requestAnimationFrame(step);
+    };
+    S.raf = requestAnimationFrame(step);
+  };
+
+  // —— ⚖️ 與神同行三重奏：公義/憐憫/謙卑三軌音符落下，落到判定線時按對應鍵（彌 6:8）——
+  ACTION_GAMES.micah_walk = function startTrioLanes() {
+    const GOAL = 15, LANES = [{ e: '⚖️', n: '公義' }, { e: '💗', n: '憐憫' }, { e: '🙇', n: '謙卑' }];
+    const S = { phase: 'play', hit: 0, misses: 0, notes: [], sinceNote: 700, raf: 0 };
+    const area = startAction('⚖️ 與神同行三重奏', 'MIC', () => cancelAnimationFrame(S.raf));
+    action.state = S;
+    area.innerHTML = `
+      <div class="act-row"><span>🎵 接住</span><div class="act-track"><div class="act-fill" id="tl-bar"></div></div><b id="tl-count">0/${GOAL}</b></div>
+      <div class="act-row"><span>💔 漏接</span><b id="tl-miss">—</b></div>
+      <div class="tl-stage" id="tl-stage"><div class="tl-line"></div></div>
+      <div class="st-btns">
+        ${LANES.map((l, i) => `<button class="big-btn act-tap" data-l="${i}">${l.e}<br><small>${l.n}</small></button>`).join('')}
+      </div>
+      <p class="fr-tip">行公義、好憐憫、存謙卑的心——音符落到白線的瞬間，按下同一軌的鍵！（彌 6:8）</p>`;
+    const stage = $('#tl-stage');
+    const laneX = (l) => 20 + l * 30;
+    document.querySelectorAll('#action-area .st-btns .big-btn').forEach((b) => {
+      b.onclick = () => {
+        if (S.phase !== 'play') return;
+        const l = Number(b.dataset.l);
+        const note = S.notes.find((n) => !n.judged && n.lane === l && n.y >= 68 && n.y <= 92);
+        if (note) {
+          note.judged = true;
+          note.el.textContent = '✨';
+          setTimeout(() => note.el.remove(), 200);
+          S.hit++;
+          sndGood();
+          $('#tl-count').textContent = `${S.hit}/${GOAL}`;
+          $('#tl-bar').style.width = `${(S.hit / GOAL) * 100}%`;
+          if (S.hit >= GOAL) {
+            S.phase = 'done';
+            winAction('micah_walk', 'MIC', MINIGAMES.micah_walk.win, ACTION_GAMES.micah_walk);
+          }
+        }
+      };
+    });
+    const miss = () => {
+      S.misses++;
+      sndBad();
+      $('#tl-miss').textContent = '💔'.repeat(S.misses);
+      if (S.misses >= 4) {
+        S.phase = 'done';
+        loseAction('MIC', MINIGAMES.micah_walk.lose.text, ACTION_GAMES.micah_walk);
+      }
+    };
+    S.tick = (dt) => {
+      if (S.phase !== 'play') return;
+      const f = dt / 16.7;
+      S.sinceNote += dt;
+      const interval = Math.max(820, 1350 - S.hit * 32);
+      if (S.sinceNote >= interval) {
+        S.sinceNote = 0;
+        const lane = Math.floor(Math.random() * 3);
+        const el = document.createElement('div');
+        el.className = 'tl-note';
+        el.textContent = LANES[lane].e;
+        el.style.left = `${laneX(lane)}%`;
+        stage.appendChild(el);
+        S.notes.push({ lane, y: -8, el, judged: false });
+      }
+      for (let i = S.notes.length - 1; i >= 0; i--) {
+        const n = S.notes[i];
+        n.y += (0.55 + S.hit * 0.014) * f;
+        n.el.style.top = `${n.y}%`;
+        if (!n.judged && n.y > 92) { n.judged = true; n.el.remove(); S.notes.splice(i, 1); miss(); continue; }
+        if (n.y > 104) { n.el.remove(); S.notes.splice(i, 1); }
+      }
+    };
+    let last = performance.now();
+    const step = (now) => {
+      if (!action || action.state !== S) return;
+      S.tick(Math.min(50, now - last));
+      last = now;
+      if (S.phase === 'play') S.raf = requestAnimationFrame(step);
+    };
+    S.raf = requestAnimationFrame(step);
+  };
+
+  // —— 🏰 保障開門：來的是投靠的人就開門、是風暴碎片就緊閉，救進 8 個人（鴻 1:7）——
+  ACTION_GAMES.nahum_refuge = function startGatekeeper() {
+    const GOAL = 8, PEOPLE = ['🧎', '🙍', '👵', '🧒'], DEBRIS = ['🌪️', '🪨', '🔥'];
+    const S = { phase: 'play', saved: 0, misses: 0, cur: null, x: 104, doorOpen: false, raf: 0 };
+    const area = startAction('🏰 保障開門', 'NAM', () => cancelAnimationFrame(S.raf));
+    action.state = S;
+    area.innerHTML = `
+      <div class="act-row"><span>🏰 救進</span><div class="act-track"><div class="act-fill" id="gk-bar"></div></div><b id="gk-count">0/${GOAL}</b></div>
+      <div class="act-row"><span>💔 失誤</span><b id="gk-miss">—</b></div>
+      <div class="gk-stage" id="gk-stage"><div class="gk-door" id="gk-door">🚪</div><div class="gk-comer" id="gk-comer"></div></div>
+      <button class="big-btn act-tap" id="gk-btn">🔓 按住開門</button>
+      <p class="fr-tip">「耶和華認得那些投靠他的人」——是人就開門收留、是風暴碎片就緊閉大門！（鴻 1:7）</p>`;
+    const newComer = () => {
+      const isPerson = Math.random() < 0.55;
+      S.cur = { isPerson, e: isPerson ? PEOPLE[Math.floor(Math.random() * PEOPLE.length)] : DEBRIS[Math.floor(Math.random() * DEBRIS.length)] };
+      S.x = 104;
+      $('#gk-comer').textContent = S.cur.e;
+    };
+    newComer();
+    const btn = $('#gk-btn');
+    btn.onpointerdown = (e) => { e.preventDefault(); S.doorOpen = true; $('#gk-door').textContent = '🔓'; };
+    const shut = () => { S.doorOpen = false; $('#gk-door').textContent = '🚪'; };
+    btn.onpointerup = shut;
+    btn.onpointerleave = shut;
+    const miss = (why) => {
+      S.misses++;
+      sndBad();
+      $('#gk-miss').textContent = '💔'.repeat(S.misses);
+      if (S.misses >= 3) {
+        S.phase = 'done';
+        loseAction('NAM', MINIGAMES.nahum_refuge.lose.text, ACTION_GAMES.nahum_refuge);
+        return;
+      }
+      newComer();
+    };
+    S.tick = (dt) => {
+      if (S.phase !== 'play' || !S.cur) return;
+      const f = dt / 16.7;
+      S.x -= (0.55 + S.saved * 0.05) * f;
+      $('#gk-comer').style.left = `${S.x}%`;
+      if (S.x <= 16) { // 到門口：看門開著沒
+        if (S.cur.isPerson === S.doorOpen) {
+          if (S.cur.isPerson) {
+            S.saved++;
+            sndGood();
+            $('#gk-count').textContent = `${S.saved}/${GOAL}`;
+            $('#gk-bar').style.width = `${(S.saved / GOAL) * 100}%`;
+            if (S.saved >= GOAL) {
+              S.phase = 'done';
+              winAction('nahum_refuge', 'NAM', MINIGAMES.nahum_refuge.win, ACTION_GAMES.nahum_refuge);
+              return;
+            }
+          } else sndGood(); // 碎片撞上緊閉的門＝擋下
+          newComer();
+        } else {
+          miss(S.cur.isPerson ? '門關著，投靠的人進不來' : '門開著，風暴打進保障');
+        }
+      }
+    };
+    let last = performance.now();
+    const step = (now) => {
+      if (!action || action.state !== S) return;
+      S.tick(Math.min(50, now - last));
+      last = now;
+      if (S.phase === 'play') S.raf = requestAnimationFrame(step);
+    };
+    S.raf = requestAnimationFrame(step);
+  };
+
+  // —— 🎵 跟著祂的歌聲：歌聲的旋律線流過來，手指貼著線走，唱滿整首歌（番 3:17）——
+  ACTION_GAMES.zeph_song = function startTraceSong() {
+    const NEED_MS = 12000, TOL = 15; // 貼線累計 12 秒；容差 ±15%
+    const S = { phase: 'play', on: 0, t: 0, py: null, raf: 0 };
+    const area = startAction('🎵 跟著祂的歌聲', 'ZEP', () => cancelAnimationFrame(S.raf));
+    action.state = S;
+    area.innerHTML = `
+      <div class="act-row"><span>🎶 同唱</span><div class="act-track"><div class="act-fill" id="ts-bar"></div></div></div>
+      <div class="ts-stage" id="ts-stage"><div class="ts-dot" id="ts-dot">🎵</div><div class="ts-finger" id="ts-finger">👆</div></div>
+      <p class="fr-tip">「祂必因你喜樂而歡呼」——手指按住畫面，跟著流動的音符上下移動，貼著歌聲走！（番 3:17）</p>`;
+    const stage = $('#ts-stage');
+    stage.onpointerdown = (e) => { track(e); };
+    stage.onpointermove = (e) => { if (e.buttons || e.pressure > 0) track(e); };
+    stage.onpointerup = () => { S.py = null; $('#ts-finger').style.opacity = '.3'; };
+    const track = (e) => {
+      const r = stage.getBoundingClientRect();
+      S.py = ((e.clientY - r.top) / r.height) * 100;
+      const fg = $('#ts-finger');
+      fg.style.top = `${S.py}%`;
+      fg.style.opacity = '1';
+    };
+    const lineY = (t) => 50 + Math.sin(t / 900) * 26 + Math.sin(t / 2300) * 10; // 起伏的旋律線
+    S.tick = (dt) => {
+      if (S.phase !== 'play') return;
+      S.t += dt;
+      const y = lineY(S.t);
+      $('#ts-dot').style.top = `${y}%`;
+      if (S.py !== null && Math.abs(S.py - y) <= TOL) {
+        S.on += dt;
+        $('#ts-bar').style.width = `${Math.min(100, (S.on / NEED_MS) * 100)}%`;
+        if (S.on >= NEED_MS) {
+          S.phase = 'done';
+          winAction('zeph_song', 'ZEP', MINIGAMES.zeph_song.win, ACTION_GAMES.zeph_song);
+          return;
+        }
+      }
+      if (S.t >= 40000) { // 40 秒還沒唱滿＝跟丟了
+        S.phase = 'done';
+        loseAction('ZEP', MINIGAMES.zeph_song.lose.text, ACTION_GAMES.zeph_song);
+      }
+    };
+    let last = performance.now();
+    const step = (now) => {
+      if (!action || action.state !== S) return;
+      S.tick(Math.min(50, now - last));
+      last = now;
+      if (S.phase === 'play') S.raf = requestAnimationFrame(step);
+    };
+    S.raf = requestAnimationFrame(step);
+  };
+
+  // —— 🔨 上山拋木：往上一甩把木料拋進殿的框架，框架會左右移動（該 1:8）——
+  ACTION_GAMES.haggai_build = function startLogToss() {
+    const GOAL = 6, LIMIT_MS = 60000;
+    const S = { phase: 'play', landed: 0, t: 0, frameX: 50, frameDir: 1, log: null, downAt: null, raf: 0 };
+    const area = startAction('🔨 上山拋木', 'HAG', () => cancelAnimationFrame(S.raf));
+    action.state = S;
+    area.innerHTML = `
+      <div class="act-row"><span>🪵 拋進</span><div class="act-track"><div class="act-fill" id="lg-bar"></div></div><b id="lg-count">0/${GOAL}</b></div>
+      <div class="act-row"><span>🌧️ 冬雨</span><div class="act-track"><div class="act-fill act-foe" id="lg-time"></div></div></div>
+      <div class="lg-stage" id="lg-stage">
+        <div class="lg-frame" id="lg-frame">🏗️</div>
+        <div class="lg-log" id="lg-log">🪵</div>
+      </div>
+      <p class="fr-tip">「你們要上山取木料，建造這殿」——按住木料往上一甩！甩的方向決定落點，把 ${GOAL} 根拋進移動的框架。（該 1:8）</p>`;
+    const stage = $('#lg-stage');
+    stage.onpointerdown = (e) => {
+      if (S.phase !== 'play' || S.log) return;
+      const r = stage.getBoundingClientRect();
+      S.downAt = { x: e.clientX, y: e.clientY, r };
+    };
+    stage.onpointerup = (e) => {
+      if (S.phase !== 'play' || !S.downAt || S.log) return;
+      const d = S.downAt;
+      S.downAt = null;
+      const dy = d.y - e.clientY;
+      if (dy < 30) return; // 要往上甩才算
+      const dx = e.clientX - d.x;
+      const targetX = 50 + (dx / d.r.width) * 160; // 甩的橫向幅度決定落點
+      S.log = { x: 50, y: 86, tx: Math.max(6, Math.min(94, targetX)), vy: -4.2 };
+    };
+    S.tick = (dt) => {
+      if (S.phase !== 'play') return;
+      const f = dt / 16.7;
+      S.t += dt;
+      $('#lg-time').style.width = `${Math.min(100, (S.t / LIMIT_MS) * 100)}%`;
+      if (S.t >= LIMIT_MS) {
+        S.phase = 'done';
+        loseAction('HAG', MINIGAMES.haggai_build.lose.text, ACTION_GAMES.haggai_build);
+        return;
+      }
+      S.frameX += S.frameDir * 0.25 * f;
+      if (S.frameX >= 82) { S.frameX = 82; S.frameDir = -1; }
+      if (S.frameX <= 18) { S.frameX = 18; S.frameDir = 1; }
+      $('#lg-frame').style.left = `${S.frameX}%`;
+      const log = $('#lg-log');
+      if (S.log) {
+        S.log.vy += 0.12 * f; // 重力
+        S.log.y += S.log.vy * f;
+        S.log.x += (S.log.tx - S.log.x) * 0.06 * f; // 逐漸飄向瞄準的落點
+        log.style.left = `${S.log.x}%`;
+        log.style.top = `${S.log.y}%`;
+        if (S.log.vy > 0 && S.log.y >= 16 && S.log.y <= 26) { // 到框架高度：判定
+          if (Math.abs(S.log.x - S.frameX) <= 10) {
+            S.landed++;
+            sndGood();
+            $('#lg-count').textContent = `${S.landed}/${GOAL}`;
+            $('#lg-bar').style.width = `${(S.landed / GOAL) * 100}%`;
+            S.log = null;
+            log.style.left = '50%';
+            log.style.top = '86%';
+            if (S.landed >= GOAL) {
+              S.phase = 'done';
+              winAction('haggai_build', 'HAG', MINIGAMES.haggai_build.win, ACTION_GAMES.haggai_build);
+              return;
+            }
+            return;
+          }
+        }
+        if (S.log.y > 92) { // 掉回地上
+          sndBad();
+          S.log = null;
+          log.style.left = '50%';
+          log.style.top = '86%';
+        }
+      }
+    };
+    let last = performance.now();
+    const step = (now) => {
+      if (!action || action.state !== S) return;
+      S.tick(Math.min(50, now - last));
+      last = now;
+      if (S.phase === 'play') S.raf = requestAnimationFrame(step);
+    };
+    S.raf = requestAnimationFrame(step);
+  };
+
   // ===== 📖 書卷故事小遊戲（對決引擎：答對推進我方、答錯讓威脅逼近，先滿者定勝負）=====
   // 加一款遊戲＝在這裡加一份設定，章節頁入口與雲端同步都會自動長出來
   const MINIGAMES = {
@@ -3785,7 +4209,7 @@
       ],
     },
     micah_walk: {
-      book: 'MIC', ch: 6, emoji: '⚖️', title: '三樣功課', tag: '彌 6・答題對決',
+      book: 'MIC', ch: 6, emoji: '⚖️', title: '與神同行三重奏', tag: '彌 6・三軌音符',
       myEmoji: '👣', myName: '與神同行的腳步', myGoal: 5,
       foeEmoji: '🌀', foeName: '世界的歪路', foeGoal: 5,
       hitText: '👣 行公義、好憐憫，又走穩一步！', missText: '🌀 歪路的風又吹過來了…',
@@ -3815,7 +4239,7 @@
       ],
     },
     zeph_song: {
-      book: 'ZEP', ch: 3, emoji: '🎵', title: '祂為你歌唱', tag: '番 3・答題對決',
+      book: 'ZEP', ch: 3, emoji: '🎵', title: '跟著祂的歌聲', tag: '番 3・描線跟隨',
       myEmoji: '🎵', myName: '神的歌聲環繞', myGoal: 5,
       foeEmoji: '🌫️', foeName: '大日的陰霾', foeGoal: 5,
       hitText: '🎵 祂在你中間，因你喜樂而歡呼！', missText: '🌫️ 陰霾罩下來，聽不見歌聲了…',
@@ -3830,7 +4254,7 @@
       ],
     },
     nahum_refuge: {
-      book: 'NAM', ch: 1, emoji: '🏰', title: '患難日的保障', tag: '鴻 1・答題對決',
+      book: 'NAM', ch: 1, emoji: '🏰', title: '保障開門', tag: '鴻 1・開門辨識',
       myEmoji: '🏰', myName: '投靠祂的保障', myGoal: 5,
       foeEmoji: '🌪️', foeName: '患難的風暴', foeGoal: 5,
       hitText: '🏰 又往保障裡躲進一步，祂認得你！', missText: '🌪️ 風暴呼嘯，越來越近…',
@@ -3845,7 +4269,7 @@
       ],
     },
     obadiah_pride: {
-      book: 'OBA', ch: 1, emoji: '⛰️', title: '驕傲必墜', tag: '俄・答題對決',
+      book: 'OBA', ch: 1, emoji: '⛰️', title: '驕傲必墜', tag: '俄・左右閃避',
       myEmoji: '⛰️', myName: '在錫安山站穩', myGoal: 5,
       foeEmoji: '🦅', foeName: '以東的驕傲高飛', foeGoal: 5,
       hitText: '⛰️ 謙卑站穩，錫安必有逃脫的人！', missText: '🦅 以東又往星宿之間搭窩…',
@@ -3860,7 +4284,7 @@
       ],
     },
     amos_river: {
-      book: 'AMO', ch: 5, emoji: '🏞️', title: '公義江河', tag: '摩 5・答題對決',
+      book: 'AMO', ch: 5, emoji: '🏞️', title: '敲通公義河道', tag: '摩 5・敲石開河',
       myEmoji: '🌊', myName: '公義如江河湧流', myGoal: 5,
       foeEmoji: '🪨', foeName: '不義的土石堵塞', foeGoal: 5,
       hitText: '🌊 河道通了，公平如大水滾滾！', missText: '🪨 不義的土石又堵住河道…',
@@ -4026,7 +4450,7 @@
       ],
     },
     haggai_build: {
-      book: 'HAG', ch: 1, emoji: '🔨', title: '先建神的殿', tag: '該 1・答題對決',
+      book: 'HAG', ch: 1, emoji: '🔨', title: '上山拋木', tag: '該 1・甩擲投料',
       myEmoji: '🔨', myName: '上山取木建殿', myGoal: 5,
       foeEmoji: '🏠', foeName: '只顧自己的房屋', foeGoal: 5,
       hitText: '🔨 又搬上一根木料，神因此喜樂！', missText: '🏠 心又飄回自己的天花板房屋…',
