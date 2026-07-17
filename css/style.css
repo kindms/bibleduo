@@ -807,6 +807,31 @@ main, header { position: relative; z-index: 1; }
 .eg-cloud::before { content: '☁️'; position: absolute; left: 50%; transform: translateX(-50%); bottom: -4px; font-size: 1.2rem; }
 .eg-msg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-weight: bold; color: var(--text-light); pointer-events: none; }
 
+/* 🐑 牧人的杖 */
+.ps-stage { position: relative; height: 300px; border: 2px dashed var(--card-line); border-radius: 20px; margin: 8px 0; overflow: hidden;
+  background: linear-gradient(90deg, transparent 32.5%, var(--card-line) 32.5%, var(--card-line) 33.5%, transparent 33.5%, transparent 66%, var(--card-line) 66%, var(--card-line) 67%, transparent 67%); }
+.ps-shepherd { position: absolute; top: 2px; left: 50%; transform: translateX(-50%); font-size: 1.6rem; }
+.ps-lamb { position: absolute; bottom: 8px; font-size: 2.2rem; transform: translateX(-50%); transition: left .12s; z-index: 2; }
+.ps-gate { position: absolute; left: 0; right: 0; display: flex; }
+.ps-gate span { flex: 1; text-align: center; font-size: 1.7rem; }
+
+/* 🏛️ 智慧建屋 */
+.wh-stage { position: relative; height: 320px; border: 2px dashed var(--card-line); border-radius: 20px; margin: 8px 0; overflow: hidden; }
+.wh-mover { position: absolute; top: 8px; font-size: 2.2rem; transform: translateX(-50%); }
+.wh-base { position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%); font-size: 1.6rem; }
+.wh-pillar { position: absolute; font-size: 2.2rem; transform: translateX(-50%); }
+
+/* 🏺 窯匠的手 */
+.pt-pot { text-align: center; font-size: 3.6rem; margin: 6px 0; }
+.pt-gauge { position: relative; flex: 1; height: 22px; background: var(--card-line); border-radius: 10px; overflow: hidden; }
+.pt-band { position: absolute; top: 0; bottom: 0; background: rgba(88, 204, 2, .4); z-index: 1; }
+.pt-fill { position: absolute; top: 4px; bottom: 4px; height: auto; border-radius: 6px; opacity: .85; }
+
+/* 🌾 蝗蟲退散 */
+.jl-stage { position: relative; height: 320px; border: 2px dashed var(--card-line); border-radius: 20px; margin: 8px 0; overflow: hidden; touch-action: none; }
+.jl-wheat { position: absolute; left: 4px; top: 0; bottom: 0; writing-mode: vertical-lr; display: flex; align-items: center; font-size: 1.5rem; letter-spacing: 6px; }
+.jl-bug { position: absolute; font-size: 1.7rem; transform: translate(-50%, -50%) scaleX(-1); pointer-events: none; }
+
 /* 🌊 分海快走 */
 .rs-stage { position: relative; height: 160px; border: 2px dashed var(--card-line); border-radius: 20px; margin: 8px 0; display: flex; align-items: center; justify-content: center; gap: 6px; overflow: hidden; touch-action: none; font-size: 2.2rem; }
 .rs-sea { transition: transform .1s linear; }

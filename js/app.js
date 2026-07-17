@@ -2130,6 +2130,297 @@
     }
   };
 
+  // —— 🐑 牧人的杖：三條路，幽谷石牆一排排逼近，左右移動跟上牧人開的路 ——
+  ACTION_GAMES.psalm_shepherd = function startShepherd() {
+    const GOAL = 10;
+    const S = { phase: 'play', lane: 1, passed: 0, stumbles: 0, gates: [], sinceGate: 1200, raf: 0 };
+    const area = startAction('🐑 牧人的杖', 'PSA', () => cancelAnimationFrame(S.raf));
+    action.state = S;
+    area.innerHTML = `
+      <div class="act-row"><span>🐑 走過</span><div class="act-track"><div class="act-fill" id="ps-bar"></div></div><b id="ps-count">0/${GOAL}</b></div>
+      <div class="act-row"><span>💚 平安</span><b id="ps-hearts">💚💚💚</b></div>
+      <div class="ps-stage" id="ps-stage"><div class="ps-shepherd">🧑‍🌾</div><div class="ps-lamb" id="ps-lamb">🐑</div></div>
+      <div class="st-btns">
+        <button class="big-btn act-tap" id="ps-left">◀️ 往左</button>
+        <button class="big-btn act-tap" id="ps-right">往右 ▶️</button>
+      </div>
+      <p class="fr-tip">幽谷的石牆一排排過來——看好缺口在哪條路，把小羊移過去跟上牧人！</p>`;
+    const stage = $('#ps-stage');
+    const laneX = (l) => 16.5 + l * 33.5;
+    const setLane = (d) => {
+      if (S.phase !== 'play') return;
+      S.lane = Math.max(0, Math.min(2, S.lane + d));
+      $('#ps-lamb').style.left = `${laneX(S.lane)}%`;
+    };
+    $('#ps-left').onclick = () => setLane(-1);
+    $('#ps-right').onclick = () => setLane(1);
+    $('#ps-lamb').style.left = `${laneX(1)}%`;
+    S.tick = (dt) => {
+      if (S.phase !== 'play') return;
+      const f = dt / 16.7;
+      S.sinceGate += dt;
+      const interval = Math.max(1300, 2100 - S.passed * 80);
+      if (S.sinceGate >= interval) {
+        S.sinceGate = 0;
+        const open = Math.floor(Math.random() * 3);
+        const el = document.createElement('div');
+        el.className = 'ps-gate';
+        el.innerHTML = [0, 1, 2].map((l) => `<span>${l === open ? '' : '🪨'}</span>`).join('');
+        stage.appendChild(el);
+        S.gates.push({ open, y: -8, el, judged: false });
+      }
+      for (let i = S.gates.length - 1; i >= 0; i--) {
+        const g = S.gates[i];
+        g.y += (0.55 + S.passed * 0.03) * f;
+        g.el.style.top = `${g.y}%`;
+        if (!g.judged && g.y >= 78) { // 到小羊那一排：判定
+          g.judged = true;
+          if (S.lane === g.open) {
+            S.passed++;
+            sndGood();
+            $('#ps-count').textContent = `${S.passed}/${GOAL}`;
+            $('#ps-bar').style.width = `${(S.passed / GOAL) * 100}%`;
+            if (S.passed >= GOAL) {
+              S.phase = 'done';
+              winAction('psalm_shepherd', 'PSA', MINIGAMES.psalm_shepherd.win, ACTION_GAMES.psalm_shepherd);
+              return;
+            }
+          } else {
+            S.stumbles++;
+            sndBad();
+            stage.classList.remove('jr-shake'); void stage.offsetWidth; stage.classList.add('jr-shake');
+            $('#ps-hearts').textContent = '💚'.repeat(Math.max(0, 3 - S.stumbles)) || '…';
+            if (S.stumbles >= 3) {
+              S.phase = 'done';
+              loseAction('PSA', MINIGAMES.psalm_shepherd.lose.text, ACTION_GAMES.psalm_shepherd);
+              return;
+            }
+          }
+        }
+        if (g.y > 104) { g.el.remove(); S.gates.splice(i, 1); }
+      }
+    };
+    let last = performance.now();
+    const step = (now) => {
+      if (!action || action.state !== S) return;
+      S.tick(Math.min(50, now - last));
+      last = now;
+      if (S.phase === 'play') S.raf = requestAnimationFrame(step);
+    };
+    S.raf = requestAnimationFrame(step);
+  };
+
+  // —— 🏛️ 智慧建屋：柱子左右滑動，時機點擊對齊疊上去，鑿成七根柱子 ——
+  ACTION_GAMES.wisdom_house = function startWisdom() {
+    const GOAL = 7;
+    const S = { phase: 'play', placed: 0, misses: 0, x: 10, dir: 1, stackX: 50, raf: 0 };
+    const area = startAction('🏛️ 智慧建屋', 'PRO', () => cancelAnimationFrame(S.raf));
+    action.state = S;
+    area.innerHTML = `
+      <div class="act-row"><span>🏛️ 柱子</span><div class="act-track"><div class="act-fill" id="wh-bar"></div></div><b id="wh-count">0/${GOAL}</b></div>
+      <div class="wh-stage" id="wh-stage"><div class="wh-mover" id="wh-mover">🏛️</div><div class="wh-base" id="wh-base">🧱🧱🧱</div></div>
+      <button class="big-btn act-tap" id="wh-btn">⬇️ 放下柱子！</button>
+      <p class="fr-tip">柱子左右滑動——對準下面的地基再放！歪兩次，房子就塌了。（箴 9:1）</p>`;
+    const tol = () => 13 - S.placed * 0.9; // 越高越要準
+    $('#wh-btn').onclick = () => {
+      if (S.phase !== 'play') return;
+      if (Math.abs(S.x - S.stackX) <= tol()) {
+        S.stackX = S.x;
+        S.placed++;
+        sndGood();
+        const p = document.createElement('div');
+        p.className = 'wh-pillar';
+        p.textContent = '🏛️';
+        p.style.left = `${S.x}%`;
+        p.style.bottom = `${26 + (S.placed - 1) * 34}px`;
+        $('#wh-stage').appendChild(p);
+        $('#wh-count').textContent = `${S.placed}/${GOAL}`;
+        $('#wh-bar').style.width = `${(S.placed / GOAL) * 100}%`;
+        if (S.placed >= GOAL) {
+          S.phase = 'done';
+          winAction('wisdom_house', 'PRO', MINIGAMES.wisdom_house.win, ACTION_GAMES.wisdom_house);
+        }
+      } else {
+        S.misses++;
+        sndBad();
+        const st = $('#wh-stage');
+        st.classList.remove('jr-shake'); void st.offsetWidth; st.classList.add('jr-shake');
+        if (S.misses >= 2) {
+          S.phase = 'done';
+          loseAction('PRO', MINIGAMES.wisdom_house.lose.text, ACTION_GAMES.wisdom_house);
+        }
+      }
+    };
+    S.tick = (dt) => {
+      if (S.phase !== 'play') return;
+      const f = dt / 16.7;
+      S.x += S.dir * (1.15 + S.placed * 0.16) * f;
+      if (S.x >= 90) { S.x = 90; S.dir = -1; }
+      if (S.x <= 10) { S.x = 10; S.dir = 1; }
+      const el = $('#wh-mover'); if (el) el.style.left = `${S.x}%`;
+    };
+    let last = performance.now();
+    const step = (now) => {
+      if (!action || action.state !== S) return;
+      S.tick(Math.min(50, now - last));
+      last = now;
+      if (S.phase === 'play') S.raf = requestAnimationFrame(step);
+    };
+    S.raf = requestAnimationFrame(step);
+  };
+
+  // —— 🏺 窯匠的手：按住塑形、力度計上升，在「合用區」內放手，塑好底座/瓶身/瓶口 ——
+  ACTION_GAMES.potter_hands = function startPotter() {
+    const PARTS = ['底座', '瓶身', '瓶口'];
+    const S = { phase: 'play', part: 0, fails: 0, gauge: 0, holding: false, band: [58, 80], raf: 0 };
+    const area = startAction('🏺 窯匠的手', 'JER', () => cancelAnimationFrame(S.raf));
+    action.state = S;
+    area.innerHTML = `
+      <div class="pt-pot" id="pt-pot">🟤</div>
+      <p class="act-hint" id="pt-part">正在塑「底座」——按住轉輪，力度進到綠色「合用區」再放手！</p>
+      <div class="act-row"><span>💪 力度</span><div class="pt-gauge"><div class="pt-band" id="pt-band"></div><div class="act-fill pt-fill" id="pt-fill"></div></div></div>
+      <div class="act-row"><span>💔 失手</span><b id="pt-fails">—</b></div>
+      <button class="big-btn act-tap" id="pt-btn">🌀 按住塑形</button>`;
+    const newBand = () => {
+      const lo = 52 + Math.random() * 24;
+      S.band = [lo, lo + 20];
+      const b = $('#pt-band');
+      b.style.left = `${S.band[0]}%`;
+      b.style.width = '20%';
+    };
+    newBand();
+    const fail = (why) => {
+      S.fails++;
+      sndBad();
+      $('#pt-fails').textContent = '💔'.repeat(S.fails);
+      $('#pt-part').textContent = `${why}——泥壞了？窯匠用這泥另作！再塑「${PARTS[S.part]}」`;
+      S.gauge = 0;
+      if (S.fails >= 3) {
+        S.phase = 'done';
+        loseAction('JER', MINIGAMES.potter_hands.lose.text, ACTION_GAMES.potter_hands);
+      }
+    };
+    const btn = $('#pt-btn');
+    btn.onpointerdown = (e) => { e.preventDefault(); if (S.phase === 'play') { S.holding = true; } };
+    const release = () => {
+      if (S.phase !== 'play' || !S.holding) return;
+      S.holding = false;
+      if (S.gauge >= S.band[0] && S.gauge <= S.band[1]) {
+        S.part++;
+        sndGood();
+        $('#pt-pot').textContent = ['🟤', '⚱️', '🏺'][S.part] || '🏺';
+        if (S.part >= PARTS.length) {
+          S.phase = 'done';
+          winAction('potter_hands', 'JER', MINIGAMES.potter_hands.win, ACTION_GAMES.potter_hands);
+          return;
+        }
+        $('#pt-part').textContent = `成了！接著塑「${PARTS[S.part]}」——按住，進合用區再放手！`;
+        S.gauge = 0;
+        newBand();
+      } else {
+        fail(S.gauge < S.band[0] ? '力道不夠' : '轉過頭了');
+      }
+    };
+    btn.onpointerup = release;
+    btn.onpointerleave = release;
+    S.tick = (dt) => {
+      if (S.phase !== 'play') return;
+      const f = dt / 16.7;
+      if (S.holding) {
+        S.gauge += (1.05 + S.part * 0.25) * f;
+        if (S.gauge > 100) { S.holding = false; fail('轉過頭了'); }
+      } else {
+        S.gauge = Math.max(0, S.gauge - 0.8 * f); // 放著會慢慢鬆掉
+      }
+      const el = $('#pt-fill'); if (el) el.style.width = `${Math.min(100, S.gauge)}%`;
+    };
+    let last = performance.now();
+    const step = (now) => {
+      if (!action || action.state !== S) return;
+      S.tick(Math.min(50, now - last));
+      last = now;
+      if (S.phase === 'play') S.raf = requestAnimationFrame(step);
+    };
+    S.raf = requestAnimationFrame(step);
+  };
+
+  // —— 🌾 蝗蟲退散：蝗蟲從右邊飛進來，手指掃過趕走牠們，守住五束麥子 ——
+  ACTION_GAMES.joel_locusts = function startLocusts() {
+    const GOAL = 18;
+    const S = { phase: 'play', swept: 0, wheat: 5, bugs: [], sinceSpawn: 0, raf: 0 };
+    const area = startAction('🌾 蝗蟲退散', 'JOL', () => cancelAnimationFrame(S.raf));
+    action.state = S;
+    area.innerHTML = `
+      <div class="act-row"><span>🧹 趕走</span><div class="act-track"><div class="act-fill" id="jl-bar"></div></div><b id="jl-count">0/${GOAL}</b></div>
+      <div class="jl-stage" id="jl-stage"><div class="jl-wheat" id="jl-wheat">🌾🌾🌾🌾🌾</div></div>
+      <p class="fr-tip">手指在畫面上掃過蝗蟲 🦗 把牠們趕走——牠們飛到左邊就會吃掉一束麥子！</p>`;
+    const stage = $('#jl-stage');
+    const sweep = (e) => {
+      if (S.phase !== 'play') return;
+      const r = stage.getBoundingClientRect();
+      const px = ((e.clientX - r.left) / r.width) * 100;
+      const py = ((e.clientY - r.top) / r.height) * 100;
+      for (let i = S.bugs.length - 1; i >= 0; i--) {
+        const b = S.bugs[i];
+        if (Math.abs(b.x - px) < 13 && Math.abs(b.y - py) < 13) {
+          b.el.remove();
+          S.bugs.splice(i, 1);
+          S.swept++;
+          sndGood();
+          $('#jl-count').textContent = `${S.swept}/${GOAL}`;
+          $('#jl-bar').style.width = `${(S.swept / GOAL) * 100}%`;
+          if (S.swept >= GOAL) {
+            S.phase = 'done';
+            winAction('joel_locusts', 'JOL', MINIGAMES.joel_locusts.win, ACTION_GAMES.joel_locusts);
+            return;
+          }
+        }
+      }
+    };
+    stage.onpointerdown = sweep;
+    stage.onpointermove = (e) => { if (e.buttons || e.pressure > 0) sweep(e); };
+    S.tick = (dt) => {
+      if (S.phase !== 'play') return;
+      const f = dt / 16.7;
+      S.sinceSpawn += dt;
+      const interval = Math.max(520, 950 - S.swept * 24);
+      if (S.sinceSpawn >= interval) {
+        S.sinceSpawn = 0;
+        const el = document.createElement('div');
+        el.className = 'jl-bug';
+        el.textContent = '🦗';
+        stage.appendChild(el);
+        S.bugs.push({ x: 102, y: 12 + Math.random() * 76, el });
+      }
+      for (let i = S.bugs.length - 1; i >= 0; i--) {
+        const b = S.bugs[i];
+        b.x -= (0.42 + S.swept * 0.012) * f;
+        b.el.style.left = `${b.x}%`;
+        b.el.style.top = `${b.y}%`;
+        if (b.x <= 6) { // 飛到麥田：吃掉一束
+          b.el.remove();
+          S.bugs.splice(i, 1);
+          S.wheat--;
+          sndBad();
+          $('#jl-wheat').textContent = '🌾'.repeat(Math.max(0, S.wheat)) || '…';
+          if (S.wheat <= 0) {
+            S.phase = 'done';
+            loseAction('JOL', MINIGAMES.joel_locusts.lose.text, ACTION_GAMES.joel_locusts);
+            return;
+          }
+        }
+      }
+    };
+    let last = performance.now();
+    const step = (now) => {
+      if (!action || action.state !== S) return;
+      S.tick(Math.min(50, now - last));
+      last = now;
+      if (S.phase === 'play') S.raf = requestAnimationFrame(step);
+    };
+    S.raf = requestAnimationFrame(step);
+  };
+
   // ===== 📖 書卷故事小遊戲（對決引擎：答對推進我方、答錯讓威脅逼近，先滿者定勝負）=====
   // 加一款遊戲＝在這裡加一份設定，章節頁入口與雲端同步都會自動長出來
   const MINIGAMES = {
@@ -2614,6 +2905,157 @@
         { q: '「我們務要認識耶和華」，要怎樣追求認識他？', options: ['竭力', '慢慢', '偶爾', '靠別人'], answer: '竭力', basis: '何 6:3' },
       ],
     },
+    // ===== 第 2 波（2026-07-18）：4 款動作＋6 款對決 =====
+    psalm_shepherd: {
+      book: 'PSA', ch: 23, emoji: '🐑', title: '牧人的杖', tag: '詩 23・幽谷跟隨',
+      myEmoji: '🐑', myName: '緊跟牧人', myGoal: 5,
+      foeEmoji: '🌑', foeName: '死蔭的幽谷', foeGoal: 5,
+      hitText: '🐑 有你的杖你的竿安慰我，又走穩一步！', missText: '🌑 幽谷的影子罩過來了…',
+      win: { emoji: '🐑', title: '走過死蔭的幽谷！', text: '「我雖然行過死蔭的幽谷，也不怕遭害，因為你與我同在；你的杖，你的竿，都安慰我。」（詩 23:4）' },
+      lose: { text: '小羊跌倒了嗎？牧人沒有走遠——「耶和華是我的牧者」，起來再跟一次！' },
+      manualQs: [
+        { q: '「耶和華是我的牧者」，我必不至怎樣？', options: ['缺乏', '跌倒', '迷路', '生病'], answer: '缺乏', basis: '詩 23:1' },
+        { q: '他使我躺臥在哪裡？', options: ['青草地上', '高山上', '帳棚裡', '磐石上'], answer: '青草地上', basis: '詩 23:2' },
+        { q: '行過死蔭的幽谷也不怕遭害，因為甚麼？', options: ['你與我同在', '我夠勇敢', '有人陪我', '路程很短'], answer: '你與我同在', basis: '詩 23:4' },
+        { q: '「你的杖，你的竿」，都怎樣我？', options: ['安慰', '責打', '攔阻', '催促'], answer: '安慰', basis: '詩 23:4' },
+        { q: '在我敵人面前，神為我擺設甚麼？', options: ['筵席', '高牆', '軍隊', '帳幕'], answer: '筵席', basis: '詩 23:5' },
+      ],
+    },
+    wisdom_house: {
+      book: 'PRO', ch: 9, emoji: '🏛️', title: '智慧建屋', tag: '箴 9・時機疊柱',
+      myEmoji: '🏛️', myName: '鑿成七根柱子', myGoal: 7,
+      foeEmoji: '🌪️', foeName: '愚昧的搖晃', foeGoal: 2,
+      hitText: '🏛️ 又立穩一根柱子！', missText: '🌪️ 柱子歪了，房子在搖…',
+      win: { emoji: '🏛️', title: '七根柱子立穩了！', text: '「智慧建造房屋，鑿成七根柱子。」敬畏耶和華是智慧的開端，一根一根穩穩地立在祂話語上！（箴 9:1、9:10）' },
+      lose: { text: '房子塌了——不倚靠自己的聰明，專心仰賴耶和華，重新起造！（箴 3:5）' },
+      manualQs: [
+        { q: '智慧建造房屋，鑿成幾根柱子？', options: ['七根', '十根', '四根', '十二根'], answer: '七根', basis: '箴 9:1' },
+        { q: '甚麼是智慧的開端？', options: ['敬畏耶和華', '飽讀詩書', '年高德劭', '家財萬貫'], answer: '敬畏耶和華', basis: '箴 9:10' },
+        { q: '「你要專心仰賴耶和華」，不可倚靠甚麼？', options: ['自己的聰明', '父母的話', '朋友的話', '王的命令'], answer: '自己的聰明', basis: '箴 3:5' },
+        { q: '「喜樂的心乃是良藥」，憂傷的靈使甚麼枯乾？', options: ['骨頭', '花草', '井水', '樹木'], answer: '骨頭', basis: '箴 17:22' },
+        { q: '教養孩童使他走當行的道，到老會怎樣？', options: ['也不偏離', '也會忘記', '自己選路', '不再需要'], answer: '也不偏離', basis: '箴 22:6' },
+      ],
+    },
+    potter_hands: {
+      book: 'JER', ch: 18, emoji: '🏺', title: '窯匠的手', tag: '耶 18・按住拉坯',
+      myEmoji: '🏺', myName: '塑成合用的器皿', myGoal: 3,
+      foeEmoji: '💔', foeName: '走樣的泥', foeGoal: 3,
+      hitText: '🏺 在窯匠手中，又塑好一段！', missText: '💔 泥在轉輪上走樣了…',
+      win: { emoji: '🏺', title: '成了合用的器皿！', text: '「泥在窯匠的手中怎樣，你們在我的手中也怎樣。」就算作壞了，他也用這泥另作——你永遠有重新被塑造的機會！（耶 18:4,6）' },
+      lose: { text: '泥壞了？別怕——窯匠看怎樣好，就怎樣作。把泥放回轉輪，再來一次！' },
+      manualQs: [
+        { q: '耶利米下到窯匠家，正遇見他做甚麼？', options: ['轉輪作器皿', '燒火烤窯', '挑水和泥', '雕刻石頭'], answer: '轉輪作器皿', basis: '耶 18:3' },
+        { q: '器皿在窯匠手中作壞了，窯匠怎麼辦？', options: ['用這泥另作別的器皿', '把泥丟掉不要', '大發脾氣休息', '換一塊新的泥'], answer: '用這泥另作別的器皿', basis: '耶 18:4' },
+        { q: '神說以色列家在祂手中，像甚麼？', options: ['泥在窯匠的手中', '劍在勇士手中', '筆在文士手中', '琴在樂師手中'], answer: '泥在窯匠的手中', basis: '耶 18:6' },
+        { q: '神向我們所懷的，是甚麼意念？', options: ['賜平安的意念', '降災禍的意念', '觀望的意念', '隱藏的意念'], answer: '賜平安的意念', basis: '耶 29:11' },
+        { q: '「你未出母胎」，神已經怎樣待你？', options: ['分別你為聖', '給你起名字', '賜你財富', '立你作王'], answer: '分別你為聖', basis: '耶 1:5' },
+      ],
+    },
+    joel_locusts: {
+      book: 'JOL', ch: 2, emoji: '🌻', title: '蝗蟲退散', tag: '珥 2・滑掃蝗蟲',
+      myEmoji: '🌾', myName: '守住田地', myGoal: 5,
+      foeEmoji: '🦗', foeName: '蝗蟲大軍', foeGoal: 5,
+      hitText: '🌾 趕走一群，麥子保住了！', missText: '🦗 蝗蟲又啃掉一片…',
+      win: { emoji: '🌻', title: '田地復甦了！', text: '「蝗蟲那些年所吃的，我要補還你們。」神不只趕走蝗蟲，還把失去的年歲補回來！（珥 2:25）' },
+      lose: { text: '麥田被吃光了嗎？神說「我要補還你們」——撕裂心腸歸向祂，再守一次！（珥 2:13）' },
+      manualQs: [
+        { q: '神應許要補還甚麼？', options: ['蝗蟲那些年所吃的', '被偷走的金銀', '倒塌的房屋', '失散的牛羊'], answer: '蝗蟲那些年所吃的', basis: '珥 2:25' },
+        { q: '「我要將我的靈澆灌」誰？', options: ['凡有血氣的', '只有先知', '只有祭司', '只有君王'], answer: '凡有血氣的', basis: '珥 2:28' },
+        { q: '神的靈澆灌後，老年人要作甚麼？', options: ['異夢', '新歌', '講道', '筵席'], answer: '異夢', basis: '珥 2:28' },
+        { q: '「你們要撕裂＿＿，不撕裂衣服」？', options: ['心腸', '書卷', '帳棚', '地土'], answer: '心腸', basis: '珥 2:13' },
+        { q: '「剪蟲剩下的」，誰來吃？', options: ['蝗蟲', '蝻子', '螞蚱', '野狗'], answer: '蝗蟲', basis: '珥 1:4' },
+      ],
+    },
+    atonement: {
+      book: 'LEV', ch: 16, emoji: '🕊️', title: '贖罪日', tag: '利 16・答題對決',
+      myEmoji: '🕊️', myName: '得潔淨的路', myGoal: 5,
+      foeEmoji: '⚖️', foeName: '罪的重擔', foeGoal: 5,
+      hitText: '🕊️ 罪被挪去，又輕省一步！', missText: '⚖️ 罪的重擔還壓在肩上…',
+      win: { emoji: '🕊️', title: '得以潔淨！', text: '「因在這日要為你們贖罪，使你們潔淨。你們要在耶和華面前得以潔淨，脫盡一切的罪愆。」（利 16:30）' },
+      lose: { text: '重擔還沒卸下——別放棄，贖罪日的恩典就是為你預備的，再走一次！' },
+      manualQs: [
+        { q: '贖罪日這日要為你們贖罪，使你們怎樣？', options: ['潔淨', '富足', '強壯', '快樂'], answer: '潔淨', basis: '利 16:30' },
+        { q: '大祭司兩手按在羊頭上做甚麼？', options: ['承認以色列人諸般的罪孽', '為羊群祝福', '量羊的重量', '給羊做記號'], answer: '承認以色列人諸般的罪孽', basis: '利 16:21' },
+        { q: '那隻擔當罪孽的羊，被送到哪裡？', options: ['曠野無人之地', '聖殿的院子', '城門口', '約旦河邊'], answer: '曠野無人之地', basis: '利 16:22' },
+        { q: '「要愛人如己」這句話，最早寫在哪卷書？', options: ['利未記', '申命記', '馬太福音', '羅馬書'], answer: '利未記', basis: '利 19:18' },
+        { q: '「你們要成為聖潔」，因為甚麼？', options: ['我耶和華是聖潔的', '天使是聖潔的', '祭司是聖潔的', '聖殿是聖潔的'], answer: '我耶和華是聖潔的', basis: '利 11:44' },
+      ],
+    },
+    choose_life: {
+      book: 'DEU', ch: 30, emoji: '💚', title: '揀選生命', tag: '申 30・答題對決',
+      myEmoji: '💚', myName: '揀選生命的路', myGoal: 5,
+      foeEmoji: '🥀', foeName: '忘記神的路', foeGoal: 5,
+      hitText: '💚 記住祂的話，又選對一步！', missText: '🥀 心又飄向忘記神的路…',
+      win: { emoji: '💚', title: '揀選了生命！', text: '「我將生死、禍福陳明在你面前，所以你要揀選生命，使你和你的後裔都得存活。」（申 30:19）' },
+      lose: { text: '選岔路了嗎？神的話今日仍陳明在你面前——回頭，再選一次生命！' },
+      manualQs: [
+        { q: '神將生死禍福陳明在你面前，要你揀選甚麼？', options: ['生命', '財富', '土地', '長壽'], answer: '生命', basis: '申 30:19' },
+        { q: '「以色列啊，你要聽！」耶和華我們神是怎樣的主？', options: ['獨一的', '眾多的', '遙遠的', '隱藏的'], answer: '獨一的', basis: '申 6:4' },
+        { q: '要怎樣愛耶和華你的神？', options: ['盡心、盡性、盡力', '每週奉獻一次', '獻上牛羊祭物', '大聲唱詩讚美'], answer: '盡心、盡性、盡力', basis: '申 6:5' },
+        { q: '「人活着不是單靠食物」，乃是靠甚麼？', options: ['耶和華口裏所出的一切話', '曠野降下的嗎哪', '勇氣和恆心', '家人和朋友'], answer: '耶和華口裏所出的一切話', basis: '申 8:3' },
+        { q: '「當剛強壯膽」，因為耶和華必不怎樣？', options: ['撇下你，也不丟棄你', '責備你的軟弱', '考驗你的信心', '離開會幕'], answer: '撇下你，也不丟棄你', basis: '申 31:6' },
+      ],
+    },
+    david_offering: {
+      book: '1CH', ch: 29, emoji: '🎁', title: '為聖殿獻上', tag: '代上 29・答題對決',
+      myEmoji: '🎁', myName: '樂意的奉獻', myGoal: 5,
+      foeEmoji: '⏳', foeName: '捨不得的心', foeGoal: 5,
+      hitText: '🎁 誠心樂意，又獻上一份！', missText: '⏳ 手又縮回去了…',
+      win: { emoji: '🎁', title: '誠心樂意獻上！', text: '「我算甚麼，我的民算甚麼，竟能如此樂意奉獻？因為萬物都從你而來，我們把從你而得的獻給你。」（代上 29:14）' },
+      lose: { text: '捨不得嗎？想想大衛：連自己積蓄的金銀都獻上了——因為萬物本來就從神而來。再獻一次！' },
+      manualQs: [
+        { q: '大衛因愛慕神的殿，把甚麼也獻上建殿？', options: ['自己積蓄的金銀', '王冠和寶座', '戰爭的擄物', '百姓的稅收'], answer: '自己積蓄的金銀', basis: '代上 29:3' },
+        { q: '百姓怎樣獻給耶和華，大衛就大大歡喜？', options: ['誠心樂意', '勉強交差', '互相比較', '怕受責罰'], answer: '誠心樂意', basis: '代上 29:9' },
+        { q: '「尊大、能力、榮耀、強勝、威嚴」都是誰的？', options: ['耶和華的', '大衛的', '所羅門的', '以色列的'], answer: '耶和華的', basis: '代上 29:11' },
+        { q: '大衛說「我們把從你而得的獻給你」，因為萬物都從哪裡來？', options: ['從神而來', '從地裡長出', '從列國進貢', '從祖先留下'], answer: '從神而來', basis: '代上 29:14' },
+        { q: '「應當稱謝耶和華」，因他本為善，他的甚麼永遠長存？', options: ['慈愛', '國度', '城牆', '約櫃'], answer: '慈愛', basis: '代上 16:34' },
+      ],
+    },
+    ecc_sun: {
+      book: 'ECC', ch: 12, emoji: '☀️', title: '日光之上', tag: '傳 12・答題對決',
+      myEmoji: '☀️', myName: '敬畏神的智慧', myGoal: 5,
+      foeEmoji: '🌫️', foeName: '虛空的捕風', foeGoal: 5,
+      hitText: '☀️ 看見日光之上的答案了！', missText: '🌫️ 虛空的虛空，都是捕風…',
+      win: { emoji: '☀️', title: '找到人生的總意！', text: '「這些事都已聽見了，總意就是：敬畏神，謹守他的誡命，這是人所當盡的本分。」（傳 12:13）' },
+      lose: { text: '在日光之下打轉了嗎？抬起頭——答案在日光之上。再想一次！' },
+      manualQs: [
+        { q: '傳道書的總意：敬畏神，還有甚麼？', options: ['謹守他的誡命', '多積攢財寶', '及時行樂', '遠離人群'], answer: '謹守他的誡命', basis: '傳 12:13' },
+        { q: '「凡事都有定期」，天下萬務都有甚麼？', options: ['定時', '代價', '盡頭', '主人'], answer: '定時', basis: '傳 3:1' },
+        { q: '神造萬物各按其時成為美好，又將甚麼安置在世人心裡？', options: ['永遠（永生）', '憂愁', '聰明', '夢想'], answer: '永遠（永生）', basis: '傳 3:11' },
+        { q: '「三股合成的繩子」怎樣？', options: ['不容易折斷', '最為美觀', '可以賣錢', '容易編成'], answer: '不容易折斷', basis: '傳 4:12' },
+        { q: '當趁着年幼記念誰？', options: ['造你的主', '你的老師', '你的朋友', '你自己'], answer: '造你的主', basis: '傳 12:1' },
+      ],
+    },
+    lam_mercies: {
+      book: 'LAM', ch: 3, emoji: '🌅', title: '每早晨都是新的', tag: '哀 3・答題對決',
+      myEmoji: '🌅', myName: '數算祂的慈愛', myGoal: 5,
+      foeEmoji: '🌧️', foeName: '黑夜的眼淚', foeGoal: 5,
+      hitText: '🌅 又數算到一樣慈愛，天快亮了！', missText: '🌧️ 眼淚在黑夜裡流…',
+      win: { emoji: '🌅', title: '每早晨都是新的！', text: '「我們不至消滅，是出於耶和華諸般的慈愛……每早晨，這都是新的；你的誠實極其廣大！」（哀 3:22-23）' },
+      lose: { text: '夜還很長嗎？記住——哀歌的中心不是眼淚，是「每早晨都是新的」。等天亮，再數一次！' },
+      manualQs: [
+        { q: '我們不至消滅，是出於耶和華的甚麼？', options: ['諸般的慈愛', '嚴厲的管教', '精準的計算', '短暫的忍耐'], answer: '諸般的慈愛', basis: '哀 3:22' },
+        { q: '「每早晨，這都是新的」，是在讚嘆神的甚麼極其廣大？', options: ['誠實', '怒氣', '財富', '軍隊'], answer: '誠實', basis: '哀 3:23' },
+        { q: '「耶和華是我的分」，因此我要怎樣？', options: ['仰望他', '離開他', '試探他', '躲避他'], answer: '仰望他', basis: '哀 3:24' },
+        { q: '耶和華必施恩給誰？', options: ['等候他、心裏尋求他的人', '最強壯的人', '最富有的人', '最聰明的人'], answer: '等候他、心裏尋求他的人', basis: '哀 3:25' },
+        { q: '人仰望耶和華，怎樣等候他的救恩是好的？', options: ['靜默', '急躁', '喧嚷', '憂愁'], answer: '靜默', basis: '哀 3:26' },
+      ],
+    },
+    haggai_build: {
+      book: 'HAG', ch: 1, emoji: '🔨', title: '先建神的殿', tag: '該 1・答題對決',
+      myEmoji: '🔨', myName: '上山取木建殿', myGoal: 5,
+      foeEmoji: '🏠', foeName: '只顧自己的房屋', foeGoal: 5,
+      hitText: '🔨 又搬上一根木料，神因此喜樂！', missText: '🏠 心又飄回自己的天花板房屋…',
+      win: { emoji: '🔨', title: '神的殿動工了！', text: '「你們要上山取木料，建造這殿，我就因此喜樂，且得榮耀。」這殿後來的榮耀，必大過先前的榮耀！（該 1:8、2:9）' },
+      lose: { text: '又只顧自己的房子了嗎？「你們要省察自己的行為」——放下手邊的，先建神的殿，再來一次！' },
+      manualQs: [
+        { q: '神責備百姓：這殿仍然荒涼，你們自己還住甚麼？', options: ['天花板的房屋', '帳棚', '山洞', '城樓'], answer: '天花板的房屋', basis: '該 1:4' },
+        { q: '神要百姓上山取甚麼來建殿？', options: ['木料', '石頭', '金子', '磚塊'], answer: '木料', basis: '該 1:8' },
+        { q: '這殿後來的榮耀，比先前如何？', options: ['必大過先前', '稍微遜色', '完全一樣', '無人知道'], answer: '必大過先前', basis: '該 2:9' },
+        { q: '百姓只顧自己的結果：得工錢的，把工錢裝在哪裡？', options: ['破漏的囊中', '堅固的倉庫', '換成了田地', '腰間的錢袋'], answer: '破漏的囊中', basis: '該 1:6' },
+        { q: '神說在這地方必賜下甚麼？', options: ['平安', '糧食', '雨水', '君王'], answer: '平安', basis: '該 2:9' },
+      ],
+    },
   };
 
   let mg = null; // { id, cfg, qs, i, my, foe, answered }
@@ -2789,6 +3231,16 @@
     { emoji: '⛰️', name: '謙卑站立', desc: '通關「驕傲必墜」', test: s => !!((s.minigames || {}).obadiah_pride) },
     { emoji: '🏞️', name: '公義江河', desc: '通關「公義江河」', test: s => !!((s.minigames || {}).amos_river) },
     { emoji: '💗', name: '愛的贖回', desc: '通關「愛的贖回」', test: s => !!((s.minigames || {}).hosea_love) },
+    { emoji: '🐑', name: '跟隨好牧人', desc: '通關「牧人的杖」', test: s => !!((s.minigames || {}).psalm_shepherd) },
+    { emoji: '🏛️', name: '七柱之家', desc: '通關「智慧建屋」', test: s => !!((s.minigames || {}).wisdom_house) },
+    { emoji: '🏺', name: '合用的器皿', desc: '通關「窯匠的手」', test: s => !!((s.minigames || {}).potter_hands) },
+    { emoji: '🌻', name: '補還的年歲', desc: '通關「蝗蟲退散」', test: s => !!((s.minigames || {}).joel_locusts) },
+    { emoji: '🕊️', name: '得潔淨的日子', desc: '通關「贖罪日」', test: s => !!((s.minigames || {}).atonement) },
+    { emoji: '💚', name: '揀選生命', desc: '通關「揀選生命」', test: s => !!((s.minigames || {}).choose_life) },
+    { emoji: '🎁', name: '樂意的奉獻', desc: '通關「為聖殿獻上」', test: s => !!((s.minigames || {}).david_offering) },
+    { emoji: '☀️', name: '日光之上', desc: '通關「日光之上」', test: s => !!((s.minigames || {}).ecc_sun) },
+    { emoji: '🌅', name: '每晨新恩', desc: '通關「每早晨都是新的」', test: s => !!((s.minigames || {}).lam_mercies) },
+    { emoji: '🔨', name: '先建神的殿', desc: '通關「先建神的殿」', test: s => !!((s.minigames || {}).haggai_build) },
   ];
   const earnedBadges = () => BADGES.filter(b => b.test(state));
   function renderBadges() {
