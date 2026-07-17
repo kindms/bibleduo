@@ -780,3 +780,4 @@ main, header { position: relative; z-index: 1; }
 
 /* 排行榜加好友鈕 */
 .b-addfr { border: none; background: var(--card-line); border-radius: 10px; padding: 5px 9px; margin-left: 6px; cursor: pointer; font-size: .85rem; color: var(--text); }
+.b-waitfr { font-size: .72rem; color: var(--text-light); margin-left: 6px; white-space: nowrap; }

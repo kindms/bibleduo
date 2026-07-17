@@ -692,6 +692,12 @@
         if (btn.classList.contains('matched')) return;
         if (!sel) { sel = { it, btn }; btn.classList.add('selected'); return; }
         if (sel.btn === btn) { btn.classList.remove('selected'); sel = null; return; }
+        // 同一側再點另一張＝換選（不算配錯，2026-07-17 Burger 回饋）
+        if (sel.it.side === it.side) {
+          sel.btn.classList.remove('selected');
+          sel = { it, btn }; btn.classList.add('selected');
+          return;
+        }
         if (sel.it.key === it.key && sel.it.side !== it.side) {
           sel.btn.classList.add('matched'); btn.classList.add('matched');
           sel.btn.classList.remove('selected');
@@ -2731,8 +2737,12 @@
     const list = $('#board-list');
     list.innerHTML = '<p class="board-hint">載入中…</p>';
     let rows = [];
+    let pendingOut = new Set(); // 我已送出、對方還沒回覆的邀請（排行榜顯示「等待中」，2026-07-17 Burger 回饋）
+    const reqP = CloudSync.isLoggedIn() ? CloudSync.fetchRequests().catch(() => null) : Promise.resolve(null);
     try { rows = await CloudSync.fetchBoard(boardMode, weekKeyOf()); }
     catch (e) { console.warn('排行榜載入失敗', e); list.innerHTML = '<p class="board-hint">排行榜載入失敗，請檢查網路後再試。</p>'; return; }
+    const req = await reqP; // 邀請清單抓失敗不影響排行榜，只是不顯示等待標記
+    if (req) pendingOut = new Set(req.outgoing.map((r) => r.to));
     list.innerHTML = '';
     if (!rows.length) {
       list.innerHTML = '<p class="board-hint">榜上還空無一人——快去闖一關搶頭香！</p>';
@@ -2745,10 +2755,14 @@
         row.className = 'board-row' + (isMe ? ' me' : '');
         const m = MASCOTS[r.mascot] || MASCOTS.dove;
         const canAdd = !isMe && CloudSync.isLoggedIn() && !(state.friends || []).includes(r.uid); // 排行榜直接加好友（2026-07-16 回饋）
+        const waiting = canAdd && pendingOut.has(r.uid); // 已邀請過→顯示等待中，不再給 ➕
+        const frCell = !canAdd ? '' : waiting
+          ? '<span class="b-waitfr" title="邀請已送出，等待對方同意">⏳等待中</span>'
+          : '<button class="b-addfr" title="加好友">➕</button>';
         row.innerHTML = `<span class="b-rank">${medals[i] || i + 1}</span>
           <span class="b-mascot">${m.emoji}</span>
           <span class="b-nick">${escapeHtml(r.nick || '無名小卒')}${isMe ? ' <span class="b-editme">✏️改名</span>' : ''}</span>
-          <span class="b-xp">⭐ ${boardMode === 'week' ? (r.weekXp || 0) : (r.xp || 0)}</span>${canAdd ? '<button class="b-addfr" title="加好友">➕</button>' : ''}`;
+          <span class="b-xp">⭐ ${boardMode === 'week' ? (r.weekXp || 0) : (r.xp || 0)}</span>${frCell}`;
         if (isMe) row.onclick = openNameEditor; // 點自己那一列即可改名
         const addBtn = row.querySelector('.b-addfr');
         if (addBtn) addBtn.onclick = async (e) => {
@@ -2756,7 +2770,7 @@
           addBtn.disabled = true; addBtn.textContent = '…';
           try {
             await CloudSync.sendFriendRequest(r.uid, state.nickname || (currentUser && currentUser.name) || '', r.nick || '');
-            addBtn.textContent = '✓已邀';
+            addBtn.textContent = '⏳等待中';
           } catch (err) { console.warn('排行榜加好友失敗', err); addBtn.disabled = false; addBtn.textContent = '➕'; alert('網路不穩，請再試一次。'); }
         };
         list.appendChild(row);

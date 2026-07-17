@@ -158,23 +158,37 @@
     };
   }
 
-  // 題型 5：是非題（這句經文正確嗎？一半機率把關鍵詞換成錯的）
+  // 題型 5：是非題（這句經文正確嗎？約 1/3 機率把關鍵詞換成錯的——2026-07-17 Burger 回饋比例）
+  // 造「錯句」：挑一個詞換成干擾詞；斷詞不可用（舊瀏覽器沒有 Intl.Segmenter）時，
+  // 改用常用詞清單直接掃內文備援，否則那些裝置上的是非題會永遠是「對」
+  function makeFalseTF(text, verses, ref) {
+    let word = pickBlankWord(text);
+    let pool = [];
+    if (word) {
+      pool = collectWords(verses, word.length).filter(w => w !== word && !text.includes(w));
+      if (!pool.length) pool = (FALLBACK_WORDS[word.length] || []).filter(w => w !== word && !text.includes(w));
+    }
+    if (!word || !pool.length) {
+      for (const len of [3, 2]) {
+        const list = FALLBACK_WORDS[len];
+        const hit = shuffle(list).find(w => text.split(w).length === 2); // 整節恰好出現一次才安全
+        if (hit) { word = hit; pool = list.filter(w => w !== word && !text.includes(w)); break; }
+      }
+    }
+    if (!word || !pool.length) return null;
+    const wrong = pick(pool);
+    return { type: 'tf', ref, statement: text.replace(word, wrong), answer: false, original: text };
+  }
   function makeTF(book, ch, verses, vi) {
     const text = verses[vi];
     if (text.length < 10) return null;
     const ref = `${book.name} ${ch}:${vi + 1}`;
-    if (Math.random() < 0.5) {
-      return { type: 'tf', ref, statement: text, answer: true, original: text };
+    if (Math.random() < 1 / 3) {
+      // 錯句做不出來就退回正確句，確保是非題照常出現
+      const fq = makeFalseTF(text, verses, ref);
+      if (fq) return fq;
     }
-    const word = pickBlankWord(text);
-    if (!word) return null;
-    let pool = collectWords(verses, word.length).filter(w => w !== word && !text.includes(w));
-    if (!pool.length) {
-      pool = (FALLBACK_WORDS[word.length] || []).filter(w => w !== word && !text.includes(w));
-    }
-    if (!pool.length) return null;
-    const wrong = pick(pool);
-    return { type: 'tf', ref, statement: text.replace(word, wrong), answer: false, original: text };
+    return { type: 'tf', ref, statement: text, answer: true, original: text };
   }
 
   // 題型 6：打字填空（不給選項，用鍵盤把詞打出來）
