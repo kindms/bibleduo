@@ -879,6 +879,9 @@ main, header { position: relative; z-index: 1; }
 .rv-obj { position: absolute; font-size: 1.4rem; background: none; border: none; cursor: pointer; transform: translate(-50%, -50%); padding: 4px; }
 .rv-obj.rv-got { pointer-events: none; }
 
+/* 書卷小遊戲：讀完全卷才解鎖（鎖定卡） */
+.book-feature.bf-locked { opacity: .6; filter: grayscale(.5); }
+
 /* 🌊 分海快走 */
 .rs-stage { position: relative; height: 160px; border: 2px dashed var(--card-line); border-radius: 20px; margin: 8px 0; display: flex; align-items: center; justify-content: center; gap: 6px; overflow: hidden; touch-action: none; font-size: 2.2rem; }
 .rs-sea { transition: transform .1s linear; }

@@ -260,13 +260,24 @@
     }
     currentBook = book;
     $('#chapter-title').textContent = currentBook.name;
-    // 書卷專屬玩法：八福拼圖放馬太、約拿冒險放約拿書、故事小遊戲放對應書卷，顯示在章節頁頂端
+    // 書卷專屬玩法（小遊戲/拼圖/故事）：放在章節路徑「最後面」當通關獎勵，
+    // 讀完全卷才解鎖（2026-07-18 Burger 指示）
+    const done = state.done[id] || [];
+    const total = currentBook.chapters.length;
+    const bookComplete = done.length >= total;
     const slot = $('#book-feature-slot');
     slot.innerHTML = '';
-    for (const node of bookFeatures(id)) slot.appendChild(node);
+    for (const node of bookFeatures(id)) {
+      if (!bookComplete) {
+        node.classList.add('bf-locked');
+        node.querySelector('.bf-emoji').textContent = '🔒';
+        node.querySelector('.bf-text small').textContent = `讀完全卷解鎖（${done.length}/${total} 章）`;
+        node.onclick = () => alert(`這是${currentBook.name}的通關獎勵——讀完全卷 ${total} 章就能解鎖！\n目前進度：${done.length}/${total} 章，加油！`);
+      }
+      slot.appendChild(node);
+    }
     const path = $('#chapter-path');
     path.innerHTML = '';
-    const done = state.done[id] || [];
     const maxUnlocked = done.length ? Math.max(...done) + 1 : 1;
     for (let c = 1; c <= currentBook.chapters.length; c++) {
       const node = document.createElement('button');
