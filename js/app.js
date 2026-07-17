@@ -3,8 +3,45 @@
   const $ = (sel) => document.querySelector(sel);
   const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const OT_COUNT = 39;
-  const MAX_HEARTS = 5; // 每關愛心數（答錯扣一顆，用完可讀經回血）
-  const heartStr = (h) => '❤️'.repeat(h) + '🖤'.repeat(MAX_HEARTS - h);
+  const MAX_HEARTS = 5; // 愛心上限（跨關卡共用；答錯扣一顆，用完可讀經回血或等時間回復）
+  const HEART_REGEN_MS = 60 * 60 * 1000; // 每小時自動回復 1 顆（多鄰國式）
+  const heartStr = (h) => '❤️'.repeat(Math.max(0, h)) + '🖤'.repeat(Math.max(0, MAX_HEARTS - h));
+  // 依時間補回應得的愛心（滿了就不跑計時；只有真的回了血才存檔）
+  function refreshHearts() {
+    if (typeof state.hearts !== 'number') { state.hearts = MAX_HEARTS; state.heartsTs = Date.now(); return; }
+    if (state.hearts >= MAX_HEARTS) { state.hearts = MAX_HEARTS; state.heartsTs = Date.now(); return; }
+    const ts = state.heartsTs || Date.now();
+    const regen = Math.floor((Date.now() - ts) / HEART_REGEN_MS);
+    if (regen > 0) {
+      state.hearts = Math.min(MAX_HEARTS, state.hearts + regen);
+      state.heartsTs = state.hearts >= MAX_HEARTS ? Date.now() : ts + regen * HEART_REGEN_MS; // 保留未滿一小時的餘數
+      store.save(state);
+    }
+  }
+  function loseHeart() {
+    if (state.hearts >= MAX_HEARTS) state.heartsTs = Date.now(); // 從滿的掉下來才開始計時
+    state.hearts = Math.max(0, (state.hearts ?? MAX_HEARTS) - 1);
+    store.save(state);
+  }
+  function gainHeart(n = 1) { // 讀經回血
+    if (state.hearts >= MAX_HEARTS) state.heartsTs = Date.now();
+    state.hearts = Math.min(MAX_HEARTS, (state.hearts ?? 0) + n);
+    if (state.hearts >= MAX_HEARTS) state.heartsTs = Date.now();
+    store.save(state);
+  }
+  function heartRegenText() { // 「下一顆還要多久」
+    if (state.hearts >= MAX_HEARTS) return '';
+    let remain = HEART_REGEN_MS - (Date.now() - (state.heartsTs || Date.now()));
+    remain = Math.max(0, Math.min(HEART_REGEN_MS, remain));
+    const m = Math.floor(remain / 60000), s = Math.floor((remain % 60000) / 1000);
+    return `${m}:${String(s).padStart(2, '0')}`;
+  }
+  function updateHeartUi() {
+    const b = $('#stat-hearts b'); if (b) b.textContent = state.hearts;
+    const rg = $('#heart-regen'); if (rg) rg.textContent = state.hearts >= MAX_HEARTS ? '' : heartRegenText();
+    const lh = $('#lesson-hearts'); if (lh) lh.textContent = heartStr(state.hearts);
+    const rr = $('#revive-regen'); if (rr) rr.textContent = state.hearts >= MAX_HEARTS ? '' : `或等 ${heartRegenText()} 就自動回復一顆 ❤️`;
+  }
   const BOOK_EMOJI = {
     GEN: '🌍', EXO: '🌊', LEV: '🕯️', NUM: '🏕️', DEU: '📜', JOS: '🎺', JDG: '⚔️', RUT: '🌾',
     '1SA': '👑', '2SA': '🏰', '1KI': '🏛️', '2KI': '🔥', '1CH': '📖', '2CH': '📖', EZR: '🧱',
@@ -47,7 +84,7 @@
       CloudSync.save(d); // 有登入就同步到雲端（沒登入時是空操作）
     },
   };
-  let state = Object.assign({ xp: 0, streak: 0, lastPlay: '', done: {}, scene: 'meadow', mascot: 'dove', nickname: '', weekXp: 0, weekKey: '', muted: false, review: [], puzzles: { beatitudes: [] } }, store.load());
+  let state = Object.assign({ xp: 0, streak: 0, lastPlay: '', done: {}, scene: 'meadow', mascot: 'dove', nickname: '', weekXp: 0, weekKey: '', muted: false, review: [], puzzles: { beatitudes: [] }, hearts: MAX_HEARTS, heartsTs: Date.now() }, store.load());
   if (!state.puzzles) state.puzzles = { beatitudes: [] }; // 舊存檔補欄位
   if (!state.stats) state.stats = {}; // 各種計數器（衝刺最高分、翻牌次數、複習次數、朗讀成功數…），徽章用
   if (!state.minigames) state.minigames = {}; // 書卷故事小遊戲通關紀錄 { gameId: true }
@@ -146,7 +183,7 @@
   function renderTopbar() {
     $('#stat-streak b').textContent = state.streak;
     $('#stat-xp b').textContent = state.xp;
-    $('#stat-hearts b').textContent = lesson ? lesson.hearts : MAX_HEARTS;
+    updateHeartUi(); // 愛心跨關卡共用，一律讀 state.hearts（含回復倒數）
   }
 
   // ===== 音效（簡單合成音）=====
@@ -338,6 +375,11 @@
   // ===== 畫面 3：關卡 =====
   let lesson = null;
   async function startLesson(chapterNum) {
+    refreshHearts();
+    if (state.hearts <= 0) { // 愛心用完：讀完這一章回一顆再開始（或等每小時自動回復）
+      offerRevive(chapterNum, () => startLesson(chapterNum), () => {});
+      return;
+    }
     const qs = QuestionFactory.generateLesson(currentBook, chapterNum);
     if (qs.length < 2) { alert('這一章太短，暫時無法出題，先挑別章吧！'); return; }
     // 有理解題的章節：中段插一題、結尾放一題
@@ -349,7 +391,7 @@
     }));
     if (compQs[0]) qs.splice(Math.floor(qs.length / 2), 0, compQs[0]);
     if (compQs[1]) qs.push(compQs[1]);
-    lesson = { chapterNum, qs, i: 0, hearts: MAX_HEARTS, wrong: 0, xp: 0, wrongQs: [], inRetest: false, awarded: false };
+    lesson = { chapterNum, qs, i: 0, wrong: 0, xp: 0, wrongQs: [], inRetest: false, awarded: false }; // 愛心改用 state.hearts（跨關卡共用）
     refreshFriendBonus(); // 背景刷新組隊加成，結算時用最新值（失敗就沿用快取）
     renderTopbar();
     show('#screen-lesson');
@@ -379,7 +421,7 @@
   function renderQuestion() {
     const q = lesson.qs[lesson.i];
     $('#lesson-progress').style.width = `${(lesson.i / lesson.qs.length) * 100}%`;
-    $('#lesson-hearts').textContent = heartStr(lesson.hearts);
+    $('#lesson-hearts').textContent = heartStr(state.hearts);
     $('#btn-check').disabled = true;
     $('#feedback-bar').classList.add('hidden');
     $('#btn-check').classList.remove('hidden');
@@ -772,12 +814,12 @@
       if (lesson.isReview) { // 間隔複習答錯：退回明天再考
         bumpReviewItem(lesson.reviewItems[lesson.i], false);
         store.save(state);
-      } else if (!lesson.inRetest && !lesson.isPuzzle && q.type !== 'read') { // 正式輪答錯：扣愛心、記下錯題供之後複習（朗讀操練、拼圖除外）
-        lesson.hearts--;
+      } else if (!lesson.inRetest && !lesson.isPuzzle && q.type !== 'read') { // 正式輪答錯：扣愛心（跨關卡共用）、記下錯題供之後複習（朗讀操練、拼圖除外）
+        loseHeart();
         lesson.wrong++;
         lesson.wrongQs.push(q);
         renderTopbar();
-        $('#lesson-hearts').textContent = heartStr(lesson.hearts);
+        $('#lesson-hearts').textContent = heartStr(state.hearts);
       }
     }
     $('#lesson-bottom').classList.add('hidden'); // 收起「確定」列，改由回饋條顯示「繼續」
@@ -797,7 +839,7 @@
     renderQuestion();
   }
   $('#btn-next').onclick = () => {
-    if (lesson.hearts <= 0) { offerRevive(); return; } // 愛心用完：先給讀經回血的機會
+    if (state.hearts <= 0) { offerRevive(lesson.chapterNum, advanceLesson, failLesson); return; } // 愛心用完：先給讀經回血的機會
     advanceLesson();
   };
 
@@ -816,11 +858,13 @@
     renderQuestion();
   };
 
-  // ===== 讀經回血：愛心用完時讀完本章 +1 愛心，繼續闖關 =====
-  function offerRevive() {
-    const verses = currentBook.chapters[lesson.chapterNum - 1] || [];
+  // ===== 讀經回血：愛心用完時讀完該章 +1 愛心（跨關卡共用；也可等每小時自動回復）=====
+  let reviveCtx = null; // { onRead, onQuit }：讀完/放棄各自要做的事
+  function offerRevive(chapterNum, onRead, onQuit) {
+    reviveCtx = { onRead, onQuit };
+    const verses = currentBook.chapters[chapterNum - 1] || [];
     const box = $('#revive-passage');
-    box.innerHTML = `<h4>${escapeHtml(currentBook.name)} 第 ${lesson.chapterNum} 章</h4>` +
+    box.innerHTML = `<h4>${escapeHtml(currentBook.name)} 第 ${chapterNum} 章</h4>` +
       verses.map((v, i) => `<p class="rv-verse"><b>${i + 1}</b> ${escapeHtml(v)}</p>`).join('');
     const readBtn = $('#btn-revive-read');
     readBtn.disabled = true;
@@ -829,19 +873,22 @@
       if (box.scrollTop + box.clientHeight >= box.scrollHeight - 8) readBtn.disabled = false;
     };
     box.onscroll = check;
+    updateHeartUi(); // 顯示「或等 X 自動回復一顆」
     $('#revive-overlay').classList.remove('hidden');
     box.scrollTop = 0; // 顯示後才重設，避免同章重複回血時保留舊捲動位置卡在底部
     setTimeout(check, 1500); // 短章不需捲動時自動解鎖
   }
   $('#btn-revive-read').onclick = () => {
     $('#revive-overlay').classList.add('hidden');
-    lesson.hearts = Math.min(MAX_HEARTS, lesson.hearts + 1);
+    gainHeart(1);
     renderTopbar();
-    advanceLesson();
+    const cb = reviveCtx && reviveCtx.onRead; reviveCtx = null;
+    if (cb) cb();
   };
   $('#btn-revive-quit').onclick = () => {
     $('#revive-overlay').classList.add('hidden');
-    failLesson();
+    const cb = reviveCtx && reviveCtx.onQuit; reviveCtx = null;
+    if (cb) cb();
   };
 
   // ===== 結算 =====
@@ -5753,6 +5800,16 @@
   let currentUser = null;
 
   // 本機與雲端進度合併：完成章取聯集、經驗值與連續天數取較高者、外觀以雲端為準
+  // 愛心：把某份存檔「換算到現在」應有的愛心與計時錨點（不改動原物件）
+  function effHearts(s) {
+    let h = typeof s.hearts === 'number' ? s.hearts : MAX_HEARTS;
+    let ts = s.heartsTs || Date.now();
+    if (h < MAX_HEARTS) {
+      const regen = Math.floor((Date.now() - ts) / HEART_REGEN_MS);
+      if (regen > 0) { h = Math.min(MAX_HEARTS, h + regen); ts = h >= MAX_HEARTS ? Date.now() : ts + regen * HEART_REGEN_MS; }
+    } else ts = Date.now();
+    return { hearts: h, heartsTs: ts };
+  }
   function mergeStates(local, cloud) {
     if (!cloud) return local;
     const done = {};
@@ -5782,6 +5839,8 @@
       story: { JON: [...new Set([...((local.story || {}).JON || []), ...((cloud.story || {}).JON || [])])] },
       minigames: Object.assign({}, cloud.minigames, local.minigames), // 任一裝置通關就算通關
       friends: [...new Set([...(local.friends || []), ...(cloud.friends || [])])], // 好友清單取聯集
+      // 愛心：兩邊各算到「現在」，取較多者（不苛扣跨裝置玩家）
+      ...(() => { const a = effHearts(local), b = effHearts(cloud); return a.hearts >= b.hearts ? a : b; })(),
     };
   }
   // 計數器合併：每個欄位取較大值（兩邊各玩各的都不吃虧）
@@ -6307,7 +6366,10 @@
       renderTopbar();
       return;
     }
+    refreshHearts(); // 冷啟動先補回離線期間該回的愛心
     renderTopbar();
     renderBooks();
+    // 每秒：回復到期的愛心＋更新「下一顆」倒數（回滿前才會真的存檔，不會每秒寫入）
+    setInterval(() => { refreshHearts(); updateHeartUi(); }, 1000);
   })();
 })();

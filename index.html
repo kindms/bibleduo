@@ -23,7 +23,7 @@
     <button id="btn-home" class="icon-btn" title="回書卷地圖">🏠</button>
     <div class="stat" id="stat-streak" title="連續天數">🔥 <b>0</b></div>
     <div class="stat" id="stat-xp" title="經驗值">⭐ <b>0</b></div>
-    <div class="stat" id="stat-hearts" title="愛心">❤️ <b>5</b></div>
+    <div class="stat" id="stat-hearts" title="愛心（每小時回復一顆）">❤️ <b>5</b><i id="heart-regen"></i></div>
     <button id="btn-board" class="icon-btn" title="排行榜">🏆</button>
     <button id="btn-friends-top" class="icon-btn" title="好友">👥<span id="friends-dot" class="dot hidden"></span></button>
     <button id="btn-custom" class="icon-btn" title="打扮：場景與夥伴">🎨</button>
@@ -250,6 +250,7 @@
     <div class="revive-card">
       <div class="revive-head">💔 愛心用完了</div>
       <p class="revive-sub">別急，讀完這一章就回一顆愛心，繼續闖關！</p>
+      <p class="revive-regen" id="revive-regen"></p>
       <div class="revive-passage" id="revive-passage"></div>
       <div class="revive-actions">
         <button id="btn-revive-read" class="big-btn" disabled>🙏 我讀完了，＋1 ❤️</button>
