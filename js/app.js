@@ -24,7 +24,7 @@
     galilee: { name: '加利利海', emoji: '🌊', decor: ['⛵', '🐟', '🌊', '🕊️', '🐚'], theme: '#e6f2fd' },
     desert: { name: '曠野日出', emoji: '🏜️', decor: ['🌵', '🐫', '☀️', '⛺', '🦂'], theme: '#fdf4dc' },
     night: { name: '星夜應許', emoji: '🌌', decor: ['⭐', '🌙', '✨', '☁️', '💫'], theme: '#211d4d' },
-    jerusalem: { name: '耶路撒冷', emoji: '🏛️', decor: ['🏛️', '🫒', '🎺', '🕊️', '🌟'], theme: '#f7efdd' },
+    jerusalem: { name: '耶路撒冷', emoji: '🏛️', decor: ['🏛️', '🫒', '🎺', '🕊️', '🌟'], theme: '#f2edf8' },
   };
   const MASCOTS = {
     dove: { name: '小鴿子', emoji: '🕊️', verse: '「鴿子嘴裏叼着一個新擰下來的橄欖葉子」— 創世記 8:11' },

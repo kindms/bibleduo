@@ -72,21 +72,22 @@
   --title: #c4b5fd;
 }
 [data-scene="jerusalem"] {
-  /* 🏛️ 耶路撒冷（聖城石牆的暖金色） */
-  --bg: radial-gradient(900px 500px at 75% -10%, #fcedc8 0%, transparent 55%),
-        linear-gradient(170deg, #fdf9ef 0%, #f5ecd8 50%, #eadfc4 100%);
-  --primary: #d4a017;
-  --primary-dark: #b18411;
-  --select: #2563eb;
-  --select-bg: #eef2fd;
-  --card: #fffdf6;
-  --card-line: #e8dcbf;
-  --text: #4a3f28;
-  --text-light: #a99d80;
-  --topbar: rgba(253, 249, 239, 0.9);
-  --node-locked: #e3dac2;
-  --node-locked-shadow: #cbc0a4;
-  --title: #a97b0f;
+  /* 🏛️ 耶路撒冷（王城紫金：石牆白底＋君尊紫＋聖殿金點綴，2026-07-17 改色
+     ——原本的暖金米黃跟曠野日出太像，Burger 要求拉開） */
+  --bg: radial-gradient(900px 500px at 75% -10%, #e3d9f3 0%, transparent 55%),
+        linear-gradient(170deg, #fbfaf6 0%, #f0ebf3 50%, #e4dcec 100%);
+  --primary: #8b5cf6;
+  --primary-dark: #6d43d8;
+  --select: #a97b0f;
+  --select-bg: #faf4e0;
+  --card: #fffefb;
+  --card-line: #e5ddef;
+  --text: #40355a;
+  --text-light: #a195b5;
+  --topbar: rgba(251, 250, 246, 0.9);
+  --node-locked: #ded6ea;
+  --node-locked-shadow: #c2b8d6;
+  --title: #7443c9;
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
