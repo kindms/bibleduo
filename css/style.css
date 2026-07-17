@@ -832,6 +832,16 @@ main, header { position: relative; z-index: 1; }
 .jl-wheat { position: absolute; left: 4px; top: 0; bottom: 0; writing-mode: vertical-lr; display: flex; align-items: center; font-size: 1.5rem; letter-spacing: 6px; }
 .jl-bug { position: absolute; font-size: 1.7rem; transform: translate(-50%, -50%) scaleX(-1); pointer-events: none; }
 
+/* 🕎 七燈點亮 */
+.zl-row { display: flex; gap: 6px; justify-content: center; margin: 14px 0; }
+.zl-lamp { flex: 1; max-width: 52px; font-size: 1.8rem; padding: 12px 0; background: var(--card); border: 2px solid var(--card-line); border-radius: 14px; cursor: pointer; user-select: none; -webkit-user-select: none; transition: transform .1s; }
+.zl-lamp.zl-on { border-color: var(--primary); transform: scale(1.12); }
+
+/* 🗼 守望樓上 */
+.hw-stage { position: relative; height: 280px; border: 2px dashed var(--card-line); border-radius: 20px; margin: 8px 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; }
+.hw-icon { font-size: 4rem; }
+.hw-text { font-weight: bold; color: var(--text); text-align: center; padding: 0 16px; }
+
 /* 🌊 分海快走 */
 .rs-stage { position: relative; height: 160px; border: 2px dashed var(--card-line); border-radius: 20px; margin: 8px 0; display: flex; align-items: center; justify-content: center; gap: 6px; overflow: hidden; touch-action: none; font-size: 2.2rem; }
 .rs-sea { transition: transform .1s linear; }

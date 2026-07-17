@@ -2421,6 +2421,140 @@
     S.raf = requestAnimationFrame(step);
   };
 
+  // —— 🕎 七燈點亮：金燈臺的燈按順序亮起，記住順序照樣點回去（記憶序列）——
+  ACTION_GAMES.zech_lamps = function startLamps() {
+    const S = { phase: 'show', round: 2, seq: [], input: 0, misses: 0, timers: [] };
+    const area = startAction('🕎 七燈點亮', 'ZEC', () => S.timers.forEach(clearTimeout));
+    action.state = S;
+    area.innerHTML = `
+      <p class="act-hint" id="zl-hint">純金燈臺上有七盞燈（亞 4:2）——燈按順序亮起，記住順序，照樣點回去！</p>
+      <div class="zl-row" id="zl-row">${Array.from({ length: 7 }, (_, i) => `<button class="zl-lamp act-tap" data-i="${i}">🕯️</button>`).join('')}</div>
+      <div class="act-row"><span>🕎 順序</span><div class="act-track"><div class="act-fill" id="zl-bar"></div></div><b id="zl-round">2/7</b></div>
+      <div class="act-row"><span>💔 失誤</span><b id="zl-miss">—</b></div>`;
+    const lamps = [...document.querySelectorAll('.zl-lamp')];
+    const flash = (i, ms) => {
+      lamps[i].textContent = '🔥';
+      lamps[i].classList.add('zl-on');
+      S.timers.push(setTimeout(() => { lamps[i].textContent = '🕯️'; lamps[i].classList.remove('zl-on'); }, ms));
+    };
+    S.showSeq = () => {
+      S.phase = 'show';
+      S.input = 0;
+      S.seq = Array.from({ length: S.round }, () => Math.floor(Math.random() * 7));
+      $('#zl-hint').textContent = '看好燈亮的順序…';
+      S.seq.forEach((l, idx) => S.timers.push(setTimeout(() => {
+        flash(l, 420);
+        if (idx === S.seq.length - 1) S.timers.push(setTimeout(() => { S.phase = 'input'; $('#zl-hint').textContent = '換你了！照剛才的順序點燈！'; }, 520));
+      }, 620 * idx + 400)));
+    };
+    lamps.forEach((b, i) => {
+      b.onclick = () => {
+        if (S.phase !== 'input') return;
+        if (i === S.seq[S.input]) {
+          flash(i, 300);
+          S.input++;
+          if (S.input >= S.seq.length) { // 這一輪答完
+            sndGood();
+            if (S.round >= 7) {
+              S.phase = 'done';
+              winAction('zech_lamps', 'ZEC', MINIGAMES.zech_lamps.win, ACTION_GAMES.zech_lamps);
+              return;
+            }
+            S.round++;
+            $('#zl-round').textContent = `${S.round}/7`;
+            $('#zl-bar').style.width = `${((S.round - 2) / 5) * 100}%`;
+            $('#zl-hint').textContent = '亮了！下一輪更長，看好…';
+            S.phase = 'show';
+            S.timers.push(setTimeout(S.showSeq, 900));
+          }
+        } else {
+          S.misses++;
+          sndBad();
+          $('#zl-miss').textContent = '💔'.repeat(S.misses);
+          if (S.misses >= 3) {
+            S.phase = 'done';
+            loseAction('ZEC', MINIGAMES.zech_lamps.lose.text, ACTION_GAMES.zech_lamps);
+            return;
+          }
+          $('#zl-hint').textContent = '點錯了——同一輪再看一次！';
+          S.phase = 'show';
+          S.timers.push(setTimeout(S.showSeq, 900));
+        }
+      };
+    });
+    S.timers.push(setTimeout(S.showSeq, 600));
+  };
+
+  // —— 🗼 守望樓上：異象一閃即逝——顯現的瞬間立刻點擊抄下來（反應速度）——
+  ACTION_GAMES.hab_watch = function startWatch() {
+    const GOAL = 6;
+    const S = { phase: 'wait', round: 0, misses: 0, t: 0, waitMs: 1500 + Math.random() * 1500, windowMs: 900, raf: 0 };
+    const area = startAction('🗼 守望樓上', 'HAB', () => cancelAnimationFrame(S.raf));
+    action.state = S;
+    area.innerHTML = `
+      <div class="act-row"><span>📜 抄下</span><div class="act-track"><div class="act-fill" id="hw-bar"></div></div><b id="hw-count">0/${GOAL}</b></div>
+      <div class="act-row"><span>💔 失誤</span><b id="hw-miss">—</b></div>
+      <div class="hw-stage act-tap" id="hw-stage"><div class="hw-icon" id="hw-icon">🌫️</div><div class="hw-text" id="hw-text">站在守望所，等候異象…</div></div>
+      <p class="fr-tip">耐心等——「✨ 異象顯現」的瞬間立刻點擊，把默示明明地寫在版上！太早點會嚇跑異象。（哈 2:1-2）</p>`;
+    const miss = (why) => {
+      S.misses++;
+      sndBad();
+      $('#hw-miss').textContent = '💔'.repeat(S.misses);
+      $('#hw-icon').textContent = '🌫️';
+      $('#hw-text').textContent = `${why}——再守候…`;
+      if (S.misses >= 3) {
+        S.phase = 'done';
+        loseAction('HAB', MINIGAMES.hab_watch.lose.text, ACTION_GAMES.hab_watch);
+        return;
+      }
+      S.phase = 'wait';
+      S.t = 0;
+      S.waitMs = 1500 + Math.random() * 1800;
+    };
+    $('#hw-stage').onpointerdown = (e) => {
+      e.preventDefault();
+      if (S.phase === 'wait') { miss('太急了！異象還沒顯現'); return; }
+      if (S.phase !== 'flash') return;
+      S.round++;
+      sndGood();
+      $('#hw-count').textContent = `${S.round}/${GOAL}`;
+      $('#hw-bar').style.width = `${(S.round / GOAL) * 100}%`;
+      if (S.round >= GOAL) {
+        S.phase = 'done';
+        winAction('hab_watch', 'HAB', MINIGAMES.hab_watch.win, ACTION_GAMES.hab_watch);
+        return;
+      }
+      $('#hw-icon').textContent = '🌫️';
+      $('#hw-text').textContent = '抄下來了！繼續守候下一個異象…';
+      S.phase = 'wait';
+      S.t = 0;
+      S.waitMs = 1500 + Math.random() * 1800;
+      S.windowMs = Math.max(500, 900 - S.round * 70); // 越後面閃得越快
+    };
+    S.tick = (dt) => {
+      if (S.phase === 'wait') {
+        S.t += dt;
+        if (S.t >= S.waitMs) {
+          S.phase = 'flash';
+          S.t = 0;
+          $('#hw-icon').textContent = '✨';
+          $('#hw-text').textContent = '異象顯現！快抄下來！';
+        }
+      } else if (S.phase === 'flash') {
+        S.t += dt;
+        if (S.t >= S.windowMs) miss('異象一閃就過了');
+      }
+    };
+    let last = performance.now();
+    const step = (now) => {
+      if (!action || action.state !== S) return;
+      S.tick(Math.min(50, now - last));
+      last = now;
+      if (S.phase !== 'done') S.raf = requestAnimationFrame(step);
+    };
+    S.raf = requestAnimationFrame(step);
+  };
+
   // ===== 📖 書卷故事小遊戲（對決引擎：答對推進我方、答錯讓威脅逼近，先滿者定勝負）=====
   // 加一款遊戲＝在這裡加一份設定，章節頁入口與雲端同步都會自動長出來
   const MINIGAMES = {
@@ -3056,6 +3190,187 @@
         { q: '神說在這地方必賜下甚麼？', options: ['平安', '糧食', '雨水', '君王'], answer: '平安', basis: '該 2:9' },
       ],
     },
+    // ===== 第 3 波（2026-07-18）：2 款動作＋10 款對決（保羅書信）=====
+    zech_lamps: {
+      book: 'ZEC', ch: 4, emoji: '🕎', title: '七燈點亮', tag: '亞 4・記憶序列',
+      myEmoji: '🕎', myName: '金燈臺的七燈', myGoal: 7,
+      foeEmoji: '⛰️', foeName: '大山的攔阻', foeGoal: 3,
+      hitText: '🕎 燈又亮了一輪！', missText: '⛰️ 大山的影子壓過來…',
+      win: { emoji: '🕎', title: '七燈全亮了！', text: '「不是倚靠勢力，不是倚靠才能，乃是倚靠我的靈方能成事。」大山哪，你算甚麼呢？在所羅巴伯面前，你必成為平地！（亞 4:6-7）' },
+      lose: { text: '順序亂了嗎？誰藐視這日的事為小呢——深呼吸，倚靠祂的靈再點一次！（亞 4:10）' },
+      manualQs: [
+        { q: '撒迦利亞看見純金燈臺上有幾盞燈？', options: ['七盞', '五盞', '十盞', '十二盞'], answer: '七盞', basis: '亞 4:2' },
+        { q: '「不是倚靠勢力，不是倚靠才能」，乃是倚靠甚麼？', options: ['耶和華的靈', '眾人的手', '君王的命令', '金銀的力量'], answer: '耶和華的靈', basis: '亞 4:6' },
+        { q: '大山在所羅巴伯面前，必成為甚麼？', options: ['平地', '深谷', '花園', '道路'], answer: '平地', basis: '亞 4:7' },
+        { q: '「這七眼乃是耶和華的眼睛」，作甚麼？', options: ['遍察全地', '數算星辰', '看守聖殿', '監督工人'], answer: '遍察全地', basis: '亞 4:10' },
+        { q: '「看哪，你的王來到」，他謙謙和和地騎着甚麼？', options: ['驢駒', '白馬', '駱駝', '戰車'], answer: '驢駒', basis: '亞 9:9' },
+      ],
+    },
+    hab_watch: {
+      book: 'HAB', ch: 2, emoji: '🗼', title: '守望樓上', tag: '哈 2・反應快抄',
+      myEmoji: '📜', myName: '抄下的默示', myGoal: 6,
+      foeEmoji: '🌫️', foeName: '一閃即逝的異象', foeGoal: 3,
+      hitText: '📜 抄下來了，明明地寫在版上！', missText: '🌫️ 異象一閃就過了…',
+      win: { emoji: '🗼', title: '默示都寫在版上了！', text: '「將這默示明明的寫在版上，使讀的人容易讀。」等候不落空——惟義人因信得生！（哈 2:2,4）' },
+      lose: { text: '沒抄到嗎？哈巴谷也等了又等——「雖然無花果樹不發旺……然而我要因耶和華歡欣」。回守望樓，再等一次！（哈 3:17-18）' },
+      manualQs: [
+        { q: '哈巴谷說「我要站在守望所」，立在哪裡觀看？', options: ['望樓上', '城門口', '山頂上', '祭壇旁'], answer: '望樓上', basis: '哈 2:1' },
+        { q: '神要哈巴谷把默示怎樣寫在版上？', options: ['明明地寫', '偷偷地寫', '簡短地寫', '華麗地寫'], answer: '明明地寫', basis: '哈 2:2' },
+        { q: '「惟義人因＿得生」？', options: ['信', '行', '善', '智'], answer: '信', basis: '哈 2:4' },
+        { q: '雖然無花果樹不發旺、田地不出糧食，哈巴谷仍要怎樣？', options: ['因耶和華歡欣', '傷心地離開', '大聲地抱怨', '默默地忍受'], answer: '因耶和華歡欣', basis: '哈 3:17-18' },
+        { q: '主耶和華使哈巴谷的腳快如甚麼？', options: ['母鹿的蹄', '雄鷹的翅', '駿馬的腿', '獅子的爪'], answer: '母鹿的蹄', basis: '哈 3:19' },
+      ],
+    },
+    rom_love: {
+      book: 'ROM', ch: 8, emoji: '⛓️', title: '不能隔絕的愛', tag: '羅 8・答題對決',
+      myEmoji: '💪', myName: '得勝有餘', myGoal: 5,
+      foeEmoji: '⚔️', foeName: '患難逼迫刀劍', foeGoal: 5,
+      hitText: '💪 靠着愛我們的主，又勝一場！', missText: '⚔️ 患難、困苦、逼迫圍上來了…',
+      win: { emoji: '⛓️', title: '甚麼都不能隔絕！', text: '「無論是死，是生……都不能叫我們與神的愛隔絕；這愛是在我們的主基督耶穌裏的。」（羅 8:38-39）' },
+      lose: { text: '被圍住了嗎？記住——「靠着愛我們的主，在這一切的事上已經得勝有餘了」。再戰一場！（羅 8:37）' },
+      manualQs: [
+        { q: '靠着愛我們的主，我們在這一切的事上已經怎樣？', options: ['得勝有餘', '勉強撐住', '略佔上風', '不分勝負'], answer: '得勝有餘', basis: '羅 8:37' },
+        { q: '是高處的、是低處的，都不能叫我們與甚麼隔絕？', options: ['神的愛', '教會生活', '屬靈恩賜', '天上獎賞'], answer: '神的愛', basis: '羅 8:39' },
+        { q: '「世人都犯了罪」，虧缺了甚麼？', options: ['神的榮耀', '律法標準', '天使見證', '先祖名聲'], answer: '神的榮耀', basis: '羅 3:23' },
+        { q: '罪的工價乃是死；神的恩賜乃是甚麼？', options: ['永生', '平安', '健康', '財富'], answer: '永生', basis: '羅 6:23' },
+        { q: '「不要效法這個世界」，只要怎樣？', options: ['心意更新而變化', '離群獨自安靜', '嚴守各樣規條', '週週禁食禱告'], answer: '心意更新而變化', basis: '羅 12:2' },
+      ],
+    },
+    cor_love: {
+      book: '1CO', ch: 13, emoji: '💞', title: '愛是永不止息', tag: '林前 13・答題對決',
+      myEmoji: '💞', myName: '愛的真諦', myGoal: 5,
+      foeEmoji: '🥁', foeName: '鳴的鑼響的鈸', foeGoal: 5,
+      hitText: '💞 又活出一句愛的真諦！', missText: '🥁 沒有愛，只剩鑼鈸的噪音…',
+      win: { emoji: '💞', title: '愛是永不止息！', text: '「如今常存的有信，有望，有愛，這三樣，其中最大的是愛。」（林前 13:13）' },
+      lose: { text: '只剩下響聲了嗎？「我若能說萬人的方言……卻沒有愛，我就成了鳴的鑼」。回到愛，再來一次！' },
+      manualQs: [
+        { q: '「愛是恆久忍耐，又有」甚麼？', options: ['恩慈', '聰明', '膽量', '口才'], answer: '恩慈', basis: '林前 13:4' },
+        { q: '「愛是永不」怎樣？', options: ['止息', '改變', '失敗', '後悔'], answer: '止息', basis: '林前 13:8' },
+        { q: '如今常存的有信、有望、有愛，其中最大的是？', options: ['愛', '信', '望', '恩賜'], answer: '愛', basis: '林前 13:13' },
+        { q: '我若能說萬人的方言卻沒有愛，就成了甚麼？', options: ['鳴的鑼、響的鈸', '無字的書卷', '無油的燈臺', '斷了絃的琴'], answer: '鳴的鑼、響的鈸', basis: '林前 13:1' },
+        { q: '神必不叫你們受試探過於所能受的，總要給你們開甚麼？', options: ['一條出路', '一扇天窗', '一座橋樑', '一條捷徑'], answer: '一條出路', basis: '林前 10:13' },
+      ],
+    },
+    clay_jar: {
+      book: '2CO', ch: 4, emoji: '🫙', title: '瓦器裡的寶貝', tag: '林後 4・答題對決',
+      myEmoji: '💎', myName: '寶貝的光發出', myGoal: 5,
+      foeEmoji: '🗡️', foeName: '四面受敵', foeGoal: 5,
+      hitText: '💎 瓦器裡的光又透出來了！', missText: '🗡️ 四面受敵，壓力逼近…',
+      win: { emoji: '🫙', title: '莫大的能力是出於神！', text: '「我們有這寶貝放在瓦器裏，要顯明這莫大的能力是出於神，不是出於我們。」四面受敵，卻不被困住！（林後 4:7-8）' },
+      lose: { text: '瓦器裂了嗎？別忘了——「我的恩典彀你用的，我的能力是在人的軟弱上顯得完全」。再站起來！（林後 12:9）' },
+      manualQs: [
+        { q: '「我們有這寶貝」放在哪裡？', options: ['瓦器裡', '金櫃裡', '聖殿裡', '心版上'], answer: '瓦器裡', basis: '林後 4:7' },
+        { q: '寶貝放在瓦器裡，要顯明莫大的能力出於誰？', options: ['出於神', '出於我們', '出於使徒', '出於教會'], answer: '出於神', basis: '林後 4:7' },
+        { q: '「四面受敵，卻不」怎樣？', options: ['被困住', '退後', '流淚', '爭辯'], answer: '被困住', basis: '林後 4:8' },
+        { q: '若有人在基督裡，他就是甚麼？', options: ['新造的人', '完美的人', '自由的人', '剛強的人'], answer: '新造的人', basis: '林後 5:17' },
+        { q: '主的能力在哪裡顯得完全？', options: ['人的軟弱上', '人的剛強上', '人的聰明上', '人的財富上'], answer: '人的軟弱上', basis: '林後 12:9' },
+      ],
+    },
+    col_new: {
+      book: 'COL', ch: 3, emoji: '👕', title: '穿上新人', tag: '西 3・答題對決',
+      myEmoji: '👕', myName: '穿上新人的美德', myGoal: 5,
+      foeEmoji: '🧥', foeName: '舊人的舊行為', foeGoal: 5,
+      hitText: '👕 又穿上一件新人的美德！', missText: '🧥 舊衣服又披回身上了…',
+      win: { emoji: '👕', title: '穿上新人了！', text: '「要存憐憫、恩慈、謙虛、溫柔、忍耐的心……在這一切之外，要存着愛心，愛心就是聯絡全德的。」（西 3:12,14）' },
+      lose: { text: '又披上舊衣了嗎？「你們要思念上面的事」——把舊的脫掉，再穿一次新的！（西 3:2）' },
+      manualQs: [
+        { q: '神的選民要穿上憐憫、恩慈、謙虛、溫柔和甚麼的心？', options: ['忍耐', '勇敢', '聰明', '熱情'], answer: '忍耐', basis: '西 3:12' },
+        { q: '「主怎樣饒恕了你們，你們也要怎樣」？', options: ['饒恕人', '要求人', '提醒人', '遠離人'], answer: '饒恕人', basis: '西 3:13' },
+        { q: '甚麼是「聯絡全德的」？', options: ['愛心', '知識', '口才', '恆心'], answer: '愛心', basis: '西 3:14' },
+        { q: '「無論作甚麼，都要從心裏作」，像是給誰作的？', options: ['給主作的', '給人作的', '給自己作的', '給老闆作的'], answer: '給主作的', basis: '西 3:23' },
+        { q: '你們要思念哪裡的事？', options: ['上面的事', '地上的事', '過去的事', '別人的事'], answer: '上面的事', basis: '西 3:2' },
+      ],
+    },
+    thes_joy: {
+      book: '1TH', ch: 5, emoji: '😊', title: '常常喜樂', tag: '帖前 5・答題對決',
+      myEmoji: '😊', myName: '喜樂・禱告・謝恩', myGoal: 5,
+      foeEmoji: '🌧️', foeName: '消滅聖靈感動的冷淡', foeGoal: 5,
+      hitText: '😊 喜樂、禱告、謝恩，又點亮一盞！', missText: '🌧️ 心慢慢冷下來了…',
+      win: { emoji: '😊', title: '這是神向你所定的旨意！', text: '「要常常喜樂，不住的禱告，凡事謝恩；因為這是神在基督耶穌裏向你們所定的旨意。」（帖前 5:16-18）' },
+      lose: { text: '心冷掉了嗎？神的旨意只有三件：喜樂、禱告、謝恩——從其中一件重新開始！' },
+      manualQs: [
+        { q: '「要常常」怎樣？', options: ['喜樂', '歎息', '比較', '憂慮'], answer: '喜樂', basis: '帖前 5:16' },
+        { q: '「不住的」做甚麼？', options: ['禱告', '工作', '唱歌', '走動'], answer: '禱告', basis: '帖前 5:17' },
+        { q: '「凡事」怎樣？', options: ['謝恩', '小心', '懷疑', '計較'], answer: '謝恩', basis: '帖前 5:18' },
+        { q: '主再來時，誰必先復活？', options: ['在基督裏死了的人', '還活着的人', '眾天使', '眾先知'], answer: '在基督裏死了的人', basis: '帖前 4:16' },
+        { q: '主的日子來到，好像甚麼一樣？', options: ['夜間的賊', '清晨的光', '午後的雨', '遠方的雷'], answer: '夜間的賊', basis: '帖前 5:2' },
+      ],
+    },
+    thes_good: {
+      book: '2TH', ch: 3, emoji: '✊', title: '行善不喪志', tag: '帖後 3・答題對決',
+      myEmoji: '✊', myName: '安靜做工堅持行善', myGoal: 5,
+      foeEmoji: '🛋️', foeName: '懶散與謠言', foeGoal: 5,
+      hitText: '✊ 不動搖，又做成一件善工！', missText: '🛋️ 懶散和謠言又擾亂人心…',
+      win: { emoji: '✊', title: '行善不喪志！', text: '「弟兄們，你們行善不可喪志。」願賜平安的主，隨時隨事親自給你們平安！（帖後 3:13,16）' },
+      lose: { text: '快喪志了嗎？保羅說得直接：安靜做工、堅守教訓——站穩，再做一件善事！' },
+      manualQs: [
+        { q: '「弟兄們，你們行善不可」怎樣？', options: ['喪志', '張揚', '比較', '遲延'], answer: '喪志', basis: '帖後 3:13' },
+        { q: '「若有人不肯作工」，就不可怎樣？', options: ['吃飯', '睡覺', '聚會', '說話'], answer: '吃飯', basis: '帖後 3:10' },
+        { q: '願賜平安的主，怎樣親自給你們平安？', options: ['隨時隨事', '偶爾一次', '在聚會中', '在安息日'], answer: '隨時隨事', basis: '帖後 3:16' },
+        { q: '凡所領受的教訓，都要怎樣？', options: ['堅守', '更新', '挑選', '存疑'], answer: '堅守', basis: '帖後 2:15' },
+        { q: '教訓「不拘是我們口傳的，是」甚麼？', options: ['信上寫的', '石版刻的', '歌中唱的', '夢中見的'], answer: '信上寫的', basis: '帖後 2:15' },
+      ],
+    },
+    tim_example: {
+      book: '1TI', ch: 4, emoji: '✨', title: '年輕人的榜樣', tag: '提前 4・答題對決',
+      myEmoji: '✨', myName: '五樣榜樣立起來', myGoal: 5,
+      foeEmoji: '🙄', foeName: '被人小看的眼光', foeGoal: 5,
+      hitText: '✨ 又立起一樣榜樣，誰敢小看！', missText: '🙄 輕看的眼光又飄過來…',
+      win: { emoji: '✨', title: '不可叫人小看你年輕！', text: '「總要在言語、行為、愛心、信心、清潔上，都作信徒的榜樣。」年輕不是被小看的理由，是作榜樣的舞台！（提前 4:12）' },
+      lose: { text: '被眼光壓住了嗎？年輕人的底氣不是年紀，是榜樣——從言語開始，再立一次！' },
+      manualQs: [
+        { q: '「不可叫人小看你」甚麼？', options: ['年輕', '貧窮', '矮小', '口拙'], answer: '年輕', basis: '提前 4:12' },
+        { q: '要在言語、行為、愛心、信心和甚麼上作榜樣？', options: ['清潔', '奉獻', '知識', '服事'], answer: '清潔', basis: '提前 4:12' },
+        { q: '「敬虔加上」甚麼「便是大利了」？', options: ['知足的心', '豐厚的財', '眾人的讚', '長久的壽'], answer: '知足的心', basis: '提前 6:6' },
+        { q: '「你要為真道打那美好的仗」，持定甚麼？', options: ['永生', '冠冕', '產業', '名聲'], answer: '永生', basis: '提前 6:12' },
+        { q: '「基督耶穌降世」，為要拯救誰？', options: ['罪人', '義人', '智者', '君王'], answer: '罪人', basis: '提前 1:15' },
+      ],
+    },
+    tim_fight: {
+      book: '2TI', ch: 4, emoji: '🏆', title: '打那美好的仗', tag: '提後 4・答題對決',
+      myEmoji: '🏆', myName: '打仗・跑路・守道', myGoal: 5,
+      foeEmoji: '🌆', foeName: '貪愛現今的世界', foeGoal: 5,
+      hitText: '🏆 又撐過一程，冠冕在前面！', missText: '🌆 世界的霓虹又在招手…',
+      win: { emoji: '🏆', title: '當跑的路跑盡了！', text: '「那美好的仗我已經打過了，當跑的路我已經跑盡了，所信的道我已經守住了。從此以後，有公義的冠冕為我存留。」（提後 4:7-8）' },
+      lose: { text: '腳步慢下來了嗎？神賜的不是膽怯的心，乃是剛強、仁愛、謹守的心——再跑一程！（提後 1:7）' },
+      manualQs: [
+        { q: '「那美好的仗我已經打過了」，當跑的路怎樣了？', options: ['已經跑盡了', '還在跑', '剛剛起跑', '跑了一半'], answer: '已經跑盡了', basis: '提後 4:7' },
+        { q: '從此以後，有甚麼冠冕為保羅存留？', options: ['公義的冠冕', '金子的冠冕', '荊棘的冠冕', '生命的冠冕'], answer: '公義的冠冕', basis: '提後 4:8' },
+        { q: '聖經都是神所默示的，於教訓、督責、使人歸正、和甚麼都有益？', options: ['教導人學義', '賺取財富', '贏得辯論', '預測未來'], answer: '教導人學義', basis: '提後 3:16' },
+        { q: '神賜給我們的，不是膽怯的心，乃是甚麼的心？', options: ['剛強、仁愛、謹守', '聰明、機警、迅速', '安靜、溫和、退讓', '火熱、大膽、直率'], answer: '剛強、仁愛、謹守', basis: '提後 1:7' },
+        { q: '當竭力作無愧的工人，按着正意怎樣？', options: ['分解真理的道', '管理教會事務', '監督眾人行為', '累積屬靈知識'], answer: '分解真理的道', basis: '提後 2:15' },
+      ],
+    },
+    titus_good: {
+      book: 'TIT', ch: 2, emoji: '❤️‍🔥', title: '熱心為善', tag: '多 2・答題對決',
+      myEmoji: '❤️‍🔥', myName: '善行的果子', myGoal: 5,
+      foeEmoji: '🗯️', foeName: '無益的辯論', foeGoal: 5,
+      hitText: '❤️‍🔥 又結出一個善行的果子！', missText: '🗯️ 空談和辯論又浪費了一天…',
+      win: { emoji: '❤️‍🔥', title: '特作自己的子民，熱心為善！', text: '「他為我們捨了自己，要贖我們脫離一切罪惡，又潔淨我們，特作自己的子民，熱心為善。」（多 2:14）' },
+      lose: { text: '被空談纏住了嗎？信神的人要「留心作正經事業」——放下辯論，去做一件實在的善事！（多 3:8）' },
+      manualQs: [
+        { q: '基督贖我們、潔淨我們，特作自己的子民，對甚麼熱心？', options: ['為善', '聚會', '辯論', '禁食'], answer: '為善', basis: '多 2:14' },
+        { q: '已信神的人要留心作甚麼？', options: ['正經事業（行善）', '買賣生意', '言語爭辯', '家譜考究'], answer: '正經事業（行善）', basis: '多 3:8' },
+        { q: '神救了我們，並不是因我們自己所行的義，乃是照祂的甚麼？', options: ['憐憫', '公平', '計劃', '試驗'], answer: '憐憫', basis: '多 3:5' },
+        { q: '藉着甚麼的洗和聖靈的更新救了我們？', options: ['重生', '悔改', '潔淨', '歸入'], answer: '重生', basis: '多 3:5' },
+        { q: '神救眾人的甚麼已經顯明出來？', options: ['恩典', '審判', '律法', '榮耀'], answer: '恩典', basis: '多 2:11' },
+      ],
+    },
+    philemon_home: {
+      book: 'PHM', ch: 1, emoji: '🏠', title: '回家的路', tag: '門・答題對決',
+      myEmoji: '🏠', myName: '阿尼西母回家的路', myGoal: 5,
+      foeEmoji: '⛓️', foeName: '過去的虧欠', foeGoal: 5,
+      hitText: '🏠 又走近家門一步！', missText: '⛓️ 過去的虧欠又拉住他…',
+      win: { emoji: '🏠', title: '不再是奴僕，是親愛的兄弟！', text: '「他從前與你沒有益處，但如今與你我都有益處……不再是奴僕，乃是高過奴僕，是親愛的兄弟。」（門 11,16）' },
+      lose: { text: '走不回去嗎？聽保羅說：「他若虧負你，或欠你甚麼，都歸在我的賬上。」——恩典開路，再走一次！（門 18）' },
+      manualQs: [
+        { q: '保羅「在捆鎖中所生的兒子」叫甚麼名字？', options: ['阿尼西母', '提摩太', '提多', '以巴弗'], answer: '阿尼西母', basis: '門 10' },
+        { q: '「阿尼西母」這名字是甚麼意思？', options: ['有益處', '蒙愛的', '得勝的', '忠心的'], answer: '有益處', basis: '門 10' },
+        { q: '保羅說阿尼西母回去，不再是奴僕，乃是甚麼？', options: ['親愛的兄弟', '尊貴的客人', '自由的工人', '同工的使者'], answer: '親愛的兄弟', basis: '門 16' },
+        { q: '「他若虧負你，或欠你甚麼」，保羅說怎麼辦？', options: ['都歸在我的賬上', '分期慢慢償還', '一筆勾銷不提', '由教會來代還'], answer: '都歸在我的賬上', basis: '門 18' },
+        { q: '阿尼西母從前與你沒有益處，如今呢？', options: ['與你我都有益處', '仍然沒有用處', '只對保羅有益', '只對主人有益'], answer: '與你我都有益處', basis: '門 11' },
+      ],
+    },
   };
 
   let mg = null; // { id, cfg, qs, i, my, foe, answered }
@@ -3241,6 +3556,18 @@
     { emoji: '☀️', name: '日光之上', desc: '通關「日光之上」', test: s => !!((s.minigames || {}).ecc_sun) },
     { emoji: '🌅', name: '每晨新恩', desc: '通關「每早晨都是新的」', test: s => !!((s.minigames || {}).lam_mercies) },
     { emoji: '🔨', name: '先建神的殿', desc: '通關「先建神的殿」', test: s => !!((s.minigames || {}).haggai_build) },
+    { emoji: '🕎', name: '七燈全亮', desc: '通關「七燈點亮」', test: s => !!((s.minigames || {}).zech_lamps) },
+    { emoji: '🗼', name: '守望得默示', desc: '通關「守望樓上」', test: s => !!((s.minigames || {}).hab_watch) },
+    { emoji: '⛓️', name: '不能隔絕', desc: '通關「不能隔絕的愛」', test: s => !!((s.minigames || {}).rom_love) },
+    { emoji: '💞', name: '愛的詩篇', desc: '通關「愛是永不止息」', test: s => !!((s.minigames || {}).cor_love) },
+    { emoji: '🫙', name: '瓦器藏寶', desc: '通關「瓦器裡的寶貝」', test: s => !!((s.minigames || {}).clay_jar) },
+    { emoji: '👕', name: '穿上新人', desc: '通關「穿上新人」', test: s => !!((s.minigames || {}).col_new) },
+    { emoji: '😊', name: '三件旨意', desc: '通關「常常喜樂」', test: s => !!((s.minigames || {}).thes_joy) },
+    { emoji: '✊', name: '行善不喪志', desc: '通關「行善不喪志」', test: s => !!((s.minigames || {}).thes_good) },
+    { emoji: '✨', name: '年輕的榜樣', desc: '通關「年輕人的榜樣」', test: s => !!((s.minigames || {}).tim_example) },
+    { emoji: '🏆', name: '美好的仗', desc: '通關「打那美好的仗」', test: s => !!((s.minigames || {}).tim_fight) },
+    { emoji: '❤️‍🔥', name: '熱心為善', desc: '通關「熱心為善」', test: s => !!((s.minigames || {}).titus_good) },
+    { emoji: '🏠', name: '恩典的家書', desc: '通關「回家的路」', test: s => !!((s.minigames || {}).philemon_home) },
   ];
   const earnedBadges = () => BADGES.filter(b => b.test(state));
   function renderBadges() {
