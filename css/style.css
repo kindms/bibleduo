@@ -787,6 +787,26 @@ main, header { position: relative; z-index: 1; }
 .st-btns { display: flex; gap: 10px; }
 .st-btns .big-btn { flex: 1; margin: 6px 0; }
 
+/* 🍇 結出聖靈果 */
+.fg-tree { text-align: center; font-size: 3.4rem; margin: 4px 0; }
+.fg-fruits { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 8px 0; }
+.fg-fruit { display: flex; flex-direction: column; align-items: center; gap: 2px; background: var(--card); border: 2px solid var(--card-line); border-radius: 12px; padding: 6px 2px; font-size: 1.2rem; opacity: .55; }
+.fg-fruit small { font-size: .72rem; color: var(--text-light); font-weight: bold; }
+.fg-fruit.fg-got { opacity: 1; border-color: var(--primary); animation: celebrate .5s; }
+.fg-zone { background: rgba(28, 176, 246, .35); }
+
+/* 🦊 擒拿小狐狸 */
+.fx-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 10px 0; }
+.fx-cell { font-size: 2.6rem; padding: 14px 0; background: var(--card); border: 2px solid var(--card-line); border-radius: 16px; cursor: pointer; user-select: none; -webkit-user-select: none; }
+.fx-cell:active { transform: scale(.94); }
+
+/* 🦅 如鷹展翅 */
+.eg-stage { position: relative; height: 330px; border: 2px dashed var(--card-line); border-radius: 20px; margin: 8px 0; overflow: hidden; touch-action: none; cursor: pointer; }
+.eg-eagle { position: absolute; left: 22%; top: 50%; transform: translate(-50%, -50%) scaleX(-1); font-size: 2.2rem; pointer-events: none; z-index: 2; }
+.eg-cloud { position: absolute; left: 104%; width: 12%; background: repeating-linear-gradient(180deg, rgba(148, 163, 184, .55) 0 22px, rgba(148, 163, 184, .35) 22px 44px); border-radius: 10px; pointer-events: none; }
+.eg-cloud::before { content: '☁️'; position: absolute; left: 50%; transform: translateX(-50%); bottom: -4px; font-size: 1.2rem; }
+.eg-msg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-weight: bold; color: var(--text-light); pointer-events: none; }
+
 /* 🌊 分海快走 */
 .rs-stage { position: relative; height: 160px; border: 2px dashed var(--card-line); border-radius: 20px; margin: 8px 0; display: flex; align-items: center; justify-content: center; gap: 6px; overflow: hidden; touch-action: none; font-size: 2.2rem; }
 .rs-sea { transition: transform .1s linear; }

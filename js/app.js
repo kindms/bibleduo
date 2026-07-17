@@ -1910,6 +1910,226 @@
     S.raf = requestAnimationFrame(step);
   };
 
+  // —— 🍇 結出聖靈果：指針擺盪，在「甘霖區」的瞬間點擊澆灌，結出九樣果子 ——
+  ACTION_GAMES.fruit_spirit = function startFruit() {
+    const FRUITS = ['仁愛', '喜樂', '和平', '忍耐', '恩慈', '良善', '信實', '溫柔', '節制']; // 加 5:22-23
+    const S = { phase: 'play', got: 0, thorns: 0, marker: 0, dir: 1, raf: 0 };
+    const area = startAction('🍇 結出聖靈果', 'GAL', () => cancelAnimationFrame(S.raf));
+    action.state = S;
+    area.innerHTML = `
+      <p class="act-hint">指針掃進藍色「甘霖區」的瞬間按下 💧——澆灌得時，果子就一樣一樣結出來！</p>
+      <div class="fg-tree" id="fg-tree">🌳</div>
+      <div class="fg-fruits" id="fg-fruits">${FRUITS.map((f) => `<span class="fg-fruit" data-f="${f}">🔒<small>${f}</small></span>`).join('')}</div>
+      <div class="act-row"><span>🥀 荊棘</span><div class="act-track"><div class="act-fill act-foe" id="fg-thorn"></div></div></div>
+      <div class="dv-aim"><div class="dv-zone fg-zone" id="fg-zone"></div><div class="dv-marker" id="fg-marker"></div></div>
+      <button class="big-btn act-tap" id="fg-btn">💧 澆灌！</button>`;
+    const zoneHalf = () => 13 - S.got * 0.7; // 越後面的果子，甘霖區越窄
+    const placeZone = () => {
+      const z = $('#fg-zone');
+      z.style.left = `${50 - zoneHalf()}%`;
+      z.style.width = `${zoneHalf() * 2}%`;
+    };
+    placeZone();
+    $('#fg-btn').onclick = () => {
+      if (S.phase !== 'play') return;
+      if (Math.abs(S.marker - 50) <= zoneHalf()) {
+        const el = document.querySelectorAll('#fg-fruits .fg-fruit')[S.got];
+        el.innerHTML = `🍇<small>${el.dataset.f}</small>`;
+        el.classList.add('fg-got');
+        S.got++;
+        sndGood();
+        $('#fg-tree').textContent = S.got >= 6 ? '🌳🍇' : '🌳';
+        if (S.got >= FRUITS.length) {
+          S.phase = 'done';
+          winAction('fruit_spirit', 'GAL', MINIGAMES.fruit_spirit.win, ACTION_GAMES.fruit_spirit);
+          return;
+        }
+        placeZone();
+      } else {
+        S.thorns++;
+        sndBad();
+        $('#fg-thorn').style.width = `${(S.thorns / 3) * 100}%`;
+        if (S.thorns >= 3) {
+          S.phase = 'done';
+          loseAction('GAL', MINIGAMES.fruit_spirit.lose.text, ACTION_GAMES.fruit_spirit);
+        }
+      }
+    };
+    S.tick = (dt) => {
+      if (S.phase !== 'play') return;
+      const f = dt / 16.7;
+      S.marker += S.dir * (1.7 + S.got * 0.22) * f; // 每結一樣果子，指針就快一點
+      if (S.marker >= 100) { S.marker = 100; S.dir = -1; }
+      if (S.marker <= 0) { S.marker = 0; S.dir = 1; }
+      const el = $('#fg-marker'); if (el) el.style.left = `${S.marker}%`;
+    };
+    let last = performance.now();
+    const step = (now) => {
+      if (!action || action.state !== S) return;
+      S.tick(Math.min(50, now - last));
+      last = now;
+      if (S.phase === 'play') S.raf = requestAnimationFrame(step);
+    };
+    S.raf = requestAnimationFrame(step);
+  };
+
+  // —— 🦊 擒拿小狐狸：葡萄園打地鼠——狐狸冒頭就點，牠咬到葡萄前擒住牠 ——
+  ACTION_GAMES.foxes = function startFoxes() {
+    const GOAL = 10, GRAPES = 5;
+    const S = { phase: 'play', caught: 0, grapes: GRAPES, spawnMs: 900, cells: [], raf: 0 };
+    const area = startAction('🦊 擒拿小狐狸', 'SNG', () => cancelAnimationFrame(S.raf));
+    action.state = S;
+    area.innerHTML = `
+      <div class="act-row"><span>🧺 擒住</span><div class="act-track"><div class="act-fill" id="fx-bar"></div></div><b id="fx-count">0/${GOAL}</b></div>
+      <div class="act-row"><span>🍇 葡萄</span><b id="fx-grapes">${'🍇'.repeat(GRAPES)}</b></div>
+      <div class="fx-grid" id="fx-grid">${Array.from({ length: 9 }, (_, i) => `<button class="fx-cell act-tap" data-i="${i}">🌿</button>`).join('')}</div>
+      <p class="fr-tip">狐狸 🦊 從葡萄叢冒出來就趕快點！放著不管，牠會咬走一串葡萄。</p>`;
+    const cells = [...document.querySelectorAll('.fx-cell')];
+    S.cells = cells.map(() => null); // 每格：null 或 { ttl }
+    cells.forEach((c, i) => {
+      c.onclick = () => {
+        if (S.phase !== 'play' || !S.cells[i]) return;
+        S.cells[i] = null;
+        c.textContent = '💥';
+        setTimeout(() => { if (c.textContent === '💥') c.textContent = '🌿'; }, 260);
+        S.caught++;
+        sndGood();
+        $('#fx-count').textContent = `${S.caught}/${GOAL}`;
+        $('#fx-bar').style.width = `${(S.caught / GOAL) * 100}%`;
+        if (S.caught >= GOAL) {
+          S.phase = 'done';
+          winAction('foxes', 'SNG', MINIGAMES.foxes.win, ACTION_GAMES.foxes);
+        }
+      };
+    });
+    let sinceSpawn = 0;
+    S.tick = (dt) => {
+      if (S.phase !== 'play') return;
+      sinceSpawn += dt;
+      const interval = Math.max(560, 900 - S.caught * 35); // 抓越多、狐狸冒得越快
+      if (sinceSpawn >= interval) {
+        sinceSpawn = 0;
+        const empty = S.cells.map((v, i) => (v ? -1 : i)).filter((i) => i >= 0);
+        if (empty.length) {
+          const i = empty[Math.floor(Math.random() * empty.length)];
+          S.cells[i] = { ttl: Math.max(750, 1350 - S.caught * 60) }; // 越後面探頭越短
+          cells[i].textContent = '🦊';
+        }
+      }
+      for (let i = 0; i < S.cells.length; i++) {
+        const v = S.cells[i];
+        if (!v) continue;
+        v.ttl -= dt;
+        if (v.ttl <= 0) { // 沒抓到：狐狸咬走一串葡萄
+          S.cells[i] = null;
+          cells[i].textContent = '🌿';
+          S.grapes--;
+          sndBad();
+          $('#fx-grapes').textContent = '🍇'.repeat(Math.max(0, S.grapes)) || '…';
+          if (S.grapes <= 0) {
+            S.phase = 'done';
+            loseAction('SNG', MINIGAMES.foxes.lose.text, ACTION_GAMES.foxes);
+            return;
+          }
+        }
+      }
+    };
+    let last = performance.now();
+    const step = (now) => {
+      if (!action || action.state !== S) return;
+      S.tick(Math.min(50, now - last));
+      last = now;
+      if (S.phase === 'play') S.raf = requestAnimationFrame(step);
+    };
+    S.raf = requestAnimationFrame(step);
+  };
+
+  // —— 🦅 如鷹展翅：點擊振翅上騰，穿過疲乏烏雲之間的氣流缺口，飛越 8 程 ——
+  ACTION_GAMES.eagle = function startEagle() {
+    const GOAL = 8, EAGLE_X = 22; // 老鷹固定在畫面 22% 位置
+    const S = { phase: 'ready', y: 50, vel: 0, passed: 0, clouds: [], spawnX: 0, raf: 0 };
+    const area = startAction('🦅 如鷹展翅', 'ISA', () => cancelAnimationFrame(S.raf));
+    action.state = S;
+    area.innerHTML = `
+      <div class="act-row"><span>🦅 上騰</span><div class="act-track"><div class="act-fill" id="eg-bar"></div></div><b id="eg-count">0/${GOAL}</b></div>
+      <div class="eg-stage act-tap" id="eg-stage">
+        <div class="eg-eagle" id="eg-eagle">🦅</div>
+        <div class="eg-msg" id="eg-msg">點一下開始！</div>
+      </div>
+      <p class="fr-tip">點畫面振翅往上、放著會下滑——從疲乏烏雲 ☁️ 之間的氣流缺口穿過去！</p>`;
+    const stage = $('#eg-stage');
+    stage.onpointerdown = (e) => {
+      e.preventDefault();
+      if (S.phase === 'ready') { S.phase = 'play'; S.spawnX = 40; $('#eg-msg').textContent = ''; run(); }
+      if (S.phase !== 'play') return;
+      S.vel = -1.6; // 振翅：向上一撲（一撲約升 15% 高——比雲縫容差小，逼近時輕點就能穿過）
+    };
+    function makeCloud() {
+      const gapTop = 16 + Math.random() * 40; // 缺口上緣 16~56%
+      const gapH = 38; // 缺口高度（好飛）
+      const top = document.createElement('div');
+      top.className = 'eg-cloud';
+      top.style.top = '0';
+      top.style.height = `${gapTop}%`;
+      const bot = document.createElement('div');
+      bot.className = 'eg-cloud';
+      bot.style.top = `${gapTop + gapH}%`;
+      bot.style.height = `${100 - gapTop - gapH}%`;
+      stage.append(top, bot);
+      S.clouds.push({ x: 104, gapTop, gapH, top, bot, passed: false });
+    }
+    S.tick = (dt) => {
+      if (S.phase !== 'play') return;
+      const f = dt / 16.7;
+      S.vel = Math.min(2.8, S.vel + 0.085 * f); // 重力（疲乏往下拉）
+      S.y += S.vel * f;
+      if (S.y <= 2) { S.y = 2; S.vel = 0; }
+      S.spawnX -= 0.62 * f;
+      if (S.spawnX <= 0) { S.spawnX = 56; makeCloud(); } // 每 56% 距離一組烏雲
+      for (let i = S.clouds.length - 1; i >= 0; i--) {
+        const c = S.clouds[i];
+        c.x -= 0.62 * f;
+        c.top.style.left = `${c.x}%`;
+        c.bot.style.left = `${c.x}%`;
+        if (!c.passed && c.x + 12 < EAGLE_X - 5) { // 整朵雲完全離開老鷹身位才算通過
+          c.passed = true;
+          S.passed++;
+          sndGood();
+          $('#eg-count').textContent = `${S.passed}/${GOAL}`;
+          $('#eg-bar').style.width = `${(S.passed / GOAL) * 100}%`;
+          if (S.passed >= GOAL) {
+            S.phase = 'done';
+            winAction('eagle', 'ISA', MINIGAMES.eagle.win, ACTION_GAMES.eagle);
+            return;
+          }
+        }
+        const hitX = !c.passed && c.x < EAGLE_X + 5 && c.x + 12 > EAGLE_X - 5;
+        if (hitX && (S.y < c.gapTop + 3 || S.y > c.gapTop + c.gapH - 3)) {
+          S.phase = 'done';
+          loseAction('ISA', MINIGAMES.eagle.lose.text, ACTION_GAMES.eagle);
+          return;
+        }
+        if (c.x < -14) { c.top.remove(); c.bot.remove(); S.clouds.splice(i, 1); }
+      }
+      if (S.y >= 98) {
+        S.phase = 'done';
+        loseAction('ISA', MINIGAMES.eagle.lose.text, ACTION_GAMES.eagle);
+        return;
+      }
+      $('#eg-eagle').style.top = `${S.y}%`;
+    };
+    function run() {
+      let last = performance.now();
+      const step = (now) => {
+        if (!action || action.state !== S) return;
+        S.tick(Math.min(50, now - last));
+        last = now;
+        if (S.phase === 'play') S.raf = requestAnimationFrame(step);
+      };
+      S.raf = requestAnimationFrame(step);
+    }
+  };
+
   // ===== 📖 書卷故事小遊戲（對決引擎：答對推進我方、答錯讓威脅逼近，先滿者定勝負）=====
   // 加一款遊戲＝在這裡加一份設定，章節頁入口與雲端同步都會自動長出來
   const MINIGAMES = {
@@ -2228,6 +2448,172 @@
         { q: '耶穌大聲呼叫哪句話，拉撒路就出來了？', options: ['拉撒路出來！', '起來行走！', '平安了吧！', '你的信救了你！'], answer: '拉撒路出來！', basis: '約 11:43' },
       ],
     },
+    // ===== 第 1 波「每卷都有小遊戲」（2026-07-18）：3 款動作＋8 款對決 =====
+    fruit_spirit: {
+      book: 'GAL', ch: 5, emoji: '🍇', title: '結出聖靈果', tag: '加 5・澆灌時機',
+      myEmoji: '🍇', myName: '聖靈的果子', myGoal: 9,
+      foeEmoji: '🥀', foeName: '情慾的荊棘', foeGoal: 3,
+      hitText: '💧 澆灌得時，又結出一樣果子！', missText: '🥀 荊棘悄悄長出來了…',
+      win: { emoji: '🍇', title: '九樣果子都結出來了！', text: '聖靈所結的果子，就是仁愛、喜樂、和平、忍耐、恩慈、良善、信實、溫柔、節制——這樣的事，沒有律法禁止！（加 5:22-23）' },
+      lose: { text: '荊棘擋住了果子——「我們行善，不可喪志；若不灰心，到了時候就要收成。」再種一次！（加 6:9）' },
+      manualQs: [
+        { q: '聖靈所結的果子共有幾樣？', options: ['九樣', '七樣', '十樣', '十二樣'], answer: '九樣', basis: '加 5:22-23' },
+        { q: '下列哪一個是聖靈所結的果子？', options: ['溫柔', '驕傲', '嫉妒', '惱怒'], answer: '溫柔', basis: '加 5:23' },
+        { q: '聖靈果子的第一樣是甚麼？', options: ['仁愛', '喜樂', '和平', '忍耐'], answer: '仁愛', basis: '加 5:22' },
+        { q: '「我們行善，不可＿＿；若不灰心，到了時候就要收成」？', options: ['喪志', '休息', '出聲', '遲延'], answer: '喪志', basis: '加 6:9' },
+        { q: '「現在活着的不再是我，乃是＿＿在我裏面活着」？', options: ['基督', '律法', '天使', '摩西'], answer: '基督', basis: '加 2:20' },
+      ],
+    },
+    foxes: {
+      book: 'SNG', ch: 2, emoji: '🦊', title: '擒拿小狐狸', tag: '歌 2・葡萄園打地鼠',
+      myEmoji: '🍇', myName: '看守葡萄園', myGoal: 10,
+      foeEmoji: '🦊', foeName: '小狐狸偷吃', foeGoal: 5,
+      hitText: '🍇 擒住一隻，葡萄花保住了！', missText: '🦊 小狐狸溜進來咬了一串…',
+      win: { emoji: '🍇', title: '葡萄園守住了！', text: '「要給我們擒拿狐狸，就是毀壞葡萄園的小狐狸，因為我們的葡萄正在開花。」小事忠心看守，花期就能結果！（歌 2:15）' },
+      lose: { text: '狐狸吃掉太多葡萄了——別灰心，葡萄還會再開花，回去再守一輪！' },
+      manualQs: [
+        { q: '雅歌說毀壞葡萄園的是甚麼動物？', options: ['小狐狸', '小獅子', '野豬', '蝗蟲'], answer: '小狐狸', basis: '歌 2:15' },
+        { q: '要擒拿小狐狸，因為葡萄正在做甚麼？', options: ['正在開花', '已經熟透', '正被收成', '正在發芽'], answer: '正在開花', basis: '歌 2:15' },
+        { q: '「良人屬我，我也屬他」，他在哪裡牧放群羊？', options: ['百合花中', '青草地上', '溪水旁邊', '山谷裡面'], answer: '百合花中', basis: '歌 2:16' },
+        { q: '「愛情，眾水不能＿＿，大水也不能淹沒」？', options: ['息滅', '沖走', '替代', '搖動'], answer: '息滅', basis: '歌 8:7' },
+        { q: '書拉密女為甚麼被日頭曬黑？', options: ['被派看守葡萄園', '在海邊玩耍', '出門牧放羊群', '下田收割麥子'], answer: '被派看守葡萄園', basis: '歌 1:6' },
+      ],
+    },
+    eagle: {
+      book: 'ISA', ch: 40, emoji: '🦅', title: '如鷹展翅', tag: '賽 40・點擊上騰',
+      myEmoji: '🦅', myName: '展翅上騰', myGoal: 8,
+      foeEmoji: '☁️', foeName: '疲乏困倦', foeGoal: 3,
+      hitText: '🦅 從新得力，又飛越一程！', missText: '☁️ 疲乏的烏雲攏過來了…',
+      win: { emoji: '🦅', title: '如鷹展翅上騰！', text: '「但那等候耶和華的必從新得力。他們必如鷹展翅上騰；他們奔跑卻不困倦，行走卻不疲乏。」（賽 40:31）' },
+      lose: { text: '翅膀沉了下來——等候耶和華的必從新得力，深呼吸，再飛一次！' },
+      manualQs: [
+        { q: '等候耶和華的必從新得力，必如甚麼展翅上騰？', options: ['鷹', '鴿子', '麻雀', '白鶴'], answer: '鷹', basis: '賽 40:31' },
+        { q: '「他們奔跑卻不＿＿，行走卻不疲乏」？', options: ['困倦', '跌倒', '停止', '回頭'], answer: '困倦', basis: '賽 40:31' },
+        { q: '「草必枯乾，花必凋殘」，惟有甚麼永遠立定？', options: ['神的話', '高山', '星宿', '江河'], answer: '神的話', basis: '賽 40:8' },
+        { q: '以賽亞聽見主說「我可以差遣誰呢」，他怎麼回應？', options: ['我在這裏，請差遣我', '請差遣別人去', '容我先回家', '我口舌笨拙'], answer: '我在這裏，請差遣我', basis: '賽 6:8' },
+        { q: '「因有一嬰孩為我們而生」，政權必擔在他的哪裡？', options: ['肩頭上', '手掌中', '冠冕上', '寶座上'], answer: '肩頭上', basis: '賽 9:6' },
+      ],
+    },
+    ezra_temple: {
+      book: 'EZR', ch: 3, emoji: '🏗️', title: '重建聖殿', tag: '拉 3-6・答題對決',
+      myEmoji: '🏗️', myName: '聖殿一層層立起', myGoal: 5,
+      foeEmoji: '😈', foeName: '仇敵擾亂攔阻', foeGoal: 5,
+      hitText: '🏗️ 又立起一層，眾民大聲讚美！', missText: '😈 那地的民使他們的手發軟…',
+      win: { emoji: '🎉', title: '這殿修成了！', text: '從立根基時的歡呼讚美，到大利烏王第六年亞達月初三——這殿修成了！他本為善，他向以色列人永發慈愛。（拉 3:11、6:15）' },
+      lose: { text: '手發軟了嗎？想想先知哈該和撒迦利亞的勸勉——神的殿值得再拿起工具，重來一次！' },
+      manualQs: [
+        { q: '降旨讓猶大人回耶路撒冷重建聖殿的波斯王是誰？', options: ['古列', '大利烏', '亞哈隨魯', '尼布甲尼撒'], answer: '古列', basis: '拉 1:2-3' },
+        { q: '聖殿根基立定時，眾民做了甚麼？', options: ['大聲呼喊讚美耶和華', '安靜地各自回家', '害怕得四散逃跑', '立刻蓋上屋頂'], answer: '大聲呼喊讚美耶和華', basis: '拉 3:11' },
+        { q: '那地的民怎樣攔阻建殿的工程？', options: ['使他們的手發軟、擾亂他們', '送上禮物幫忙', '一起唱詩讚美', '借他們建殿工具'], answer: '使他們的手發軟、擾亂他們', basis: '拉 4:4' },
+        { q: '奉神的名勸勉猶大人繼續建殿的兩位先知是誰？', options: ['哈該和撒迦利亞', '以賽亞和耶利米', '約珥和阿摩司', '拿單和迦得'], answer: '哈該和撒迦利亞', basis: '拉 5:1' },
+        { q: '這殿在哪位王的年間修成？', options: ['大利烏王', '古列王', '所羅門王', '希西家王'], answer: '大利烏王', basis: '拉 6:15' },
+      ],
+    },
+    micah_walk: {
+      book: 'MIC', ch: 6, emoji: '⚖️', title: '三樣功課', tag: '彌 6・答題對決',
+      myEmoji: '👣', myName: '與神同行的腳步', myGoal: 5,
+      foeEmoji: '🌀', foeName: '世界的歪路', foeGoal: 5,
+      hitText: '👣 行公義、好憐憫，又走穩一步！', missText: '🌀 歪路的風又吹過來了…',
+      win: { emoji: '⚖️', title: '與神同行！', text: '「世人哪，耶和華已指示你何為善。他向你所要的是甚麼呢？只要你行公義，好憐憫，存謙卑的心，與你的神同行。」（彌 6:8）' },
+      lose: { text: '走岔了嗎？神要的不是千千的公羊，是你的心——回到起點，再走一次！' },
+      manualQs: [
+        { q: '耶和華向你所要的三樣：行公義、好憐憫，還有甚麼？', options: ['存謙卑的心與神同行', '多多獻上祭物', '天天禁食禱告', '嚴守安息日'], answer: '存謙卑的心與神同行', basis: '彌 6:8' },
+        { q: '將來必有一位掌權者，從猶大的哪座小城出來？', options: ['伯利恆', '耶路撒冷', '拿撒勒', '伯特利'], answer: '伯利恆', basis: '彌 5:2' },
+        { q: '神要將我們的一切罪投於哪裡？', options: ['深海', '曠野', '火中', '深坑'], answer: '深海', basis: '彌 7:19' },
+        { q: '「他們要將刀打成＿＿，把槍打成鐮刀」？', options: ['犁頭', '鋤頭', '盾牌', '釘子'], answer: '犁頭', basis: '彌 4:3' },
+        { q: '那位從伯利恆出來的掌權者，根源從何時就有？', options: ['從亙古、從太初', '從大衛年間', '從出埃及時', '從被擄歸回後'], answer: '從亙古、從太初', basis: '彌 5:2' },
+      ],
+    },
+    malachi_window: {
+      book: 'MAL', ch: 3, emoji: '🪟', title: '敞開天窗', tag: '瑪 3・答題對決',
+      myEmoji: '🌾', myName: '倉庫滿了糧', myGoal: 5,
+      foeEmoji: '🦗', foeName: '吞噬者毀壞土產', foeGoal: 5,
+      hitText: '🌾 十分之一全然送入，倉庫又滿一層！', missText: '🦗 吞噬者在田間出沒…',
+      win: { emoji: '🪟', title: '天上的窗戶敞開了！', text: '「你們要將當納的十分之一全然送入倉庫……以此試試我，是否為你們敞開天上的窗戶，傾福與你們，甚至無處可容。」（瑪 3:10）' },
+      lose: { text: '田間被吞噬者攪擾了——神說「以此試試我」，鼓起信心，再獻上一次！' },
+      manualQs: [
+        { q: '要將當納的十分之一全然送入哪裡？', options: ['倉庫', '聖殿門口', '祭壇上面', '城門口'], answer: '倉庫', basis: '瑪 3:10' },
+        { q: '神應許敞開甚麼，傾福與你們甚至無處可容？', options: ['天上的窗戶', '地上的江河', '榮耀的雲彩', '城裡的大門'], answer: '天上的窗戶', basis: '瑪 3:10' },
+        { q: '神說必為你們斥責甚麼，不容牠毀壞土產？', options: ['蝗蟲（吞噬者）', '野獸', '暴風', '仇敵'], answer: '蝗蟲（吞噬者）', basis: '瑪 3:11' },
+        { q: '向敬畏神名的人，必有甚麼出現、其光線有醫治之能？', options: ['公義的日頭', '明亮的晨星', '七色的彩虹', '榮耀的雲柱'], answer: '公義的日頭', basis: '瑪 4:2' },
+        { q: '「我要差遣我的使者，在我前面＿＿」？', options: ['預備道路', '吹角報信', '築起高臺', '點亮明燈'], answer: '預備道路', basis: '瑪 3:1' },
+      ],
+    },
+    zeph_song: {
+      book: 'ZEP', ch: 3, emoji: '🎵', title: '祂為你歌唱', tag: '番 3・答題對決',
+      myEmoji: '🎵', myName: '神的歌聲環繞', myGoal: 5,
+      foeEmoji: '🌫️', foeName: '大日的陰霾', foeGoal: 5,
+      hitText: '🎵 祂在你中間，因你喜樂而歡呼！', missText: '🌫️ 陰霾罩下來，聽不見歌聲了…',
+      win: { emoji: '🎵', title: '祂因你喜樂而歡呼！', text: '「耶和華你的神是施行拯救、大有能力的主。他在你中間必因你歡欣喜樂，默然愛你，且因你喜樂而歡呼。」（番 3:17）' },
+      lose: { text: '先別急——「當尋求耶和華」，安靜下來，再聽一次那首為你唱的歌！' },
+      manualQs: [
+        { q: '耶和華在你中間，必因你怎樣？', options: ['歡欣喜樂', '憂愁歎息', '沉默不語', '轉身離開'], answer: '歡欣喜樂', basis: '番 3:17' },
+        { q: '「默然愛你，且因你喜樂而＿＿」？', options: ['歡呼', '流淚', '歎息', '靜坐'], answer: '歡呼', basis: '番 3:17' },
+        { q: '耶和華你的神是施行拯救、大有甚麼的主？', options: ['能力', '財富', '軍隊', '宮殿'], answer: '能力', basis: '番 3:17' },
+        { q: '謙卑人當尋求甚麼，或者在耶和華發怒的日子可以隱藏？', options: ['公義謙卑', '金銀財寶', '高牆堅城', '快馬車輛'], answer: '公義謙卑', basis: '番 2:3' },
+        { q: '那時神必使萬民用甚麼求告耶和華的名？', options: ['清潔的言語', '各國的方言', '大聲的呼喊', '古老的詩歌'], answer: '清潔的言語', basis: '番 3:9' },
+      ],
+    },
+    nahum_refuge: {
+      book: 'NAM', ch: 1, emoji: '🏰', title: '患難日的保障', tag: '鴻 1・答題對決',
+      myEmoji: '🏰', myName: '投靠祂的保障', myGoal: 5,
+      foeEmoji: '🌪️', foeName: '患難的風暴', foeGoal: 5,
+      hitText: '🏰 又往保障裡躲進一步，祂認得你！', missText: '🌪️ 風暴呼嘯，越來越近…',
+      win: { emoji: '🏰', title: '祂認得投靠祂的人！', text: '「耶和華本為善，在患難的日子為人的保障，並且認得那些投靠他的人。」（鴻 1:7）' },
+      lose: { text: '風暴太猛了嗎？記住——祂乘旋風和暴風而來，風暴也在祂腳下。再跑進保障一次！' },
+      manualQs: [
+        { q: '「耶和華本為善，在患難的日子為人的＿＿」？', options: ['保障', '燈塔', '影子', '帳棚'], answer: '保障', basis: '鴻 1:7' },
+        { q: '耶和華認得哪些人？', options: ['投靠他的人', '富足的人', '有學問的人', '強壯的人'], answer: '投靠他的人', basis: '鴻 1:7' },
+        { q: '耶和華不輕易發怒，他乘甚麼而來？', options: ['旋風和暴風', '火車和火馬', '白雲和寶座', '大鷹的翅膀'], answer: '旋風和暴風', basis: '鴻 1:3' },
+        { q: '雲彩是他腳下的甚麼？', options: ['塵土', '地毯', '枕頭', '道路'], answer: '塵土', basis: '鴻 1:3' },
+        { q: '「有報好信傳平安之人的腳登山」，他傳的是甚麼？', options: ['平安', '戰爭', '饑荒', '審判'], answer: '平安', basis: '鴻 1:15' },
+      ],
+    },
+    obadiah_pride: {
+      book: 'OBA', ch: 1, emoji: '⛰️', title: '驕傲必墜', tag: '俄・答題對決',
+      myEmoji: '⛰️', myName: '在錫安山站穩', myGoal: 5,
+      foeEmoji: '🦅', foeName: '以東的驕傲高飛', foeGoal: 5,
+      hitText: '⛰️ 謙卑站穩，錫安必有逃脫的人！', missText: '🦅 以東又往星宿之間搭窩…',
+      win: { emoji: '⛰️', title: '謙卑的人站住了！', text: '「你雖如大鷹高飛，在星宿之間搭窩，我必從那裏拉下你來。」在錫安山必有逃脫的人，那山也必成聖！（俄 4、17）' },
+      lose: { text: '被驕傲的氣勢壓住了嗎？「你因狂傲自欺」說的是以東不是你——穩住腳步，再站一次！' },
+      manualQs: [
+        { q: '俄巴底亞書責備的以東人，住在哪裡而心高氣傲？', options: ['山穴中、居所在高處', '海島的港口', '平原的大城', '大河的兩岸'], answer: '山穴中、居所在高處', basis: '俄 3' },
+        { q: '「你雖如大鷹高飛，在＿＿之間搭窩，我必從那裏拉下你來」？', options: ['星宿', '雲彩', '山頂', '樹梢'], answer: '星宿', basis: '俄 4' },
+        { q: '使以東心裏自欺的是甚麼？', options: ['狂傲', '財寶', '朋友', '謊言'], answer: '狂傲', basis: '俄 3' },
+        { q: '在哪座山必有逃脫的人，那山也必成聖？', options: ['錫安山', '西奈山', '迦密山', '何烈山'], answer: '錫安山', basis: '俄 17' },
+        { q: '「你怎樣行，他也必照樣向你行」，報應必歸到哪裡？', options: ['你頭上', '你腳下', '你手中', '你家中'], answer: '你頭上', basis: '俄 15' },
+      ],
+    },
+    amos_river: {
+      book: 'AMO', ch: 5, emoji: '🏞️', title: '公義江河', tag: '摩 5・答題對決',
+      myEmoji: '🌊', myName: '公義如江河湧流', myGoal: 5,
+      foeEmoji: '🪨', foeName: '不義的土石堵塞', foeGoal: 5,
+      hitText: '🌊 河道通了，公平如大水滾滾！', missText: '🪨 不義的土石又堵住河道…',
+      win: { emoji: '🏞️', title: '江河滔滔！', text: '「惟願公平如大水滾滾，使公義如江河滔滔。」神要的不是熱鬧的節期，是流進生活每個角落的公義！（摩 5:24）' },
+      lose: { text: '河道被堵住了——先知阿摩司本是牧人，神照樣用他。捲起袖子，再疏通一次！' },
+      manualQs: [
+        { q: '「惟願公平如大水滾滾，使公義如＿＿滔滔」？', options: ['江河', '瀑布', '海浪', '湧泉'], answer: '江河', basis: '摩 5:24' },
+        { q: '阿摩司說自己原本的職業是甚麼？', options: ['牧人，又修理桑樹', '祭司', '文士', '漁夫'], answer: '牧人，又修理桑樹', basis: '摩 7:14' },
+        { q: '主耶和華若不將奧祕指示誰，就一無所行？', options: ['他的僕人眾先知', '列國的君王', '聰明的智者', '天上的使者'], answer: '他的僕人眾先知', basis: '摩 3:7' },
+        { q: '神說將來要降的饑荒，人飢餓不是因無餅，是因甚麼？', options: ['不聽耶和華的話', '田地歉收', '仇敵搶奪', '河水乾涸'], answer: '不聽耶和華的話', basis: '摩 8:11' },
+        { q: '阿摩司說「我原不是先知，也不是」甚麼？', options: ['先知的門徒', '牧人', '農夫', '以色列人'], answer: '先知的門徒', basis: '摩 7:14' },
+      ],
+    },
+    hosea_love: {
+      book: 'HOS', ch: 3, emoji: '💗', title: '愛的贖回', tag: '何 3・答題對決',
+      myEmoji: '💗', myName: '慈繩愛索牽引', myGoal: 5,
+      foeEmoji: '🌫️', foeName: '越走越遠的心', foeGoal: 5,
+      hitText: '💗 慈繩愛索又牽近一步！', missText: '🌫️ 那顆心又往遠處飄去…',
+      win: { emoji: '💗', title: '用愛贖回來了！', text: '「我用慈繩愛索牽引他們……我必醫治他們背道的病，甘心愛他們。」何西阿用銀子把妻子買回家，神也這樣把我們贖回來！（何 11:4、14:4）' },
+      lose: { text: '那顆心走遠了嗎？神的愛沒有放棄——「我們務要認識耶和華，竭力追求認識他」，再追一次！' },
+      manualQs: [
+        { q: '何西阿用多少銀子買回妻子歸自己？', options: ['十五舍客勒', '三十舍客勒', '十舍客勒', '五十舍客勒'], answer: '十五舍客勒', basis: '何 3:2' },
+        { q: '神說「我用慈繩＿＿牽引他們」？', options: ['愛索', '鐵鏈', '韁繩', '漁網'], answer: '愛索', basis: '何 11:4' },
+        { q: '「我必醫治他們＿＿的病，甘心愛他們」？', options: ['背道', '眼睛', '手腳', '心口'], answer: '背道', basis: '何 14:4' },
+        { q: '「他出現確如晨光，必臨到我們像甘雨」，還像甚麼？', options: ['滋潤田地的春雨', '夏日的烈陽', '冬天的初雪', '晚間的涼風'], answer: '滋潤田地的春雨', basis: '何 6:3' },
+        { q: '「我們務要認識耶和華」，要怎樣追求認識他？', options: ['竭力', '慢慢', '偶爾', '靠別人'], answer: '竭力', basis: '何 6:3' },
+      ],
+    },
   };
 
   let mg = null; // { id, cfg, qs, i, my, foe, answered }
@@ -2392,6 +2778,17 @@
     { emoji: '💪', name: '苦難中站立', desc: '通關「約伯苦難中持守信心」', test: s => !!((s.minigames || {}).job) },
     { emoji: '🕺', name: '在主前跳舞', desc: '通關「大衛迎約櫃跳舞」', test: s => !!((s.minigames || {}).david_ark) },
     { emoji: '🌿', name: '死裡復活', desc: '通關「拉撒路復活」', test: s => !!((s.minigames || {}).lazarus) },
+    { emoji: '🍇', name: '聖靈果滿枝', desc: '通關「結出聖靈果」', test: s => !!((s.minigames || {}).fruit_spirit) },
+    { emoji: '🦊', name: '葡萄園守衛', desc: '通關「擒拿小狐狸」', test: s => !!((s.minigames || {}).foxes) },
+    { emoji: '🦅', name: '展翅上騰', desc: '通關「如鷹展翅」', test: s => !!((s.minigames || {}).eagle) },
+    { emoji: '🏗️', name: '殿基立定', desc: '通關「重建聖殿」', test: s => !!((s.minigames || {}).ezra_temple) },
+    { emoji: '⚖️', name: '與神同行', desc: '通關「三樣功課」', test: s => !!((s.minigames || {}).micah_walk) },
+    { emoji: '🪟', name: '敞開天窗', desc: '通關「敞開天窗」', test: s => !!((s.minigames || {}).malachi_window) },
+    { emoji: '🎵', name: '被愛歌唱', desc: '通關「祂為你歌唱」', test: s => !!((s.minigames || {}).zeph_song) },
+    { emoji: '🏰', name: '患難保障', desc: '通關「患難日的保障」', test: s => !!((s.minigames || {}).nahum_refuge) },
+    { emoji: '⛰️', name: '謙卑站立', desc: '通關「驕傲必墜」', test: s => !!((s.minigames || {}).obadiah_pride) },
+    { emoji: '🏞️', name: '公義江河', desc: '通關「公義江河」', test: s => !!((s.minigames || {}).amos_river) },
+    { emoji: '💗', name: '愛的贖回', desc: '通關「愛的贖回」', test: s => !!((s.minigames || {}).hosea_love) },
   ];
   const earnedBadges = () => BADGES.filter(b => b.test(state));
   function renderBadges() {
