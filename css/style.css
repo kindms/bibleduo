@@ -90,6 +90,24 @@
   --title: #7443c9;
 }
 
+[data-scene="bethlehem"] {
+  /* 🌟 伯利恆（平安夜的玫瑰暮色：馬槽的溫柔粉＋伯利恆之星金，路加福音 2 章） */
+  --bg: radial-gradient(900px 500px at 70% -10%, #fbd3da 0%, transparent 55%),
+        linear-gradient(170deg, #fdf5f4 0%, #fae3e3 50%, #f4d2d6 100%);
+  --primary: #e0526b;
+  --primary-dark: #c03a54;
+  --select: #b18411;
+  --select-bg: #fbf3dc;
+  --card: #fffdfc;
+  --card-line: #f0d9dc;
+  --text: #57373f;
+  --text-light: #b7989e;
+  --topbar: rgba(253, 245, 244, 0.9);
+  --node-locked: #ecd7db;
+  --node-locked-shadow: #d3b9bf;
+  --title: #c03a54;
+}
+
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; padding: 0; min-height: 100%; }
 
