@@ -882,6 +882,57 @@ main, header { position: relative; z-index: 1; }
 /* 書卷小遊戲：讀完全卷才解鎖（鎖定卡） */
 .book-feature.bf-locked { opacity: .6; filter: grayscale(.5); }
 
+/* 🕊️ 潔與不潔（左右快分） */
+.cs-stage { position: relative; height: 300px; border: 2px dashed var(--card-line); border-radius: 20px; margin: 8px 0; overflow: hidden; touch-action: none; }
+.cs-zone { position: absolute; top: 0; bottom: 0; width: 26%; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: bold; color: var(--text-light); }
+.cs-left { left: 0; background: rgba(88, 204, 2, .08); border-right: 2px dashed var(--card-line); }
+.cs-right { right: 0; background: rgba(255, 75, 75, .08); border-left: 2px dashed var(--card-line); }
+.cs-card { position: absolute; left: 50%; top: 44%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 4px; background: var(--card); border: 2px solid var(--card-line); border-radius: 18px; padding: 18px 22px; transition: transform .2s; font-weight: bold; }
+.cs-card .cs-emoji { font-size: 3rem; }
+.cs-timer { position: absolute; left: 30%; right: 30%; bottom: 10px; height: 10px; background: var(--card-line); border-radius: 6px; overflow: hidden; }
+
+/* 💚 金句拼回來 */
+.vp-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 10px 0; }
+.vp-chip { font-size: 1.05rem; font-weight: bold; padding: 14px 6px; background: var(--card); border: 2px solid var(--card-line); border-radius: 14px; cursor: pointer; color: var(--text); }
+.vp-chip.vp-done { opacity: .3; pointer-events: none; }
+
+/* 🎁 一筆畫獻材料 */
+.os-stage { position: relative; height: 320px; border: 2px dashed var(--card-line); border-radius: 20px; margin: 8px 0; touch-action: none; }
+.os-node { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; font-size: 1.8rem; font-weight: bold; pointer-events: none; }
+.os-node small { font-size: .7rem; color: var(--text-light); }
+.os-node.os-got { filter: drop-shadow(0 0 6px var(--primary)); }
+.os-node.os-got small { color: var(--primary); }
+.os-hole { position: absolute; transform: translate(-50%, -50%); font-size: 1.7rem; pointer-events: none; }
+
+/* 🧱 聖殿拼圖 */
+.tp-stage { position: relative; height: 240px; border: 2px dashed var(--card-line); border-radius: 20px; margin: 8px 0; }
+.tp-slot { position: absolute; transform: translate(-50%, -50%); min-width: 58px; text-align: center; padding: 10px 6px; border: 2px dashed var(--card-line); border-radius: 12px; color: var(--text-light); font-weight: bold; font-size: .85rem; }
+.tp-slot.tp-done { border-style: solid; border-color: var(--primary); font-size: 1.6rem; }
+.tp-tray { display: flex; gap: 8px; margin: 10px 0; }
+.tp-piece { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 1.5rem; padding: 8px 2px; background: var(--card); border: 2px solid var(--card-line); border-radius: 14px; cursor: pointer; touch-action: none; }
+.tp-piece small { font-size: .7rem; color: var(--text-light); font-weight: bold; }
+.tp-piece.selected { border-color: var(--select); background: var(--select-bg); }
+
+/* ☀️ 凡事都有定時 */
+.sw-wheel { position: relative; height: 260px; margin: 8px 0; }
+.sw-sector { position: absolute; left: 50%; top: 50%; display: flex; flex-direction: column; align-items: center; font-size: 1.5rem; font-weight: bold; }
+.sw-sector small { font-size: .7rem; color: var(--text-light); }
+.sw-sector.sw-target { filter: drop-shadow(0 0 6px var(--select)); }
+.sw-sector.sw-target small { color: var(--select); }
+.sw-needle { position: absolute; left: 50%; top: 50%; font-size: 2rem; transform-origin: 50% 100%; transform: translate(-50%, -100%); }
+
+/* 🌅 守夜打更 */
+.nw-stage { position: relative; height: 280px; border: 2px dashed var(--card-line); border-radius: 20px; margin: 8px 0; display: flex; align-items: center; justify-content: center; cursor: pointer; overflow: hidden; }
+.nw-gong { font-size: 3.4rem; }
+.nw-ring { position: absolute; left: 50%; top: 50%; width: 110px; height: 110px; border: 4px solid var(--select); border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
+
+/* 💗 慈繩愛索 */
+.lk-stage { position: relative; height: 230px; border: 2px dashed var(--card-line); border-radius: 20px; margin: 8px 0; }
+.lk-end { position: absolute; transform: translate(-50%, -50%); font-size: 1.9rem; }
+.lk-tile { position: absolute; width: 17%; height: 38%; background: var(--card); border: 2px solid var(--card-line); border-radius: 12px; cursor: pointer; font-size: 1.9rem; color: var(--text); display: flex; align-items: center; justify-content: center; }
+.lk-tile span { display: block; transition: transform .15s; }
+.lk-tile.lk-ok { border-color: var(--primary); color: var(--primary-dark); }
+
 /* 🌊 分海快走 */
 .rs-stage { position: relative; height: 160px; border: 2px dashed var(--card-line); border-radius: 20px; margin: 8px 0; display: flex; align-items: center; justify-content: center; gap: 6px; overflow: hidden; touch-action: none; font-size: 2.2rem; }
 .rs-sea { transition: transform .1s linear; }

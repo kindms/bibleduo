@@ -2943,6 +2943,468 @@
     S.raf = requestAnimationFrame(step);
   };
 
+  // —— 🕊️ 潔與不潔：動物一隻隻出現，限時往左（潔淨）或往右（不潔）快分（利 11）——
+  ACTION_GAMES.atonement = function startCleanSort() {
+    const ITEMS = shuffleArr([
+      { e: '🐂', n: '牛（分蹄倒嚼）', clean: true }, { e: '🐑', n: '綿羊', clean: true },
+      { e: '🐐', n: '山羊', clean: true }, { e: '🐟', n: '有翅有鱗的魚', clean: true },
+      { e: '🦗', n: '蝗蟲（利 11:22 可吃！）', clean: true }, { e: '🦌', n: '鹿', clean: true },
+      { e: '🐖', n: '豬（分蹄不倒嚼）', clean: false }, { e: '🐫', n: '駱駝（倒嚼不分蹄）', clean: false },
+      { e: '🐇', n: '兔子（倒嚼不分蹄）', clean: false }, { e: '🦅', n: '鵰', clean: false },
+      { e: '🦇', n: '蝙蝠', clean: false }, { e: '🦈', n: '無鱗的水族', clean: false },
+    ]);
+    const S = { phase: 'play', idx: 0, wrong: 0, t: 0, limit: 4200, raf: 0 };
+    const area = startAction('🕊️ 潔與不潔', 'LEV', () => cancelAnimationFrame(S.raf));
+    action.state = S;
+    area.innerHTML = `
+      <div class="act-row"><span>📋 分完</span><div class="act-track"><div class="act-fill" id="cs-bar"></div></div><b id="cs-count">0/${ITEMS.length}</b></div>
+      <div class="act-row"><span>💔 分錯</span><b id="cs-miss">—</b></div>
+      <div class="cs-stage" id="cs-stage">
+        <div class="cs-zone cs-left">✅ 潔淨<br><small>往左滑</small></div>
+        <div class="cs-zone cs-right">🚫 不潔<br><small>往右滑</small></div>
+        <div class="cs-card" id="cs-card"></div>
+        <div class="cs-timer"><div class="act-fill act-foe" id="cs-time"></div></div>
+      </div>
+      <p class="fr-tip">照利未記 11 章的條例快手分類：可吃的滑左邊、不可吃的滑右邊——猶豫太久也算錯！</p>`;
+    const showCard = () => {
+      const it = ITEMS[S.idx];
+      $('#cs-card').innerHTML = `<span class="cs-emoji">${it.e}</span><small>${it.n}</small>`;
+      $('#cs-card').style.transform = 'translate(-50%, -50%)';
+      S.t = 0;
+    };
+    S.answer = (goLeft) => {
+      if (S.phase !== 'play') return;
+      const it = ITEMS[S.idx];
+      const ok = goLeft === it.clean; // 左＝潔淨
+      $('#cs-card').style.transform = `translate(${goLeft ? '-160%' : '60%'}, -50%) rotate(${goLeft ? -18 : 18}deg)`;
+      if (ok) sndGood();
+      else {
+        S.wrong++;
+        sndBad();
+        $('#cs-miss').textContent = '💔'.repeat(S.wrong);
+        if (S.wrong >= 3) {
+          S.phase = 'done';
+          loseAction('LEV', MINIGAMES.atonement.lose.text, ACTION_GAMES.atonement);
+          return;
+        }
+      }
+      S.idx++;
+      $('#cs-count').textContent = `${S.idx}/${ITEMS.length}`;
+      $('#cs-bar').style.width = `${(S.idx / ITEMS.length) * 100}%`;
+      if (S.idx >= ITEMS.length) {
+        S.phase = 'done';
+        winAction('atonement', 'LEV', MINIGAMES.atonement.win, ACTION_GAMES.atonement);
+        return;
+      }
+      setTimeout(() => { if (S.phase === 'play') showCard(); }, 180);
+    };
+    const stage = $('#cs-stage');
+    let downX = null;
+    stage.onpointerdown = (e) => { downX = e.clientX; };
+    stage.onpointerup = (e) => {
+      if (downX === null) return;
+      const dx = e.clientX - downX;
+      downX = null;
+      if (Math.abs(dx) >= 40) S.answer(dx < 0);
+    };
+    S.tick = (dt) => {
+      if (S.phase !== 'play') return;
+      S.t += dt;
+      const el = $('#cs-time'); if (el) el.style.width = `${Math.min(100, (S.t / S.limit) * 100)}%`;
+      if (S.t >= S.limit) S.answer(!ITEMS[S.idx].clean); // 超時＝分錯
+    };
+    showCard();
+    let last = performance.now();
+    const step = (now) => {
+      if (!action || action.state !== S) return;
+      S.tick(Math.min(50, now - last));
+      last = now;
+      if (S.phase === 'play') S.raf = requestAnimationFrame(step);
+    };
+    S.raf = requestAnimationFrame(step);
+  };
+
+  // —— 💚 金句拼回來：整句經文亮相幾秒 → 打散 → 憑記憶照原順序點回來（申 6:5、30:19）——
+  ACTION_GAMES.choose_life = function startVersePuzzle() {
+    const ROUNDS = [
+      { ref: '申命記 6:5', chips: ['你要盡心、', '盡性、', '盡力', '愛耶和華', '你的神。'] },
+      { ref: '申命記 30:19', chips: ['所以你要', '揀選生命，', '使你和', '你的後裔', '都得存活。'] },
+    ];
+    const S = { phase: 'show', round: 0, at: 0, misses: 0, timers: [] };
+    const area = startAction('💚 金句拼回來', 'DEU', () => S.timers.forEach(clearTimeout));
+    action.state = S;
+    area.innerHTML = `
+      <p class="act-hint" id="vp-hint"></p>
+      <div class="q-passage" id="vp-verse"></div>
+      <div class="vp-grid" id="vp-grid"></div>
+      <div class="act-row"><span>💔 失誤</span><b id="vp-miss">—</b></div>`;
+    const startRound = () => {
+      const r = ROUNDS[S.round];
+      S.phase = 'show';
+      S.at = 0;
+      $('#vp-hint').textContent = `第 ${S.round + 1} 句（${r.ref}）——記住這句話：`;
+      $('#vp-verse').textContent = r.chips.join('');
+      $('#vp-grid').innerHTML = '';
+      S.timers.push(setTimeout(() => {
+        S.phase = 'input';
+        $('#vp-verse').textContent = '？？？';
+        $('#vp-hint').textContent = '打散了！照原本的順序把金句點回來：';
+        const grid = $('#vp-grid');
+        for (const i of shuffleArr(r.chips.map((_, k) => k))) {
+          const b = document.createElement('button');
+          b.className = 'vp-chip act-tap';
+          b.textContent = r.chips[i];
+          b.onclick = () => {
+            if (S.phase !== 'input' || b.classList.contains('vp-done')) return;
+            if (i === S.at) {
+              b.classList.add('vp-done');
+              S.at++;
+              $('#vp-verse').textContent = r.chips.slice(0, S.at).join('');
+              sndGood();
+              if (S.at >= r.chips.length) {
+                S.round++;
+                if (S.round >= ROUNDS.length) {
+                  S.phase = 'done';
+                  winAction('choose_life', 'DEU', MINIGAMES.choose_life.win, ACTION_GAMES.choose_life);
+                  return;
+                }
+                S.timers.push(setTimeout(startRound, 900));
+              }
+            } else {
+              S.misses++;
+              sndBad();
+              $('#vp-miss').textContent = '💔'.repeat(S.misses);
+              if (S.misses >= 3) {
+                S.phase = 'done';
+                loseAction('DEU', MINIGAMES.choose_life.lose.text, ACTION_GAMES.choose_life);
+              }
+            }
+          };
+          grid.appendChild(b);
+        }
+      }, 3500));
+    };
+    startRound();
+  };
+
+  // —— 🎁 一筆畫獻材料：手指一筆不斷，把建殿材料全部連起來，避開「私心」的坑（代上 29:2）——
+  ACTION_GAMES.david_offering = function startOneStroke() {
+    const NODES = [
+      { e: '💰', n: '金', x: 18, y: 18 }, { e: '🥈', n: '銀', x: 74, y: 14 },
+      { e: '🟤', n: '銅', x: 46, y: 36 }, { e: '⚙️', n: '鐵', x: 14, y: 58 },
+      { e: '🪵', n: '木', x: 82, y: 52 }, { e: '💎', n: '寶石', x: 30, y: 82 }, { e: '🏵️', n: '漢白玉', x: 68, y: 84 },
+    ];
+    const HAZARDS = [{ x: 48, y: 62 }, { x: 44, y: 12 }];
+    const S = { phase: 'play', got: new Set(), tries: 3, drawing: false };
+    const area = startAction('🎁 一筆畫獻材料', '1CH', null);
+    action.state = S;
+    area.innerHTML = `
+      <p class="act-hint">手指按住不放，<b>一筆</b>把七樣建殿材料全部連起來——避開 🕳️ 私心的坑，中途放手就要重畫！</p>
+      <div class="os-stage" id="os-stage">
+        ${NODES.map((n, i) => `<div class="os-node" data-i="${i}" style="left:${n.x}%;top:${n.y}%">${n.e}<small>${n.n}</small></div>`).join('')}
+        ${HAZARDS.map((h) => `<div class="os-hole" style="left:${h.x}%;top:${h.y}%">🕳️</div>`).join('')}
+      </div>
+      <div class="act-row"><span>✏️ 機會</span><b id="os-tries">✏️✏️✏️</b></div>`;
+    const stage = $('#os-stage');
+    const fail = (why) => {
+      S.tries--;
+      sndBad();
+      $('#os-tries').textContent = '✏️'.repeat(Math.max(0, S.tries)) || '…';
+      S.got.clear();
+      document.querySelectorAll('.os-node').forEach((n) => n.classList.remove('os-got'));
+      if (S.tries <= 0) {
+        S.phase = 'done';
+        loseAction('1CH', MINIGAMES.david_offering.lose.text, ACTION_GAMES.david_offering);
+      }
+    };
+    const hitTest = (e) => {
+      if (!S.drawing || S.phase !== 'play') return;
+      const r = stage.getBoundingClientRect();
+      const px = ((e.clientX - r.left) / r.width) * 100;
+      const py = ((e.clientY - r.top) / r.height) * 100;
+      for (const h of HAZARDS) {
+        if (Math.abs(h.x - px) < 8 && Math.abs(h.y - py) < 8) { S.drawing = false; fail('碰到私心的坑'); return; }
+      }
+      NODES.forEach((n, i) => {
+        if (!S.got.has(i) && Math.abs(n.x - px) < 9 && Math.abs(n.y - py) < 9) {
+          S.got.add(i);
+          sndGood();
+          document.querySelector(`.os-node[data-i="${i}"]`).classList.add('os-got');
+          if (S.got.size >= NODES.length) {
+            S.phase = 'done';
+            winAction('david_offering', '1CH', MINIGAMES.david_offering.win, ACTION_GAMES.david_offering);
+          }
+        }
+      });
+    };
+    stage.onpointerdown = (e) => { S.drawing = true; hitTest(e); };
+    stage.onpointermove = hitTest;
+    stage.onpointerup = () => {
+      if (!S.drawing) return;
+      S.drawing = false;
+      if (S.phase === 'play' && S.got.size > 0 && S.got.size < NODES.length) fail('中途放手了');
+    };
+  };
+
+  // —— 🧱 聖殿拼圖：把建材拖到剪影上正確的位置，蓋回聖殿（拉 3-6）——
+  ACTION_GAMES.ezra_temple = function startTemplePuzzle() {
+    const PIECES = [
+      { e: '🪨', n: '根基', x: 50, y: 86 }, { e: '🧱', n: '牆', x: 26, y: 62 },
+      { e: '🏛️', n: '柱', x: 74, y: 62 }, { e: '🚪', n: '門', x: 50, y: 60 }, { e: '🔺', n: '殿頂', x: 50, y: 22 },
+    ];
+    const S = { phase: 'play', placed: 0, misses: 0, drag: null };
+    const area = startAction('🧱 聖殿拼圖', 'EZR', null);
+    action.state = S;
+    area.innerHTML = `
+      <p class="act-hint">把下面的建材<b>拖</b>到聖殿剪影上正確的位置——放錯 3 次仇敵就得逞了！</p>
+      <div class="tp-stage" id="tp-stage">
+        ${PIECES.map((p, i) => `<div class="tp-slot" data-i="${i}" style="left:${p.x}%;top:${p.y}%">${p.n}</div>`).join('')}
+      </div>
+      <div class="tp-tray" id="tp-tray">
+        ${shuffleArr(PIECES.map((_, i) => i)).map((i) => `<button class="tp-piece act-tap" data-i="${i}">${PIECES[i].e}<small>${PIECES[i].n}</small></button>`).join('')}
+      </div>
+      <div class="act-row"><span>😈 攔阻</span><div class="act-track"><div class="act-fill act-foe" id="tp-foe"></div></div></div>`;
+    const stage = $('#tp-stage');
+    document.querySelectorAll('.tp-piece').forEach((btn) => {
+      btn.onpointerdown = (e) => {
+        if (S.phase !== 'play' || btn.disabled) return;
+        e.preventDefault();
+        S.drag = { i: Number(btn.dataset.i), btn };
+        btn.classList.add('selected');
+      };
+    });
+    const drop = (e) => {
+      if (!S.drag || S.phase !== 'play') return;
+      const d = S.drag;
+      S.drag = null;
+      d.btn.classList.remove('selected');
+      const r = stage.getBoundingClientRect();
+      const px = ((e.clientX - r.left) / r.width) * 100;
+      const py = ((e.clientY - r.top) / r.height) * 100;
+      if (px < -5 || px > 105 || py < -5 || py > 105) return; // 放回原處不算錯
+      const target = PIECES[d.i];
+      if (Math.abs(target.x - px) < 16 && Math.abs(target.y - py) < 15) {
+        const slot = document.querySelector(`.tp-slot[data-i="${d.i}"]`);
+        slot.textContent = target.e;
+        slot.classList.add('tp-done');
+        d.btn.disabled = true;
+        d.btn.style.opacity = .25;
+        S.placed++;
+        sndGood();
+        if (S.placed >= PIECES.length) {
+          S.phase = 'done';
+          winAction('ezra_temple', 'EZR', MINIGAMES.ezra_temple.win, ACTION_GAMES.ezra_temple);
+        }
+      } else {
+        S.misses++;
+        sndBad();
+        $('#tp-foe').style.width = `${(S.misses / 3) * 100}%`;
+        stage.classList.remove('jr-shake'); void stage.offsetWidth; stage.classList.add('jr-shake');
+        if (S.misses >= 3) {
+          S.phase = 'done';
+          loseAction('EZR', MINIGAMES.ezra_temple.lose.text, ACTION_GAMES.ezra_temple);
+        }
+      }
+    };
+    area.onpointerup = drop;
+  };
+
+  // —— ☀️ 凡事都有定時：指針繞著「時節轉盤」轉，轉到題目要的時節就按（傳 3）——
+  ACTION_GAMES.ecc_sun = function startSeasonWheel() {
+    const SECTORS = [
+      { e: '🌱', n: '栽種' }, { e: '😄', n: '笑' }, { e: '💃', n: '跳舞' }, { e: '🔍', n: '尋找' },
+      { e: '🤫', n: '靜默' }, { e: '🗣️', n: '言語' }, { e: '🧵', n: '縫補' }, { e: '😢', n: '哭' },
+    ];
+    const GOAL = 6;
+    const S = { phase: 'play', hits: 0, misses: 0, ang: 0, target: 0, raf: 0 };
+    const area = startAction('☀️ 凡事都有定時', 'ECC', () => cancelAnimationFrame(S.raf));
+    action.state = S;
+    area.innerHTML = `
+      <p class="act-hint" id="sw-hint"></p>
+      <div class="sw-wheel" id="sw-wheel">
+        ${SECTORS.map((s, i) => { const a = i * 45 - 90; return `<div class="sw-sector" data-i="${i}" style="transform:translate(-50%,-50%) rotate(${a}deg) translate(96px) rotate(${-a}deg)">${s.e}<small>${s.n}</small></div>`; }).join('')}
+        <div class="sw-needle" id="sw-needle">🕰️</div>
+      </div>
+      <div class="act-row"><span>⏳ 命中</span><div class="act-track"><div class="act-fill" id="sw-bar"></div></div><b id="sw-count">0/${GOAL}</b></div>
+      <div class="act-row"><span>💔 失手</span><b id="sw-miss">—</b></div>
+      <button class="big-btn act-tap" id="sw-btn">⏱️ 就是現在！</button>`;
+    const newTarget = () => {
+      S.target = Math.floor(Math.random() * 8);
+      $('#sw-hint').innerHTML = `「凡事都有定期」——指針轉到 <b>${SECTORS[S.target].e} ${SECTORS[S.target].n}有時</b> 的瞬間按下去！`;
+      document.querySelectorAll('.sw-sector').forEach((el, i) => el.classList.toggle('sw-target', i === S.target));
+    };
+    newTarget();
+    $('#sw-btn').onclick = () => {
+      if (S.phase !== 'play') return;
+      const sector = Math.round((((S.ang % 360) + 360) % 360) / 45) % 8;
+      if (sector === S.target) {
+        S.hits++;
+        sndGood();
+        $('#sw-count').textContent = `${S.hits}/${GOAL}`;
+        $('#sw-bar').style.width = `${(S.hits / GOAL) * 100}%`;
+        if (S.hits >= GOAL) {
+          S.phase = 'done';
+          winAction('ecc_sun', 'ECC', MINIGAMES.ecc_sun.win, ACTION_GAMES.ecc_sun);
+          return;
+        }
+        newTarget();
+      } else {
+        S.misses++;
+        sndBad();
+        $('#sw-miss').textContent = '💔'.repeat(S.misses);
+        if (S.misses >= 3) {
+          S.phase = 'done';
+          loseAction('ECC', MINIGAMES.ecc_sun.lose.text, ACTION_GAMES.ecc_sun);
+        }
+      }
+    };
+    S.tick = (dt) => {
+      if (S.phase !== 'play') return;
+      S.ang += (2.1 + S.hits * 0.35) * (dt / 16.7);
+      const el = $('#sw-needle'); if (el) el.style.transform = `translate(-50%, -100%) rotate(${S.ang}deg)`;
+    };
+    let last = performance.now();
+    const step = (now) => {
+      if (!action || action.state !== S) return;
+      S.tick(Math.min(50, now - last));
+      last = now;
+      if (S.phase === 'play') S.raf = requestAnimationFrame(step);
+    };
+    S.raf = requestAnimationFrame(step);
+  };
+
+  // —— 🌅 守夜打更：光圈一波波收縮，縮到銅鑼上的瞬間敲下去，撐到天亮（哀 3:22-23）——
+  ACTION_GAMES.lam_mercies = function startNightWatch() {
+    const GOAL = 12;
+    const S = { phase: 'play', beats: 0, misses: 0, t: 0, interval: 1000, tapped: false, raf: 0 };
+    const area = startAction('🌅 守夜打更', 'LAM', () => cancelAnimationFrame(S.raf));
+    action.state = S;
+    area.innerHTML = `
+      <div class="act-row"><span>🌙 更次</span><div class="act-track"><div class="act-fill" id="nw-bar"></div></div><b id="nw-count">0/${GOAL}</b></div>
+      <div class="act-row"><span>💔 亂拍</span><b id="nw-miss">—</b></div>
+      <div class="nw-stage act-tap" id="nw-stage"><div class="nw-ring" id="nw-ring"></div><div class="nw-gong">🔔</div></div>
+      <p class="fr-tip">黑夜漫長，更夫要照著拍子敲更——光圈縮到銅鑼上的瞬間點下去！打滿 ${GOAL} 更就天亮了。（哀 3:22-23）</p>`;
+    $('#nw-stage').onpointerdown = (e) => {
+      e.preventDefault();
+      if (S.phase !== 'play' || S.tapped) return;
+      S.tapped = true;
+      const p = S.t / S.interval;
+      if (p >= 0.72) { // 光圈貼近銅鑼才算準
+        S.beats++;
+        sndGood();
+        $('#nw-count').textContent = `${S.beats}/${GOAL}`;
+        $('#nw-bar').style.width = `${(S.beats / GOAL) * 100}%`;
+        if (S.beats >= GOAL) {
+          S.phase = 'done';
+          winAction('lam_mercies', 'LAM', MINIGAMES.lam_mercies.win, ACTION_GAMES.lam_mercies);
+        }
+      } else {
+        S.misses++;
+        sndBad();
+        $('#nw-miss').textContent = '💔'.repeat(S.misses);
+        if (S.misses >= 3) {
+          S.phase = 'done';
+          loseAction('LAM', MINIGAMES.lam_mercies.lose.text, ACTION_GAMES.lam_mercies);
+        }
+      }
+    };
+    S.tick = (dt) => {
+      if (S.phase !== 'play') return;
+      S.t += dt;
+      if (S.t >= S.interval) { // 一拍結束：這拍沒敲＝漏拍
+        if (!S.tapped) {
+          S.misses++;
+          sndBad();
+          $('#nw-miss').textContent = '💔'.repeat(S.misses);
+          if (S.misses >= 3) {
+            S.phase = 'done';
+            loseAction('LAM', MINIGAMES.lam_mercies.lose.text, ACTION_GAMES.lam_mercies);
+            return;
+          }
+        }
+        S.t = 0;
+        S.tapped = false;
+        S.interval = Math.max(700, 1000 - S.beats * 25);
+      }
+      const ring = $('#nw-ring');
+      if (ring) {
+        const sc = 2.4 - 1.4 * Math.min(1, S.t / S.interval);
+        ring.style.transform = `translate(-50%, -50%) scale(${sc})`;
+        ring.style.opacity = S.t / S.interval > 0.6 ? '1' : '.45';
+      }
+    };
+    let last = performance.now();
+    const step = (now) => {
+      if (!action || action.state !== S) return;
+      S.tick(Math.min(50, now - last));
+      last = now;
+      if (S.phase === 'play') S.raf = requestAnimationFrame(step);
+    };
+    S.raf = requestAnimationFrame(step);
+  };
+
+  // —— 💗 慈繩愛索：點擊旋轉管線，把「愛」一路接回「家」（何 11:4）——
+  ACTION_GAMES.hosea_love = function startLoveLink() {
+    // 路徑（2 列 × 4 行）：💗 → r0c0 ─ → r0c1 ┐ → r1c1 └ → r1c2 ─ → r1c3 ─ → 🏠
+    // glyph 為 rot=0 時的樣子；sym=2 表示直線轉 180° 等價
+    const TILES = [
+      { r: 0, c: 0, glyph: '━', target: 0, sym: 2 },
+      { r: 0, c: 1, glyph: '┓', target: 0, sym: 4 },
+      { r: 1, c: 1, glyph: '┗', target: 0, sym: 4 },
+      { r: 1, c: 2, glyph: '━', target: 0, sym: 2 },
+      { r: 1, c: 3, glyph: '━', target: 0, sym: 2 },
+    ];
+    const LIMIT_MS = 45000;
+    const S = { phase: 'play', t: 0, rots: TILES.map(() => 1 + Math.floor(Math.random() * 3)), raf: 0 };
+    const area = startAction('💗 慈繩愛索', 'HOS', () => cancelAnimationFrame(S.raf));
+    action.state = S;
+    area.innerHTML = `
+      <p class="act-hint">點方塊會旋轉——把繩索一段段接通，讓「愛」牽回「家」！（我用慈繩愛索牽引他們，何 11:4）</p>
+      <div class="lk-stage" id="lk-stage">
+        <div class="lk-end" style="left:2%;top:25%">💗</div>
+        ${TILES.map((t, i) => `<button class="lk-tile act-tap" data-i="${i}" style="left:${14 + t.c * 20}%;top:${t.r * 50 + 8}%"><span>${t.glyph}</span></button>`).join('')}
+        <div class="lk-end" style="left:92%;top:75%">🏠</div>
+      </div>
+      <div class="act-row"><span>⏳ 時間</span><div class="act-track"><div class="act-fill act-foe" id="lk-time"></div></div></div>`;
+    const render = () => {
+      document.querySelectorAll('.lk-tile span').forEach((el, i) => {
+        el.style.transform = `rotate(${S.rots[i] * 90}deg)`;
+        el.parentElement.classList.toggle('lk-ok', S.rots[i] % TILES[i].sym === TILES[i].target);
+      });
+    };
+    render();
+    document.querySelectorAll('.lk-tile').forEach((b) => {
+      b.onclick = () => {
+        if (S.phase !== 'play') return;
+        const i = Number(b.dataset.i);
+        S.rots[i] = (S.rots[i] + 1) % 4;
+        render();
+        if (TILES.every((t, k) => S.rots[k] % t.sym === t.target)) {
+          S.phase = 'done';
+          sndGood();
+          winAction('hosea_love', 'HOS', MINIGAMES.hosea_love.win, ACTION_GAMES.hosea_love);
+        }
+      };
+    });
+    S.tick = (dt) => {
+      if (S.phase !== 'play') return;
+      S.t += dt;
+      $('#lk-time').style.width = `${Math.min(100, (S.t / LIMIT_MS) * 100)}%`;
+      if (S.t >= LIMIT_MS) {
+        S.phase = 'done';
+        loseAction('HOS', MINIGAMES.hosea_love.lose.text, ACTION_GAMES.hosea_love);
+      }
+    };
+    let last = performance.now();
+    const step = (now) => {
+      if (!action || action.state !== S) return;
+      S.tick(Math.min(50, now - last));
+      last = now;
+      if (S.phase === 'play') S.raf = requestAnimationFrame(step);
+    };
+    S.raf = requestAnimationFrame(step);
+  };
+
   // ===== 📖 書卷故事小遊戲（對決引擎：答對推進我方、答錯讓威脅逼近，先滿者定勝負）=====
   // 加一款遊戲＝在這裡加一份設定，章節頁入口與雲端同步都會自動長出來
   const MINIGAMES = {
@@ -3308,7 +3770,7 @@
       ],
     },
     ezra_temple: {
-      book: 'EZR', ch: 3, emoji: '🏗️', title: '重建聖殿', tag: '拉 3-6・答題對決',
+      book: 'EZR', ch: 3, emoji: '🏗️', title: '聖殿拼圖', tag: '拉 3-6・拖放建材',
       myEmoji: '🏗️', myName: '聖殿一層層立起', myGoal: 5,
       foeEmoji: '😈', foeName: '仇敵擾亂攔阻', foeGoal: 5,
       hitText: '🏗️ 又立起一層，眾民大聲讚美！', missText: '😈 那地的民使他們的手發軟…',
@@ -3413,7 +3875,7 @@
       ],
     },
     hosea_love: {
-      book: 'HOS', ch: 3, emoji: '💗', title: '愛的贖回', tag: '何 3・答題對決',
+      book: 'HOS', ch: 3, emoji: '💗', title: '慈繩愛索', tag: '何 11・旋轉接繩',
       myEmoji: '💗', myName: '慈繩愛索牽引', myGoal: 5,
       foeEmoji: '🌫️', foeName: '越走越遠的心', foeGoal: 5,
       hitText: '💗 慈繩愛索又牽近一步！', missText: '🌫️ 那顆心又往遠處飄去…',
@@ -3489,12 +3951,12 @@
       ],
     },
     atonement: {
-      book: 'LEV', ch: 16, emoji: '🕊️', title: '贖罪日', tag: '利 16・答題對決',
+      book: 'LEV', ch: 16, emoji: '🕊️', title: '潔與不潔', tag: '利 11・左右快分',
       myEmoji: '🕊️', myName: '得潔淨的路', myGoal: 5,
       foeEmoji: '⚖️', foeName: '罪的重擔', foeGoal: 5,
       hitText: '🕊️ 罪被挪去，又輕省一步！', missText: '⚖️ 罪的重擔還壓在肩上…',
-      win: { emoji: '🕊️', title: '得以潔淨！', text: '「因在這日要為你們贖罪，使你們潔淨。你們要在耶和華面前得以潔淨，脫盡一切的罪愆。」（利 16:30）' },
-      lose: { text: '重擔還沒卸下——別放棄，贖罪日的恩典就是為你預備的，再走一次！' },
+      win: { emoji: '🕊️', title: '分得又快又準！', text: '「你們要成為聖潔，因為我是聖潔的。」利未記的條例在教一件事：神的子民連日常生活都跟別人不一樣！（利 11:44）' },
+      lose: { text: '分錯了嗎？記口訣：走獸要「分蹄又倒嚼」、水族要「有翅又有鱗」——再分一次！（利 11:3,9）' },
       manualQs: [
         { q: '贖罪日這日要為你們贖罪，使你們怎樣？', options: ['潔淨', '富足', '強壯', '快樂'], answer: '潔淨', basis: '利 16:30' },
         { q: '大祭司兩手按在羊頭上做甚麼？', options: ['承認以色列人諸般的罪孽', '為羊群祝福', '量羊的重量', '給羊做記號'], answer: '承認以色列人諸般的罪孽', basis: '利 16:21' },
@@ -3504,7 +3966,7 @@
       ],
     },
     choose_life: {
-      book: 'DEU', ch: 30, emoji: '💚', title: '揀選生命', tag: '申 30・答題對決',
+      book: 'DEU', ch: 30, emoji: '💚', title: '金句拼回來', tag: '申 6・記憶拼句',
       myEmoji: '💚', myName: '揀選生命的路', myGoal: 5,
       foeEmoji: '🥀', foeName: '忘記神的路', foeGoal: 5,
       hitText: '💚 記住祂的話，又選對一步！', missText: '🥀 心又飄向忘記神的路…',
@@ -3519,7 +3981,7 @@
       ],
     },
     david_offering: {
-      book: '1CH', ch: 29, emoji: '🎁', title: '為聖殿獻上', tag: '代上 29・答題對決',
+      book: '1CH', ch: 29, emoji: '🎁', title: '一筆畫獻材料', tag: '代上 29・一筆連線',
       myEmoji: '🎁', myName: '樂意的奉獻', myGoal: 5,
       foeEmoji: '⏳', foeName: '捨不得的心', foeGoal: 5,
       hitText: '🎁 誠心樂意，又獻上一份！', missText: '⏳ 手又縮回去了…',
@@ -3534,12 +3996,12 @@
       ],
     },
     ecc_sun: {
-      book: 'ECC', ch: 12, emoji: '☀️', title: '日光之上', tag: '傳 12・答題對決',
+      book: 'ECC', ch: 12, emoji: '☀️', title: '凡事都有定時', tag: '傳 3・定時轉盤',
       myEmoji: '☀️', myName: '敬畏神的智慧', myGoal: 5,
       foeEmoji: '🌫️', foeName: '虛空的捕風', foeGoal: 5,
       hitText: '☀️ 看見日光之上的答案了！', missText: '🌫️ 虛空的虛空，都是捕風…',
-      win: { emoji: '☀️', title: '找到人生的總意！', text: '「這些事都已聽見了，總意就是：敬畏神，謹守他的誡命，這是人所當盡的本分。」（傳 12:13）' },
-      lose: { text: '在日光之下打轉了嗎？抬起頭——答案在日光之上。再想一次！' },
+      win: { emoji: '☀️', title: '抓住神的時候！', text: '「凡事都有定期，天下萬務都有定時。」神造萬物，各按其時成為美好——你抓住了每一個時候！（傳 3:1,11）' },
+      lose: { text: '按錯時候了嗎？「凡事都有定期」——不急，等指針轉到對的時節，再按一次！' },
       manualQs: [
         { q: '傳道書的總意：敬畏神，還有甚麼？', options: ['謹守他的誡命', '多積攢財寶', '及時行樂', '遠離人群'], answer: '謹守他的誡命', basis: '傳 12:13' },
         { q: '「凡事都有定期」，天下萬務都有甚麼？', options: ['定時', '代價', '盡頭', '主人'], answer: '定時', basis: '傳 3:1' },
@@ -3549,7 +4011,7 @@
       ],
     },
     lam_mercies: {
-      book: 'LAM', ch: 3, emoji: '🌅', title: '每早晨都是新的', tag: '哀 3・答題對決',
+      book: 'LAM', ch: 3, emoji: '🌅', title: '守夜打更', tag: '哀 3・節拍敲更',
       myEmoji: '🌅', myName: '數算祂的慈愛', myGoal: 5,
       foeEmoji: '🌧️', foeName: '黑夜的眼淚', foeGoal: 5,
       hitText: '🌅 又數算到一樣慈愛，天快亮了！', missText: '🌧️ 眼淚在黑夜裡流…',
