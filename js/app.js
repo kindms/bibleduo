@@ -3829,6 +3829,484 @@
     S.raf = requestAnimationFrame(step);
   };
 
+  // —— ⛓️ 衝破阻隔：七道牆（羅 8:35）擋在你和神的愛之間，照箭頭方向快滑撕開 ——
+  ACTION_GAMES.rom_love = function startBreakWalls() {
+    const WALLS = ['患難', '困苦', '逼迫', '飢餓', '赤身露體', '危險', '刀劍']; // 羅 8:35 七樣
+    const ARROWS = [{ e: '⬆️', dx: 0, dy: -1 }, { e: '⬇️', dx: 0, dy: 1 }, { e: '⬅️', dx: -1, dy: 0 }, { e: '➡️', dx: 1, dy: 0 }];
+    const S = { phase: 'play', at: 0, misses: 0, arrow: 0, t: 0, limit: 3200, raf: 0 };
+    const area = startAction('⛓️ 衝破阻隔', 'ROM', () => cancelAnimationFrame(S.raf));
+    action.state = S;
+    area.innerHTML = `
+      <div class="act-row"><span>💪 衝破</span><div class="act-track"><div class="act-fill" id="bw-bar"></div></div><b id="bw-count">0/${WALLS.length}</b></div>
+      <div class="act-row"><span>💔 失手</span><b id="bw-miss">—</b></div>
+      <div class="bw-stage" id="bw-stage"><div class="bw-wall" id="bw-wall"></div><div class="bw-arrow" id="bw-arrow"></div><div class="bw-timer"><div class="act-fill act-foe" id="bw-time"></div></div></div>
+      <p class="fr-tip">「誰能使我們與基督的愛隔絕呢？」——每道牆出現時，照箭頭方向<b>快滑</b>撕開它！（羅 8:35-37）</p>`;
+    const newWall = () => {
+      S.arrow = Math.floor(Math.random() * 4);
+      S.t = 0;
+      S.limit = Math.max(1900, 3200 - S.at * 200);
+      $('#bw-wall').textContent = `🧱 ${WALLS[S.at]}`;
+      $('#bw-arrow').textContent = ARROWS[S.arrow].e;
+    };
+    newWall();
+    const miss = (why) => {
+      S.misses++;
+      sndBad();
+      $('#bw-miss').textContent = '💔'.repeat(S.misses);
+      if (S.misses >= 3) {
+        S.phase = 'done';
+        loseAction('ROM', MINIGAMES.rom_love.lose.text, ACTION_GAMES.rom_love);
+        return;
+      }
+      newWall();
+    };
+    S.swipe = (dx, dy) => {
+      if (S.phase !== 'play') return;
+      const a = ARROWS[S.arrow];
+      const ok = (a.dx !== 0 && Math.sign(dx) === a.dx && Math.abs(dx) > Math.abs(dy)) ||
+                 (a.dy !== 0 && Math.sign(dy) === a.dy && Math.abs(dy) > Math.abs(dx));
+      if (ok) {
+        S.at++;
+        sndGood();
+        $('#bw-count').textContent = `${S.at}/${WALLS.length}`;
+        $('#bw-bar').style.width = `${(S.at / WALLS.length) * 100}%`;
+        if (S.at >= WALLS.length) {
+          S.phase = 'done';
+          winAction('rom_love', 'ROM', MINIGAMES.rom_love.win, ACTION_GAMES.rom_love);
+          return;
+        }
+        newWall();
+      } else miss('滑錯方向');
+    };
+    const stage = $('#bw-stage');
+    let down = null;
+    stage.onpointerdown = (e) => { down = { x: e.clientX, y: e.clientY }; };
+    stage.onpointerup = (e) => {
+      if (!down) return;
+      const dx = e.clientX - down.x, dy = e.clientY - down.y;
+      down = null;
+      if (Math.abs(dx) >= 30 || Math.abs(dy) >= 30) S.swipe(dx, dy);
+    };
+    S.tick = (dt) => {
+      if (S.phase !== 'play') return;
+      S.t += dt;
+      const el = $('#bw-time'); if (el) el.style.width = `${Math.min(100, (S.t / S.limit) * 100)}%`;
+      if (S.t >= S.limit) miss('猶豫太久，牆更厚了');
+    };
+    let last = performance.now();
+    const step = (now) => {
+      if (!action || action.state !== S) return;
+      S.tick(Math.min(50, now - last));
+      last = now;
+      if (S.phase === 'play') S.raf = requestAnimationFrame(step);
+    };
+    S.raf = requestAnimationFrame(step);
+  };
+
+  // —— 💞 有愛才算數：是「愛的樣子」就點、是鳴鑼響鈸就忍住不點（林前 13）——
+  ACTION_GAMES.cor_love = function startGoNoGo() {
+    const LOVE = ['恆久忍耐', '有恩慈', '不嫉妒', '不自誇', '凡事包容', '凡事相信', '凡事盼望', '凡事忍耐', '只喜歡真理'];
+    const NOISE = ['🔔 鳴的鑼', '🥁 響的鈸', '張狂', '自誇', '輕易發怒', '計算人的惡'];
+    const GOAL = 12;
+    const S = { phase: 'play', got: 0, misses: 0, cur: null, t: 0, limit: 1900, raf: 0 };
+    const area = startAction('💞 有愛才算數', '1CO', () => cancelAnimationFrame(S.raf));
+    action.state = S;
+    area.innerHTML = `
+      <div class="act-row"><span>💞 收集</span><div class="act-track"><div class="act-fill" id="gn-bar"></div></div><b id="gn-count">0/${GOAL}</b></div>
+      <div class="act-row"><span>💔 失誤</span><b id="gn-miss">—</b></div>
+      <div class="gn-stage act-tap" id="gn-stage"><div class="gn-chip" id="gn-chip"></div></div>
+      <p class="fr-tip">出現「愛的樣子」就快點收下；跳出 🔔 鳴鑼 🥁 響鈸這些「沒有愛的」就<b>忍住別點</b>，讓它自己消失！（林前 13）</p>`;
+    const newChip = () => {
+      const isLove = Math.random() < 0.6;
+      S.cur = { isLove, done: false };
+      S.t = 0;
+      S.limit = Math.max(1150, 1900 - S.got * 65);
+      const chip = $('#gn-chip');
+      chip.textContent = isLove ? `💞 ${LOVE[Math.floor(Math.random() * LOVE.length)]}` : NOISE[Math.floor(Math.random() * NOISE.length)];
+      chip.className = 'gn-chip' + (isLove ? ' gn-love' : ' gn-noise');
+    };
+    newChip();
+    const miss = () => {
+      S.misses++;
+      sndBad();
+      $('#gn-miss').textContent = '💔'.repeat(S.misses);
+      if (S.misses >= 3) {
+        S.phase = 'done';
+        loseAction('1CO', MINIGAMES.cor_love.lose.text, ACTION_GAMES.cor_love);
+        return;
+      }
+      newChip();
+    };
+    const gain = () => {
+      S.got++;
+      sndGood();
+      $('#gn-count').textContent = `${S.got}/${GOAL}`;
+      $('#gn-bar').style.width = `${(S.got / GOAL) * 100}%`;
+      if (S.got >= GOAL) {
+        S.phase = 'done';
+        winAction('cor_love', '1CO', MINIGAMES.cor_love.win, ACTION_GAMES.cor_love);
+        return;
+      }
+      newChip();
+    };
+    $('#gn-stage').onpointerdown = (e) => {
+      e.preventDefault();
+      if (S.phase !== 'play' || !S.cur || S.cur.done) return;
+      S.cur.done = true;
+      if (S.cur.isLove) gain(); else miss(); // 點到鑼鈸＝失誤
+    };
+    S.tick = (dt) => {
+      if (S.phase !== 'play' || !S.cur || S.cur.done) return;
+      S.t += dt;
+      if (S.t >= S.limit) {
+        S.cur.done = true;
+        if (S.cur.isLove) miss(); // 愛的樣子沒收到＝失誤
+        else { sndGood(); newChip(); } // 鑼鈸自己消失＝忍住成功
+      }
+    };
+    let last = performance.now();
+    const step = (now) => {
+      if (!action || action.state !== S) return;
+      S.tick(Math.min(50, now - last));
+      last = now;
+      if (S.phase === 'play') S.raf = requestAnimationFrame(step);
+    };
+    S.raf = requestAnimationFrame(step);
+  };
+
+  // —— 😊 三樣不斷：喜樂/禱告/謝恩三個錶會一直流失，輪流補滿撐 30 秒（帖前 5:16-18）——
+  ACTION_GAMES.thes_joy = function startThreeMeters() {
+    const SURVIVE_MS = 30000;
+    const M = [{ e: '😊', n: '喜樂' }, { e: '🙏', n: '禱告' }, { e: '🙌', n: '謝恩' }];
+    const S = { phase: 'play', t: 0, v: [80, 80, 80], raf: 0 };
+    const area = startAction('😊 三樣不斷', '1TH', () => cancelAnimationFrame(S.raf));
+    action.state = S;
+    area.innerHTML = `
+      <div class="act-row"><span>⏱️ 撐住</span><div class="act-track"><div class="act-fill" id="tm-time"></div></div></div>
+      ${M.map((m, i) => `<div class="act-row"><span>${m.e} ${m.n}</span><div class="act-track"><div class="act-fill" id="tm-${i}"></div></div></div>`).join('')}
+      <div class="st-btns">
+        ${M.map((m, i) => `<button class="big-btn act-tap" data-m="${i}">${m.e}<br><small>${m.n}</small></button>`).join('')}
+      </div>
+      <p class="fr-tip">「要常常喜樂，不住的禱告，凡事謝恩」——三條都會一直流失，看哪條快見底就補哪條，一條歸零就前功盡棄！</p>`;
+    document.querySelectorAll('#action-area .st-btns .big-btn').forEach((b) => {
+      b.onclick = () => {
+        if (S.phase !== 'play') return;
+        const i = Number(b.dataset.m);
+        S.v[i] = Math.min(100, S.v[i] + 26);
+        sndGood();
+      };
+    });
+    S.tick = (dt) => {
+      if (S.phase !== 'play') return;
+      const f = dt / 16.7;
+      S.t += dt;
+      const drain = 0.28 + (S.t / SURVIVE_MS) * 0.34; // 越後面流失越快
+      for (let i = 0; i < 3; i++) {
+        S.v[i] -= drain * (0.8 + i * 0.18) * f; // 三條速度略不同，逼你轉頭顧
+        const el = $(`#tm-${i}`); if (el) el.style.width = `${Math.max(0, S.v[i])}%`;
+        if (S.v[i] <= 0) {
+          S.phase = 'done';
+          loseAction('1TH', MINIGAMES.thes_joy.lose.text, ACTION_GAMES.thes_joy);
+          return;
+        }
+      }
+      $('#tm-time').style.width = `${Math.min(100, (S.t / SURVIVE_MS) * 100)}%`;
+      if (S.t >= SURVIVE_MS) {
+        S.phase = 'done';
+        winAction('thes_joy', '1TH', MINIGAMES.thes_joy.win, ACTION_GAMES.thes_joy);
+      }
+    };
+    let last = performance.now();
+    const step = (now) => {
+      if (!action || action.state !== S) return;
+      S.tick(Math.min(50, now - last));
+      last = now;
+      if (S.phase === 'play') S.raf = requestAnimationFrame(step);
+    };
+    S.raf = requestAnimationFrame(step);
+  };
+
+  // —— 🏆 三段接力：打仗（連點）→ 跑路（左右交替）→ 守道（長按到底），一口氣完成（提後 4:7）——
+  ACTION_GAMES.tim_fight = function startMedley() {
+    const S = { phase: 'fight', power: 0, step: 0, lastFoot: null, hold: 0, holdFail: 0, raf: 0, holding: false };
+    const area = startAction('🏆 三段接力', '2TI', () => cancelAnimationFrame(S.raf));
+    action.state = S;
+    const render = () => {
+      if (S.phase === 'fight') {
+        area.innerHTML = `
+          <p class="act-hint">第一段：<b>那美好的仗</b>——快速連點出拳，把鬥志條打滿！</p>
+          <div class="act-row"><span>🥊 鬥志</span><div class="act-track"><div class="act-fill" id="md-bar"></div></div></div>
+          <button class="big-btn act-tap" id="md-btn">🥊 出拳！</button>`;
+        $('#md-btn').onclick = () => {
+          if (S.phase !== 'fight') return;
+          S.power = Math.min(100, S.power + 7);
+          if (S.power >= 100) { S.phase = 'run'; sndGood(); render(); }
+        };
+      } else if (S.phase === 'run') {
+        area.innerHTML = `
+          <p class="act-hint">第二段：<b>當跑的路</b>——左右腳交替點，跑滿 20 步！（同腳連點無效）</p>
+          <div class="act-row"><span>🏃 步數</span><div class="act-track"><div class="act-fill" id="md-bar"></div></div><b id="md-count">0/20</b></div>
+          <div class="st-btns">
+            <button class="big-btn act-tap" id="md-l">🦶 左腳</button>
+            <button class="big-btn act-tap" id="md-r">右腳 🦶</button>
+          </div>`;
+        const stepFoot = (foot) => {
+          if (S.phase !== 'run' || S.lastFoot === foot) return;
+          S.lastFoot = foot;
+          S.step++;
+          $('#md-count').textContent = `${S.step}/20`;
+          $('#md-bar').style.width = `${(S.step / 20) * 100}%`;
+          if (S.step >= 20) { S.phase = 'keep'; sndGood(); render(); }
+        };
+        $('#md-l').onclick = () => stepFoot('L');
+        $('#md-r').onclick = () => stepFoot('R');
+      } else if (S.phase === 'keep') {
+        area.innerHTML = `
+          <p class="act-hint">最後一段：<b>所信的道</b>——按住不放守滿 8 秒！世界會誘惑你鬆手，別上當。</p>
+          <div class="act-row"><span>🛡️ 持守</span><div class="act-track"><div class="act-fill" id="md-bar"></div></div></div>
+          <p class="act-hint" id="md-tempt" style="color:#ff4b4b"></p>
+          <button class="big-btn act-tap" id="md-btn">🙏 按住守道</button>`;
+        const btn = $('#md-btn');
+        btn.onpointerdown = (e) => { e.preventDefault(); S.holding = true; };
+        const rel = () => {
+          if (S.phase !== 'keep' || !S.holding) return;
+          S.holding = false;
+          S.hold = 0;
+          S.holdFail++;
+          sndBad();
+          $('#md-tempt').textContent = S.holdFail >= 3 ? '' : '鬆手了！重新按住，從頭守起…';
+          if (S.holdFail >= 3) {
+            S.phase = 'done';
+            loseAction('2TI', MINIGAMES.tim_fight.lose.text, ACTION_GAMES.tim_fight);
+          }
+        };
+        btn.onpointerup = rel;
+        btn.onpointerleave = rel;
+      }
+    };
+    render();
+    const TEMPTS = ['💰 底馬貪愛現今的世界…', '🛋️ 休息一下沒關係吧？', '🌆 大家都鬆手了喔…'];
+    S.tick = (dt) => {
+      if (S.phase === 'fight') {
+        S.power = Math.max(0, S.power - 0.5 * (dt / 16.7)); // 不打就洩氣
+        const el = $('#md-bar'); if (el) el.style.width = `${S.power}%`;
+      } else if (S.phase === 'keep' && S.holding) {
+        S.hold += dt;
+        const el = $('#md-bar'); if (el) el.style.width = `${Math.min(100, (S.hold / 8000) * 100)}%`;
+        const t = $('#md-tempt'); if (t) t.textContent = TEMPTS[Math.floor(S.hold / 2700) % TEMPTS.length];
+        if (S.hold >= 8000) {
+          S.phase = 'done';
+          winAction('tim_fight', '2TI', MINIGAMES.tim_fight.win, ACTION_GAMES.tim_fight);
+        }
+      }
+    };
+    let last = performance.now();
+    const step = (now) => {
+      if (!action || action.state !== S) return;
+      S.tick(Math.min(50, now - last));
+      last = now;
+      if (S.phase !== 'done') S.raf = requestAnimationFrame(step);
+    };
+    S.raf = requestAnimationFrame(step);
+  };
+
+  // —— ☁️ 信心之橋：橋是「未見之事」——走到邊緣的瞬間點一下，腳下的橋板就顯出來（來 11:1）——
+  ACTION_GAMES.faith_cloud = function startFaithBridge() {
+    const GOAL = 10;
+    const S = { phase: 'play', tile: 0, misses: 0, x: 6, raf: 0 };
+    const area = startAction('☁️ 信心之橋', 'HEB', () => cancelAnimationFrame(S.raf));
+    action.state = S;
+    area.innerHTML = `
+      <div class="act-row"><span>🌉 橋板</span><div class="act-track"><div class="act-fill" id="fb-bar"></div></div><b id="fb-count">0/${GOAL}</b></div>
+      <div class="act-row"><span>💔 踏空</span><b id="fb-miss">—</b></div>
+      <div class="fb-stage act-tap" id="fb-stage">
+        <div class="fb-walker" id="fb-walker">🚶</div>
+        ${Array.from({ length: GOAL }, (_, i) => `<div class="fb-tile" data-i="${i}" style="left:${14 + i * 8.6}%"></div>`).join('')}
+      </div>
+      <p class="fr-tip">「信就是所望之事的實底，是未見之事的確據」——橋板是看不見的！走到虛線邊緣的瞬間點一下，板子就在腳下顯出來。（來 11:1）</p>`;
+    const stage = $('#fb-stage');
+    stage.onpointerdown = (e) => {
+      e.preventDefault();
+      if (S.phase !== 'play') return;
+      const edge = 14 + S.tile * 8.6; // 下一塊橋板的位置
+      if (Math.abs(S.x - (edge - 4)) <= 3.2) { // 在邊緣的時機窗內
+        const t = document.querySelector(`.fb-tile[data-i="${S.tile}"]`);
+        t.classList.add('fb-solid');
+        S.tile++;
+        sndGood();
+        $('#fb-count').textContent = `${S.tile}/${GOAL}`;
+        $('#fb-bar').style.width = `${(S.tile / GOAL) * 100}%`;
+        if (S.tile >= GOAL) {
+          S.phase = 'done';
+          winAction('faith_cloud', 'HEB', MINIGAMES.faith_cloud.win, ACTION_GAMES.faith_cloud);
+        }
+      } else {
+        S.misses++;
+        sndBad();
+        $('#fb-miss').textContent = '💔'.repeat(S.misses);
+        if (S.misses >= 3) {
+          S.phase = 'done';
+          loseAction('HEB', MINIGAMES.faith_cloud.lose.text, ACTION_GAMES.faith_cloud);
+        }
+      }
+    };
+    S.tick = (dt) => {
+      if (S.phase !== 'play') return;
+      const f = dt / 16.7;
+      S.x += (0.24 + S.tile * 0.012) * f;
+      const edge = 14 + S.tile * 8.6;
+      if (S.x >= edge) { // 沒點就走過頭＝踏空
+        S.x = Math.max(6, edge - 9);
+        S.misses++;
+        sndBad();
+        $('#fb-miss').textContent = '💔'.repeat(S.misses);
+        if (S.misses >= 3) {
+          S.phase = 'done';
+          loseAction('HEB', MINIGAMES.faith_cloud.lose.text, ACTION_GAMES.faith_cloud);
+          return;
+        }
+      }
+      $('#fb-walker').style.left = `${S.x}%`;
+    };
+    let last = performance.now();
+    const step = (now) => {
+      if (!action || action.state !== S) return;
+      S.tick(Math.min(50, now - last));
+      last = now;
+      if (S.phase === 'play') S.raf = requestAnimationFrame(step);
+    };
+    S.raf = requestAnimationFrame(step);
+  };
+
+  // —— ⚓ 小舵大船：按住左/右舷連續操舵，沿著蜿蜒的水道開 30 秒（雅 3:4）——
+  ACTION_GAMES.tongue_helm = function startHelm() {
+    const SURVIVE_MS = 30000, HALF = 13; // 水道半寬
+    const S = { phase: 'play', t: 0, x: 50, input: 0, raf: 0 };
+    const area = startAction('⚓ 小舵大船', 'JAS', () => cancelAnimationFrame(S.raf));
+    action.state = S;
+    area.innerHTML = `
+      <div class="act-row"><span>⛵ 航程</span><div class="act-track"><div class="act-fill" id="hm-time"></div></div></div>
+      <div class="hm-stage" id="hm-stage"><div class="hm-l" id="hm-l"></div><div class="hm-r" id="hm-r"></div><div class="hm-ship" id="hm-ship">⛵</div></div>
+      <div class="st-btns">
+        <button class="big-btn act-tap" id="hm-left">◀️ 轉左舵</button>
+        <button class="big-btn act-tap" id="hm-right">轉右舵 ▶️</button>
+      </div>
+      <p class="fr-tip">「船隻雖然甚大……只用小小的舵」——水道會左彎右拐，按住舵鈕跟著走，撞岸就翻船！（雅 3:4）</p>`;
+    const hold = (id, val) => {
+      const b = $(id);
+      b.onpointerdown = (e) => { e.preventDefault(); S.input = val; };
+      b.onpointerup = () => { if (S.input === val) S.input = 0; };
+      b.onpointerleave = () => { if (S.input === val) S.input = 0; };
+    };
+    hold('#hm-left', -1);
+    hold('#hm-right', 1);
+    const centerAt = (t) => 50 + Math.sin(t / 1600) * 22 + Math.sin(t / 3900) * 9; // 蜿蜒水道
+    S.tick = (dt) => {
+      if (S.phase !== 'play') return;
+      const f = dt / 16.7;
+      S.t += dt;
+      S.x += S.input * 0.55 * f;
+      const c = centerAt(S.t);
+      $('#hm-l').style.width = `${Math.max(0, c - HALF)}%`;
+      $('#hm-r').style.width = `${Math.max(0, 100 - (c + HALF))}%`;
+      $('#hm-ship').style.left = `${S.x}%`;
+      $('#hm-time').style.width = `${Math.min(100, (S.t / SURVIVE_MS) * 100)}%`;
+      if (S.x < c - HALF || S.x > c + HALF) {
+        S.phase = 'done';
+        loseAction('JAS', MINIGAMES.tongue_helm.lose.text, ACTION_GAMES.tongue_helm);
+        return;
+      }
+      if (S.t >= SURVIVE_MS) {
+        S.phase = 'done';
+        winAction('tongue_helm', 'JAS', MINIGAMES.tongue_helm.win, ACTION_GAMES.tongue_helm);
+      }
+    };
+    let last = performance.now();
+    const step = (now) => {
+      if (!action || action.state !== S) return;
+      S.tick(Math.min(50, now - last));
+      last = now;
+      if (S.phase === 'play') S.raf = requestAnimationFrame(step);
+    };
+    S.raf = requestAnimationFrame(step);
+  };
+
+  // —— 🏠 回家的路：帶阿尼西母走出迷宮回到腓利門家，步數有限（門 10-16）——
+  ACTION_GAMES.philemon_home = function startMaze() {
+    const N = 7;
+    // DFS 產生迷宮：cells[r][c] = { top,right,bottom,left } 牆
+    const cells = Array.from({ length: N }, () => Array.from({ length: N }, () => ({ t: 1, r: 1, b: 1, l: 1, seen: false })));
+    const stack = [[0, 0]];
+    cells[0][0].seen = true;
+    while (stack.length) {
+      const [r, c] = stack[stack.length - 1];
+      const opts = [[r - 1, c, 't', 'b'], [r + 1, c, 'b', 't'], [r, c - 1, 'l', 'r'], [r, c + 1, 'r', 'l']]
+        .filter(([nr, nc]) => nr >= 0 && nr < N && nc >= 0 && nc < N && !cells[nr][nc].seen);
+      if (!opts.length) { stack.pop(); continue; }
+      const [nr, nc, w1, w2] = opts[Math.floor(Math.random() * opts.length)];
+      cells[r][c][w1] = 0;
+      cells[nr][nc][w2] = 0;
+      cells[nr][nc].seen = true;
+      stack.push([nr, nc]);
+    }
+    // BFS 算最短路徑，步數上限＝最短＋8（保證每局都有解、又不會太鬆）
+    const dist = Array.from({ length: N }, () => Array(N).fill(-1));
+    dist[0][0] = 0;
+    const q = [[0, 0]];
+    while (q.length) {
+      const [r, c] = q.shift();
+      for (const [nr, nc, w] of [[r - 1, c, 't'], [r + 1, c, 'b'], [r, c - 1, 'l'], [r, c + 1, 'r']]) {
+        if (nr < 0 || nr >= N || nc < 0 || nc >= N || cells[r][c][w] || dist[nr][nc] >= 0) continue;
+        dist[nr][nc] = dist[r][c] + 1;
+        q.push([nr, nc]);
+      }
+    }
+    const STEPS = dist[N - 1][N - 1] + 8;
+    const S = { phase: 'play', r: 0, c: 0, left: STEPS };
+    const area = startAction('🏠 回家的路', 'PHM', null);
+    action.state = S;
+    area.innerHTML = `
+      <div class="act-row"><span>👣 剩餘步數</span><b id="mz-steps">${STEPS}</b></div>
+      <div class="mz-grid" id="mz-grid">${cells.map((row, r) => row.map((cell, c) =>
+        `<div class="mz-cell" data-r="${r}" data-c="${c}" style="border-top-width:${cell.t ? 2 : 0}px;border-right-width:${cell.r ? 2 : 0}px;border-bottom-width:${cell.b ? 2 : 0}px;border-left-width:${cell.l ? 2 : 0}px">${r === N - 1 && c === N - 1 ? '🏠' : ''}</div>`).join('')).join('')}</div>
+      <div class="mz-btns">
+        <button class="big-btn act-tap" data-d="t">⬆️</button>
+        <div><button class="big-btn act-tap" data-d="l">⬅️</button><button class="big-btn act-tap" data-d="b">⬇️</button><button class="big-btn act-tap" data-d="r">➡️</button></div>
+      </div>
+      <p class="fr-tip">「不再是奴僕，乃是親愛的兄弟」——在步數用完前，帶阿尼西母 🚶 走出迷宮、回到腓利門的家！</p>`;
+    const draw = () => {
+      document.querySelectorAll('.mz-cell').forEach((el) => { if (el.textContent === '🚶') el.textContent = ''; });
+      const target = document.querySelector(`.mz-cell[data-r="${S.r}"][data-c="${S.c}"]`);
+      if (!(S.r === N - 1 && S.c === N - 1)) target.textContent = '🚶';
+    };
+    draw();
+    document.querySelectorAll('.mz-btns .big-btn').forEach((b) => {
+      b.onclick = () => {
+        if (S.phase !== 'play') return;
+        const d = b.dataset.d;
+        const cell = cells[S.r][S.c];
+        if (cell[d]) { sndBad(); return; } // 撞牆不扣步數，只提示
+        if (d === 't') S.r--;
+        if (d === 'b') S.r++;
+        if (d === 'l') S.c--;
+        if (d === 'r') S.c++;
+        S.left--;
+        $('#mz-steps').textContent = S.left;
+        draw();
+        if (S.r === N - 1 && S.c === N - 1) {
+          S.phase = 'done';
+          sndGood();
+          winAction('philemon_home', 'PHM', MINIGAMES.philemon_home.win, ACTION_GAMES.philemon_home);
+          return;
+        }
+        if (S.left <= 0) {
+          S.phase = 'done';
+          loseAction('PHM', MINIGAMES.philemon_home.lose.text, ACTION_GAMES.philemon_home);
+        }
+      };
+    });
+  };
+
   // ===== 📖 書卷故事小遊戲（對決引擎：答對推進我方、答錯讓威脅逼近，先滿者定勝負）=====
   // 加一款遊戲＝在這裡加一份設定，章節頁入口與雲端同步都會自動長出來
   const MINIGAMES = {
@@ -4496,7 +4974,7 @@
       ],
     },
     rom_love: {
-      book: 'ROM', ch: 8, emoji: '⛓️', title: '不能隔絕的愛', tag: '羅 8・答題對決',
+      book: 'ROM', ch: 8, emoji: '⛓️', title: '衝破阻隔', tag: '羅 8・方向快滑',
       myEmoji: '💪', myName: '得勝有餘', myGoal: 5,
       foeEmoji: '⚔️', foeName: '患難逼迫刀劍', foeGoal: 5,
       hitText: '💪 靠着愛我們的主，又勝一場！', missText: '⚔️ 患難、困苦、逼迫圍上來了…',
@@ -4511,7 +4989,7 @@
       ],
     },
     cor_love: {
-      book: '1CO', ch: 13, emoji: '💞', title: '愛是永不止息', tag: '林前 13・答題對決',
+      book: '1CO', ch: 13, emoji: '💞', title: '有愛才算數', tag: '林前 13・眼明手快',
       myEmoji: '💞', myName: '愛的真諦', myGoal: 5,
       foeEmoji: '🥁', foeName: '鳴的鑼響的鈸', foeGoal: 5,
       hitText: '💞 又活出一句愛的真諦！', missText: '🥁 沒有愛，只剩鑼鈸的噪音…',
@@ -4556,7 +5034,7 @@
       ],
     },
     thes_joy: {
-      book: '1TH', ch: 5, emoji: '😊', title: '常常喜樂', tag: '帖前 5・答題對決',
+      book: '1TH', ch: 5, emoji: '😊', title: '三樣不斷', tag: '帖前 5・三錶維持',
       myEmoji: '😊', myName: '喜樂・禱告・謝恩', myGoal: 5,
       foeEmoji: '🌧️', foeName: '消滅聖靈感動的冷淡', foeGoal: 5,
       hitText: '😊 喜樂、禱告、謝恩，又點亮一盞！', missText: '🌧️ 心慢慢冷下來了…',
@@ -4601,7 +5079,7 @@
       ],
     },
     tim_fight: {
-      book: '2TI', ch: 4, emoji: '🏆', title: '打那美好的仗', tag: '提後 4・答題對決',
+      book: '2TI', ch: 4, emoji: '🏆', title: '三段接力', tag: '提後 4・連點交替長按',
       myEmoji: '🏆', myName: '打仗・跑路・守道', myGoal: 5,
       foeEmoji: '🌆', foeName: '貪愛現今的世界', foeGoal: 5,
       hitText: '🏆 又撐過一程，冠冕在前面！', missText: '🌆 世界的霓虹又在招手…',
@@ -4631,7 +5109,7 @@
       ],
     },
     philemon_home: {
-      book: 'PHM', ch: 1, emoji: '🏠', title: '回家的路', tag: '門・答題對決',
+      book: 'PHM', ch: 1, emoji: '🏠', title: '回家的路', tag: '門・迷宮尋路',
       myEmoji: '🏠', myName: '阿尼西母回家的路', myGoal: 5,
       foeEmoji: '⛓️', foeName: '過去的虧欠', foeGoal: 5,
       hitText: '🏠 又走近家門一步！', missText: '⛓️ 過去的虧欠又拉住他…',
@@ -4737,7 +5215,7 @@
       ],
     },
     faith_cloud: {
-      book: 'HEB', ch: 12, emoji: '☁️', title: '信心的雲彩', tag: '來 11-12・答題對決',
+      book: 'HEB', ch: 12, emoji: '☁️', title: '信心之橋', tag: '來 11・看不見的橋',
       myEmoji: '☁️', myName: '雲彩般的見證人', myGoal: 5,
       foeEmoji: '🎒', foeName: '容易纏累的重擔', foeGoal: 5,
       hitText: '☁️ 又一位見證人為你加油！', missText: '🎒 重擔又纏上來了…',
@@ -4752,7 +5230,7 @@
       ],
     },
     tongue_helm: {
-      book: 'JAS', ch: 3, emoji: '⚓', title: '勒住舌頭', tag: '雅 3・答題對決',
+      book: 'JAS', ch: 3, emoji: '⚓', title: '小舵大船', tag: '雅 3・連續掌舵',
       myEmoji: '⚓', myName: '掌穩小小的舵', myGoal: 5,
       foeEmoji: '🔥', foeName: '點著樹林的小火', foeGoal: 5,
       hitText: '⚓ 舵掌穩了，大船轉向！', missText: '🔥 小火又竄出一個火星…',

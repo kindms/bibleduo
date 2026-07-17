@@ -964,6 +964,38 @@ main, header { position: relative; z-index: 1; }
 .lg-frame { position: absolute; top: 14%; font-size: 2.6rem; transform: translate(-50%, -50%); }
 .lg-log { position: absolute; left: 50%; top: 86%; font-size: 2rem; transform: translate(-50%, -50%); pointer-events: none; }
 
+/* ⛓️ 衝破阻隔 */
+.bw-stage { position: relative; height: 260px; border: 2px dashed var(--card-line); border-radius: 20px; margin: 8px 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; touch-action: none; }
+.bw-wall { font-size: 1.5rem; font-weight: bold; background: var(--card); border: 3px solid #b3541e; border-radius: 14px; padding: 16px 26px; color: var(--text); }
+.bw-arrow { font-size: 3rem; }
+.bw-timer { position: absolute; left: 16%; right: 16%; bottom: 10px; height: 10px; background: var(--card-line); border-radius: 6px; overflow: hidden; }
+
+/* 💞 有愛才算數 */
+.gn-stage { position: relative; height: 240px; border: 2px dashed var(--card-line); border-radius: 20px; margin: 8px 0; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.gn-chip { font-size: 1.5rem; font-weight: bold; padding: 18px 26px; border-radius: 16px; border: 3px solid var(--card-line); background: var(--card); animation: celebrate .3s; }
+.gn-chip.gn-love { border-color: var(--primary); }
+.gn-chip.gn-noise { border-color: #ff4b4b; }
+
+/* ☁️ 信心之橋 */
+.fb-stage { position: relative; height: 220px; border: 2px dashed var(--card-line); border-radius: 20px; margin: 8px 0; overflow: hidden; cursor: pointer; }
+.fb-walker { position: absolute; top: 34%; font-size: 2.2rem; transform: translateX(-50%); }
+.fb-tile { position: absolute; top: 58%; width: 7%; height: 12px; border: 2px dashed var(--card-line); border-radius: 6px; opacity: .35; }
+.fb-tile.fb-solid { border-style: solid; border-color: var(--primary); background: var(--select-bg); opacity: 1; }
+
+/* ⚓ 小舵大船 */
+.hm-stage { position: relative; height: 240px; border: 2px dashed var(--card-line); border-radius: 20px; margin: 8px 0; overflow: hidden; }
+.hm-l, .hm-r { position: absolute; top: 0; bottom: 0; background: rgba(179, 84, 30, .25); transition: width .1s linear; }
+.hm-l { left: 0; border-radius: 18px 0 0 18px; }
+.hm-r { right: 0; border-radius: 0 18px 18px 0; }
+.hm-ship { position: absolute; bottom: 14%; font-size: 2.4rem; transform: translateX(-50%); }
+
+/* 🏠 回家的路（迷宮） */
+.mz-grid { display: grid; grid-template-columns: repeat(7, 1fr); margin: 8px auto; max-width: 330px; border: 2px solid var(--text-light); border-radius: 8px; overflow: hidden; }
+.mz-cell { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; border: 0 solid var(--card-line); box-sizing: border-box; }
+.mz-btns { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.mz-btns > div { display: flex; gap: 4px; }
+.mz-btns .big-btn { margin: 0; padding: 10px 18px; width: auto; }
+
 /* 🌊 分海快走 */
 .rs-stage { position: relative; height: 160px; border: 2px dashed var(--card-line); border-radius: 20px; margin: 8px 0; display: flex; align-items: center; justify-content: center; gap: 6px; overflow: hidden; touch-action: none; font-size: 2.2rem; }
 .rs-sea { transition: transform .1s linear; }
