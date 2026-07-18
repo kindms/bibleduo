@@ -1340,7 +1340,7 @@
     const moves = noah.moves;
     noah = null;
     const first = !state.minigames.noah;
-    const gained = first ? 30 : 5;
+    const gained = first ? 60 : 10; // 2026-07-18 小遊戲經驗加倍（原 30/5）
     if (first) state.minigames.noah = true;
     state.xp += gained;
     ensureWeek();
@@ -1390,7 +1390,7 @@
   function winAction(id, book, win, again) {
     endActionState();
     const first = !state.minigames[id];
-    const gained = first ? 30 : 5;
+    const gained = first ? 60 : 10; // 2026-07-18 小遊戲經驗加倍（原 30/5）
     if (first) state.minigames[id] = true;
     state.xp += gained;
     ensureWeek();
@@ -5416,7 +5416,7 @@
     const cfg = mg.cfg, id = mg.id;
     mg = null;
     const first = !state.minigames[id];
-    const gained = first ? 30 : 5;
+    const gained = first ? 60 : 10; // 2026-07-18 小遊戲經驗加倍（原 30/5）
     if (first) state.minigames[id] = true;
     state.xp += gained;
     ensureWeek();
@@ -5676,9 +5676,9 @@
     const first = !done.includes(chIdx);
     if (first) {
       done.push(chIdx);
-      state.xp += 30;
+      state.xp += 60; // 2026-07-18 約拿故事經驗加倍（原 30）
       ensureWeek();
-      state.weekXp += 30;
+      state.weekXp += 60;
       bumpStreak();
       store.save(state);
       sndWin();
@@ -5689,7 +5689,7 @@
       <div class="r-emoji">🐋${all ? '🏆' : '⭐'}</div>
       <h2>${all ? '約拿冒險完結！' : `第 ${chIdx + 1} 章完成！`}</h2>
       <p>${all ? '神的愛比我們想的更寬！' : '故事還沒完，繼續往下走…'}</p>
-      ${first ? '<div class="result-stats"><div class="r-stat">＋30<span>經驗值</span></div></div>' : '<p class="board-hint">（重播章節不重複給經驗值）</p>'}
+      ${first ? '<div class="result-stats"><div class="r-stat">＋60<span>經驗值</span></div></div>' : '<p class="board-hint">（重播章節不重複給經驗值）</p>'}
       <button class="big-btn" id="btn-continue">${all ? '回故事選單' : '下一章 →'}</button>
       <button class="ghost-btn" id="btn-story-home">回首頁</button>`;
     $('#btn-continue').onclick = () => {
