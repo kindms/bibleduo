@@ -74,7 +74,7 @@
     lion: { name: '小獅子', emoji: '🦁', verse: '「看哪，猶大支派中的獅子…他已得勝」— 啟示錄 5:5', lock: 'top3' },
     lamb: { name: '小羊', emoji: '🐑', verse: '「看哪，神的羔羊，除去世人罪孽的！」— 約翰福音 1:29', lock: 'top3' },
     donkey: { name: '小驢駒', emoji: '🫏', verse: '「看哪，你的王來到你這裏，是溫柔的，又騎着驢，就是騎着驢駒子」— 馬太福音 21:5', lock: 'top3' },
-    eagle: { name: '超帥老鷹', emoji: '🦅', verse: '「他們必如鷹展翅上騰；他們奔跑卻不困倦」— 以賽亞書 40:31', lock: 'top1' },
+    eagle: { name: '超帥老鷹', emoji: '🦅', verse: '「他們必如鷹展翅上騰；他們奔跑卻不困倦」— 以賽亞書 40:31', lock: 'top1', crown: true },
   };
 
   // ===== 進度資料（localStorage，Step 3 會改接雲端）=====
@@ -146,7 +146,9 @@
       s.style.fontSize = `${1.1 + (i % 3) * 0.5}rem`;
       decor.appendChild(s);
     }
-    document.querySelector('#home-mascot').textContent = mascot().emoji;
+    const hm = document.querySelector('#home-mascot');
+    hm.textContent = mascot().emoji;
+    hm.dataset.mascot = state.mascot; // 讓超帥老鷹能戴皇冠（CSS ::after）
   }
 
   // ===== 打扮面板 =====
@@ -155,7 +157,7 @@
       const locked = !canUseReward(item);
       const chip = document.createElement('button');
       chip.className = 'pick-chip' + (isActive ? ' active' : '') + (locked ? ' locked' : '');
-      chip.innerHTML = `<span class="p-emoji">${item.emoji}</span><span class="p-name">${item.name}</span>`
+      chip.innerHTML = `<span class="p-emoji${item.crown ? ' crowned' : ''}">${item.emoji}</span><span class="p-name">${item.name}</span>`
         + (locked ? `<span class="p-lock">🔒 ${lockHint(item)}</span>` : '');
       chip.onclick = locked
         ? () => alert(`「${item.name}」是${lockHint(item)}的專屬獎勵——衝上排行榜就能解鎖！`)
