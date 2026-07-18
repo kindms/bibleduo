@@ -53,6 +53,7 @@ const CloudSync = (function () {
         xp: state.xp, streak: state.streak, lastPlay: state.lastPlay,
         done: state.done, scene: state.scene, mascot: state.mascot,
         nickname: state.nickname || "", weekXp: state.weekXp || 0, weekKey: state.weekKey || "", weekCh: state.weekCh || 0,
+        lastWeekXp: state.lastWeekXp || 0, lastWeekKey: state.lastWeekKey || "",
         review: state.review || [],
         puzzles: state.puzzles || { beatitudes: [] },
         stats: state.stats || {},
@@ -69,6 +70,7 @@ const CloudSync = (function () {
         weekXp: state.weekXp || 0,
         weekKey: state.weekKey || "",
         weekCh: state.weekCh || 0,
+        lwXp: state.lastWeekXp || 0, lwKey: state.lastWeekKey || "", // 上週分數（前三名獎勵判定）
         streak: state.streak || 0,
         friendCode: codeOf(user.uid),
         friends: state.friends || [],
@@ -90,6 +92,23 @@ const CloudSync = (function () {
       .filter((r) => (r.weekXp || 0) > 0)
       .sort((a, b) => (b.weekXp || 0) - (a.weekXp || 0))
       .slice(0, 20);
+  }
+
+  // 上週排行榜（前三名獎勵解鎖用）：合併「還沒開始本週的人（weekKey 仍是上週）」
+  // 與「已跨週、把上週分數存進 lwXp 的人」，前端算名次。教會規模量級綽綽有餘。
+  async function fetchLastWeekTop(lastWeekKey) {
+    if (!db) return [];
+    const [q1, q2] = await withTimeout(Promise.all([
+      db.collection(BOARD).where("weekKey", "==", lastWeekKey).get(),
+      db.collection(BOARD).where("lwKey", "==", lastWeekKey).get(),
+    ]));
+    const rows = [];
+    q1.forEach((d) => { const x = d.data(); if ((x.weekXp || 0) > 0) rows.push({ uid: d.id, nick: x.nick, score: x.weekXp }); });
+    q2.forEach((d) => { const x = d.data(); if ((x.lwXp || 0) > 0) rows.push({ uid: d.id, nick: x.nick, score: x.lwXp }); });
+    // 同一人不會同時落在兩個查詢（weekKey 與 lwKey 不會都等於上週），但保險去重取較高分
+    const best = {};
+    for (const r of rows) if (!best[r.uid] || r.score > best[r.uid].score) best[r.uid] = r;
+    return Object.values(best).sort((a, b) => b.score - a.score);
   }
 
   // 回報題目問題（登入者限定；Burger 從 Firebase 後台看 bibleduo_reports）
@@ -218,7 +237,7 @@ const CloudSync = (function () {
   }
 
   return {
-    init, login, logout, save, fetchBoard, sendReport,
+    init, login, logout, save, fetchBoard, fetchLastWeekTop, sendReport,
     myFriendCode, findByCode, findByNick, sendFriendRequest, fetchRequests, answerRequest, removeRequest, fetchProfiles, claimNickname,
     joinMatch, leaveMatch, fetchMatchEntries,
     isLoggedIn: () => !!user, uid: () => (user ? user.uid : null),

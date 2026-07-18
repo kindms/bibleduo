@@ -61,16 +61,20 @@
     galilee: { name: '加利利海', emoji: '🌊', decor: ['⛵', '🐟', '🌊', '🕊️', '🐚'], theme: '#e6f2fd' },
     desert: { name: '曠野日出', emoji: '🏜️', decor: ['🌵', '🐫', '☀️', '⛺', '🦂'], theme: '#fdf4dc' },
     night: { name: '星夜應許', emoji: '🌌', decor: ['⭐', '🌙', '✨', '☁️', '💫'], theme: '#211d4d' },
-    jerusalem: { name: '耶路撒冷', emoji: '🏛️', decor: ['🏛️', '🫒', '🎺', '🕊️', '🌟'], theme: '#f2edf8' },
-    bethlehem: { name: '伯利恆', emoji: '🌟', decor: ['🌟', '👶', '🐑', '🕯️', '🎁'], theme: '#fbeeed' },
+    jerusalem: { name: '耶路撒冷', emoji: '🏛️', decor: ['🏛️', '🫒', '🎺', '🕊️', '🌟'], theme: '#f2edf8', lock: 'top3' },
+    bethlehem: { name: '伯利恆', emoji: '🌟', decor: ['🌟', '👶', '🐑', '🕯️', '🎁'], theme: '#fbeeed', lock: 'top3' },
+    olive_mount: { name: '橄欖山', emoji: '🫒', decor: ['🫒', '🌿', '🕊️', '⛰️', '🙏'], theme: '#eef2e0', lock: 'top3' },
+    wedding_feast: { name: '娶親宴席', emoji: '💒', decor: ['💍', '💒', '👰', '🤵', '🕊️', '🍷', '🌹', '🎉'], theme: '#fbe4ea', lock: 'top1' },
   };
   const MASCOTS = {
     dove: { name: '小鴿子', emoji: '🕊️', verse: '「鴿子嘴裏叼着一個新擰下來的橄欖葉子」— 創世記 8:11' },
     fish: { name: '小魚', emoji: '🐟', verse: '「我們這裏只有五個餅、兩條魚」— 馬太福音 14:17' },
     hippo: { name: '小河馬', emoji: '🦛', verse: '「你且觀看河馬…牠的氣力在腰間」— 約伯記 40:15-16' },
     ant: { name: '小螞蟻', emoji: '🐜', verse: '「懶惰人哪，你去察看螞蟻的動作就可得智慧」— 箴言 6:6' },
-    lion: { name: '小獅子', emoji: '🦁', verse: '「看哪，猶大支派中的獅子…他已得勝」— 啟示錄 5:5' },
-    lamb: { name: '小羊', emoji: '🐑', verse: '「看哪，神的羔羊，除去世人罪孽的！」— 約翰福音 1:29' },
+    lion: { name: '小獅子', emoji: '🦁', verse: '「看哪，猶大支派中的獅子…他已得勝」— 啟示錄 5:5', lock: 'top3' },
+    lamb: { name: '小羊', emoji: '🐑', verse: '「看哪，神的羔羊，除去世人罪孽的！」— 約翰福音 1:29', lock: 'top3' },
+    donkey: { name: '小驢駒', emoji: '🫏', verse: '「看哪，你的王來到你這裏，是溫柔的，又騎着驢，就是騎着驢駒子」— 馬太福音 21:5', lock: 'top3' },
+    eagle: { name: '超帥老鷹', emoji: '🦅', verse: '「他們必如鷹展翅上騰；他們奔跑卻不困倦」— 以賽亞書 40:31', lock: 'top1' },
   };
 
   // ===== 進度資料（localStorage，Step 3 會改接雲端）=====
@@ -84,7 +88,7 @@
       CloudSync.save(d); // 有登入就同步到雲端（沒登入時是空操作）
     },
   };
-  let state = Object.assign({ xp: 0, streak: 0, lastPlay: '', done: {}, scene: 'meadow', mascot: 'dove', nickname: '', weekXp: 0, weekKey: '', muted: false, review: [], puzzles: { beatitudes: [] }, hearts: MAX_HEARTS, heartsTs: Date.now() }, store.load());
+  let state = Object.assign({ xp: 0, streak: 0, lastPlay: '', done: {}, scene: 'meadow', mascot: 'dove', nickname: '', weekXp: 0, weekKey: '', muted: false, review: [], puzzles: { beatitudes: [] }, hearts: MAX_HEARTS, heartsTs: Date.now(), lastWeekXp: 0, lastWeekKey: '' }, store.load());
   if (!state.puzzles) state.puzzles = { beatitudes: [] }; // 舊存檔補欄位
   if (!state.stats) state.stats = {}; // 各種計數器（衝刺最高分、翻牌次數、複習次數、朗讀成功數…），徽章用
   if (!state.minigames) state.minigames = {}; // 書卷故事小遊戲通關紀錄 { gameId: true }
@@ -93,6 +97,35 @@
   // done: { MRK: [1,2,3] } 已完成章
 
   const mascot = () => MASCOTS[state.mascot] || MASCOTS.dove;
+
+  // ===== 上週排名獎勵：前三名解鎖進階夥伴/場景、冠軍再解鎖頂級款 =====
+  let rankReward = { rank: 0 }; // 我在「上週」排行榜的名次（0 = 沒上榜或未登入）
+  function canUseReward(item) {
+    if (!item || !item.lock) return true;
+    if (item.lock === 'top1') return rankReward.rank === 1;
+    return rankReward.rank >= 1 && rankReward.rank <= 3; // top3
+  }
+  const lockHint = (item) => item.lock === 'top1' ? '上週排行榜冠軍' : '上週排行榜前三名';
+  async function refreshRankReward() {
+    rankReward.rank = 0;
+    if (CloudSync.isLoggedIn()) {
+      try {
+        const rows = await CloudSync.fetchLastWeekTop(lastWeekKeyOf());
+        const my = CloudSync.uid();
+        const idx = rows.findIndex((r) => r.uid === my);
+        rankReward.rank = idx >= 0 ? idx + 1 : 0;
+      } catch (e) { console.warn('上週排名載入失敗', e); }
+    }
+    applyRewardLocks();
+  }
+  // 目前選用的夥伴/場景若已不符資格（掉出前三名/未登入），退回預設，避免鎖著卻還在套用
+  function applyRewardLocks() {
+    let changed = false;
+    if (!canUseReward(SCENES[state.scene])) { state.scene = 'meadow'; changed = true; }
+    if (!canUseReward(MASCOTS[state.mascot])) { state.mascot = 'dove'; changed = true; }
+    if (changed) { store.save(state); applyScene(); }
+    if (!document.querySelector('#custom-panel').classList.contains('hidden')) renderCustomPanel();
+  }
 
   // ===== 場景套用與飄浮裝飾 =====
   function applyScene() {
@@ -118,23 +151,28 @@
 
   // ===== 打扮面板 =====
   function renderCustomPanel() {
+    const buildChip = (key, item, isActive, onPick) => {
+      const locked = !canUseReward(item);
+      const chip = document.createElement('button');
+      chip.className = 'pick-chip' + (isActive ? ' active' : '') + (locked ? ' locked' : '');
+      chip.innerHTML = `<span class="p-emoji">${item.emoji}</span><span class="p-name">${item.name}</span>`
+        + (locked ? `<span class="p-lock">🔒 ${lockHint(item)}</span>` : '');
+      chip.onclick = locked
+        ? () => alert(`「${item.name}」是${lockHint(item)}的專屬獎勵——衝上排行榜就能解鎖！`)
+        : onPick;
+      return chip;
+    };
     const sceneRow = document.querySelector('#scene-row');
     sceneRow.innerHTML = '';
     for (const [key, sc] of Object.entries(SCENES)) {
-      const chip = document.createElement('button');
-      chip.className = 'pick-chip' + (state.scene === key ? ' active' : '');
-      chip.innerHTML = `<span class="p-emoji">${sc.emoji}</span><span class="p-name">${sc.name}</span>`;
-      chip.onclick = () => { state.scene = key; store.save(state); applyScene(); renderCustomPanel(); };
-      sceneRow.appendChild(chip);
+      sceneRow.appendChild(buildChip(key, sc, state.scene === key,
+        () => { state.scene = key; store.save(state); applyScene(); renderCustomPanel(); }));
     }
     const mascotRow = document.querySelector('#mascot-row');
     mascotRow.innerHTML = '';
     for (const [key, m] of Object.entries(MASCOTS)) {
-      const chip = document.createElement('button');
-      chip.className = 'pick-chip' + (state.mascot === key ? ' active' : '');
-      chip.innerHTML = `<span class="p-emoji">${m.emoji}</span><span class="p-name">${m.name}</span>`;
-      chip.onclick = () => { state.mascot = key; store.save(state); applyScene(); renderCustomPanel(); };
-      mascotRow.appendChild(chip);
+      mascotRow.appendChild(buildChip(key, m, state.mascot === key,
+        () => { state.mascot = key; store.save(state); applyScene(); renderCustomPanel(); }));
     }
     document.querySelector('#mascot-verse').textContent = mascot().verse;
   }
@@ -169,9 +207,18 @@
     d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
     return localDate(d);
   }
+  function lastWeekKeyOf() { // 上週週一的日期（前三名獎勵判定用）
+    const d = new Date();
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7) - 7);
+    return localDate(d);
+  }
   function ensureWeek() { // 跨週時歸零本週經驗值與本週章數（排行榜＋好友週任務用）
     const wk = weekKeyOf();
-    if (state.weekKey !== wk) { state.weekKey = wk; state.weekXp = 0; state.weekCh = 0; }
+    if (state.weekKey !== wk) {
+      // 保留「剛結束那一週」的分數，供上週排名獎勵判定
+      if (state.weekKey) { state.lastWeekXp = state.weekXp || 0; state.lastWeekKey = state.weekKey; }
+      state.weekKey = wk; state.weekXp = 0; state.weekCh = 0;
+    }
   }
   function bumpStreak() {
     const t = today();
@@ -5833,6 +5880,10 @@
       weekKey: wk,
       weekXp: Math.max(localWeek, cloudWeek),
       weekCh: Math.max(localCh, cloudCh),
+      // 上週分數：取「上週鑰匙較新」那份（跨裝置時保留真正上週的成績）
+      ...((local.lastWeekKey || '') >= (cloud.lastWeekKey || '')
+        ? { lastWeekKey: local.lastWeekKey || '', lastWeekXp: local.lastWeekXp || 0 }
+        : { lastWeekKey: cloud.lastWeekKey || '', lastWeekXp: cloud.lastWeekXp || 0 }),
       review: mergeReview(local.review, cloud.review),
       puzzles: { beatitudes: [...new Set([...(local.puzzles?.beatitudes || []), ...(cloud.puzzles?.beatitudes || [])])] },
       stats: mergeStats(local.stats, cloud.stats),
@@ -5894,6 +5945,7 @@
     renderTopbar();
     if (bookIndex) renderBooks();
     syncFriendInbox(); // 好友邀請背景同步＋首頁好友格提示
+    refreshRankReward(); // 登入後算上週名次，解鎖對應的夥伴/場景
   });
 
   // ===== 排行榜 =====
@@ -6345,7 +6397,7 @@
   };
 
   // 測試用鉤子（自動化驗證流程時讀取關卡狀態）
-  window.__bd = { get lesson() { return lesson; }, get state() { return state; }, get sprint() { return sprint; }, get flip() { return flip; }, get mg() { return mg; }, get action() { return action; }, mergeStates, renderBoard, renderQuestion, similarity };
+  window.__bd = { get lesson() { return lesson; }, get state() { return state; }, get sprint() { return sprint; }, get flip() { return flip; }, get mg() { return mg; }, get action() { return action; }, get rankReward() { return rankReward; }, mergeStates, renderBoard, renderQuestion, renderCustomPanel, refreshRankReward, applyRewardLocks, similarity };
 
   // ===== 啟動 =====
   (async function init() {
@@ -6367,6 +6419,8 @@
       return;
     }
     refreshHearts(); // 冷啟動先補回離線期間該回的愛心
+    ensureWeek(); // 跨週先保存上週分數（供排名獎勵判定）
+    refreshRankReward(); // 未登入＝rank 0，會把鎖住的夥伴/場景退回預設
     renderTopbar();
     renderBooks();
     // 每秒：回復到期的愛心＋更新「下一顆」倒數（回滿前才會真的存檔，不會每秒寫入）

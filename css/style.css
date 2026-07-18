@@ -108,6 +108,42 @@
   --title: #c03a54;
 }
 
+[data-scene="olive_mount"] {
+  /* 🫒 橄欖山（橄欖園的沉靜綠金：橄欖綠＋古金，主耶穌禱告與升天之處，路 19、徒 1） */
+  --bg: radial-gradient(900px 500px at 30% -10%, #dbe6c0 0%, transparent 55%),
+        linear-gradient(170deg, #f7f9ef 0%, #eef2e0 50%, #e2e8cf 100%);
+  --primary: #6f8b2e;
+  --primary-dark: #566d20;
+  --select: #b8860b;
+  --select-bg: #f7f0d8;
+  --card: #fdfef9;
+  --card-line: #dde5c9;
+  --text: #414a2c;
+  --text-light: #9aa681;
+  --topbar: rgba(247, 249, 239, 0.9);
+  --node-locked: #dbe3c6;
+  --node-locked-shadow: #c2cca6;
+  --title: #5f7526;
+}
+
+[data-scene="wedding_feast"] {
+  /* 💒 娶親宴席（羔羊婚筵的酒紅浪漫：深玫瑰紅＋婚禮金＋許多結婚裝飾，啟 19:7-9） */
+  --bg: radial-gradient(900px 500px at 72% -8%, #f6c1d0 0%, transparent 55%),
+        linear-gradient(170deg, #fef4f6 0%, #fbe0e8 45%, #f6ccd7 100%);
+  --primary: #c9184a;
+  --primary-dark: #a01038;
+  --select: #c99700;
+  --select-bg: #fbf1d6;
+  --card: #fffcfd;
+  --card-line: #f3d3dc;
+  --text: #5a2233;
+  --text-light: #bd8f9c;
+  --topbar: rgba(254, 244, 246, 0.9);
+  --node-locked: #f2d3dc;
+  --node-locked-shadow: #dcaebb;
+  --title: #b3123f;
+}
+
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; padding: 0; min-height: 100%; }
 
@@ -395,6 +431,9 @@ main, header { position: relative; z-index: 1; }
 .pick-chip .p-name { font-size: .74rem; font-weight: bold; color: var(--text-light); }
 .pick-chip.active { border-color: var(--select); background: var(--select-bg); }
 .pick-chip.active .p-name { color: var(--select); }
+.pick-chip.locked { opacity: .7; filter: grayscale(.55); }
+.pick-chip.locked .p-emoji { filter: grayscale(.7); }
+.pick-chip .p-lock { display: block; font-size: .56rem; font-weight: bold; color: #c9184a; margin-top: 2px; line-height: 1.2; }
 .mascot-verse { font-size: .78rem; color: var(--text-light); text-align: center; margin: 6px 0 0; min-height: 1.2em; }
 
 /* ===== 書卷地圖 ===== */
