@@ -59,6 +59,7 @@ const CloudSync = (function () {
         stats: state.stats || {},
         story: state.story || {},
         minigames: state.minigames || {},
+        milestones: state.milestones || {},
         friends: state.friends || [],
         name: user.displayName || "",
         updatedAt: ts,

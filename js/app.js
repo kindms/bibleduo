@@ -88,7 +88,7 @@
       CloudSync.save(d); // 有登入就同步到雲端（沒登入時是空操作）
     },
   };
-  let state = Object.assign({ xp: 0, streak: 0, lastPlay: '', done: {}, scene: 'meadow', mascot: 'dove', nickname: '', weekXp: 0, weekKey: '', muted: false, review: [], puzzles: { beatitudes: [] }, hearts: MAX_HEARTS, heartsTs: Date.now(), lastWeekXp: 0, lastWeekKey: '' }, store.load());
+  let state = Object.assign({ xp: 0, streak: 0, lastPlay: '', done: {}, scene: 'meadow', mascot: 'dove', nickname: '', weekXp: 0, weekKey: '', muted: false, review: [], puzzles: { beatitudes: [] }, hearts: MAX_HEARTS, heartsTs: Date.now(), lastWeekXp: 0, lastWeekKey: '', milestones: {} }, store.load());
   if (!state.puzzles) state.puzzles = { beatitudes: [] }; // 舊存檔補欄位
   if (!state.stats) state.stats = {}; // 各種計數器（衝刺最高分、翻牌次數、複習次數、朗讀成功數…），徽章用
   if (!state.minigames) state.minigames = {}; // 書卷故事小遊戲通關紀錄 { gameId: true }
@@ -346,35 +346,65 @@
     }
     currentBook = book;
     $('#chapter-title').textContent = currentBook.name;
-    // 書卷專屬玩法（小遊戲/拼圖/故事）：放在章節路徑「最後面」當通關獎勵，
-    // 讀完全卷才解鎖（2026-07-18 Burger 指示）
+    // 小遊戲改「放在路徑上」：每讀 10 章一個里程碑小遊戲、每卷最後一個招牌小遊戲
+    // （2026-07-19 Burger 指示；圓形節點但明顯跟每章不同）
     const done = state.done[id] || [];
     const total = currentBook.chapters.length;
-    const bookComplete = done.length >= total;
-    const slot = $('#book-feature-slot');
-    slot.innerHTML = '';
-    for (const node of bookFeatures(id)) {
-      if (!bookComplete) {
-        node.classList.add('bf-locked');
-        node.querySelector('.bf-emoji').textContent = '🔒';
-        node.querySelector('.bf-text small').textContent = `讀完全卷解鎖（${done.length}/${total} 章）`;
-        node.onclick = () => alert(`這是${currentBook.name}的通關獎勵——讀完全卷 ${total} 章就能解鎖！\n目前進度：${done.length}/${total} 章，加油！`);
-      }
-      slot.appendChild(node);
-    }
+    const doneCount = done.length;
+    $('#book-feature-slot').innerHTML = ''; // 小遊戲已移到路徑上，slot 不再使用
     const path = $('#chapter-path');
     path.innerHTML = '';
-    const maxUnlocked = done.length ? Math.max(...done) + 1 : 1;
-    for (let c = 1; c <= currentBook.chapters.length; c++) {
-      const node = document.createElement('button');
+    const maxUnlocked = doneCount ? Math.max(...done) + 1 : 1;
+    let msIdx = [...id].reduce((a, ch) => a + ch.charCodeAt(0), 0); // 不同書卷的里程碑從不同遊戲起頭
+    for (let c = 1; c <= total; c++) {
       const isDone = done.includes(c);
       const locked = c > maxUnlocked;
+      const node = document.createElement('button');
       node.className = 'chapter-node' + (isDone ? ' done' : locked ? ' locked' : c === maxUnlocked ? ' next' : '');
       node.innerHTML = `<div>${isDone ? '⭐' : locked ? '🔒' : c}</div><div class="n-label">第 ${c} 章</div>`;
       if (!locked) node.onclick = () => startLesson(c);
       path.appendChild(node);
+      if (c % 10 === 0 && c < total) path.appendChild(makeMilestoneNode(id, c, msIdx++, doneCount)); // 每 10 章
     }
+    const sig = makeSignatureNode(id, total, doneCount); // 每卷最後的招牌小遊戲
+    if (sig) path.appendChild(sig);
     show('#screen-chapters');
+  }
+  // 路徑上「每 10 章」的里程碑小遊戲節點（圓形、繽紛，跟每章明顯不同）
+  function makeMilestoneNode(bookId, pos, idx, doneCount) {
+    const g = MILESTONE_GAMES[((idx % MILESTONE_GAMES.length) + MILESTONE_GAMES.length) % MILESTONE_GAMES.length];
+    const unlocked = doneCount >= pos;
+    const cleared = milestoneCleared(bookId, pos);
+    const node = document.createElement('button');
+    node.className = 'mg-node' + (cleared ? ' cleared' : unlocked ? ' next' : ' locked');
+    node.innerHTML = `<div class="mg-ico">${unlocked ? (cleared ? '⭐' : g.emoji) : '🔒'}</div><div class="mg-label">${unlocked ? '小遊戲' : `讀完${pos}章`}</div>`;
+    node.onclick = unlocked
+      ? () => startMilestone(bookId, pos, idx)
+      : () => alert(`讀完 ${pos} 章就會解鎖這個路上小遊戲！繼續加油～`);
+    return node;
+  }
+  // 每卷最後的「招牌小遊戲」節點（讀完全卷才解鎖；比里程碑更大更華麗）
+  function makeSignatureNode(bookId, total, doneCount) {
+    const sig = bookSignature(bookId);
+    if (!sig) return null;
+    const unlocked = doneCount >= total;
+    const node = document.createElement('button');
+    node.className = 'mg-node sig-node' + (sig.cleared ? ' cleared' : unlocked ? ' next' : ' locked');
+    node.innerHTML = `<div class="mg-ico">${unlocked ? (sig.cleared ? '👑' : sig.emoji) : '🔒'}</div><div class="mg-label">${unlocked ? '招牌關' : '全卷解鎖'}</div>`;
+    node.onclick = unlocked
+      ? sig.launch
+      : () => alert(`這是${currentBook.name}的招牌小遊戲——讀完全卷 ${total} 章就能解鎖！\n目前 ${doneCount}/${total} 章，加油！`);
+    return node;
+  }
+  // 判斷某書卷的招牌小遊戲（特例：GEN 挪亞、JON 約拿、MAT 八福；其餘走 MINIGAMES/ACTION_GAMES）
+  function bookSignature(id) {
+    if (id === 'GEN') return { emoji: '🚢', launch: () => startNoah(), cleared: !!((state.minigames || {}).noah) };
+    if (id === 'JON') return { emoji: '🐋', launch: () => openStoryList(), cleared: (((state.story || {}).JON) || []).length >= 4 };
+    if (id === 'MAT') return { emoji: '🧩', launch: () => { renderPuzzle(); show('#screen-puzzle'); }, cleared: (((state.puzzles || {}).beatitudes) || []).length >= 8 };
+    for (const [gid, cfg] of Object.entries(MINIGAMES)) if (cfg.book === id) {
+      return { emoji: cfg.emoji, launch: () => (ACTION_GAMES[gid] ? ACTION_GAMES[gid]() : startMinigame(gid)), cleared: !!((state.minigames || {})[gid]) };
+    }
+    return null;
   }
   // 產生某書卷頂端的「專屬玩法」入口清單（可有多個）
   function bookFeatures(id) {
@@ -4403,6 +4433,325 @@
     });
   };
 
+  // ===== 🏁 路徑里程碑小遊戲（每讀 10 章解鎖一關；通用、用該卷已讀章節出題，6 款機制各不同）=====
+  let milestone = null; // { bookId, pos, idx, again }
+  function milestoneCleared(bookId, pos) { return (((state.milestones || {})[bookId]) || []).includes(pos); }
+  function msPickChapters(book, doneChs, n) {
+    const cands = doneChs.filter((c) => (book.chapters[c - 1] || []).length >= 4);
+    return shuffleArr(cands.length ? cands : doneChs.slice()).slice(0, n);
+  }
+  function msSplitClauses(text) { return text.split(/(?<=[，。；：？！])/).filter((s) => s.trim()); }
+  // 蒐集指定題型的題目（generateVerseQuestion 隨機出 fill/tf/next/typefill，這裡篩要的那種）
+  function msCollect(book, doneChs, type, n) {
+    const out = []; let guard = 0;
+    while (out.length < n && guard++ < 150) {
+      const c = doneChs[Math.floor(Math.random() * doneChs.length)];
+      const verses = book.chapters[c - 1] || [];
+      if (!verses.length) continue;
+      const q = QuestionFactory.generateVerseQuestion(book, c, Math.floor(Math.random() * verses.length));
+      if (q && q.type === type && !out.some((x) => x.ref === q.ref && x.answer === q.answer)) out.push(q);
+    }
+    return out;
+  }
+  function winMilestone() {
+    const { bookId, pos, again } = milestone;
+    endActionState();
+    if (!state.milestones) state.milestones = {};
+    const arr = state.milestones[bookId] || (state.milestones[bookId] = []);
+    const first = !arr.includes(pos);
+    if (first) arr.push(pos);
+    const gained = first ? 20 : 5;
+    state.xp += gained; ensureWeek(); state.weekXp += gained; bumpStreak();
+    store.save(state); sndWin(); throwConfetti();
+    $('#result-box').innerHTML = `
+      <div class="r-emoji">🏁⭐</div>
+      <h2>里程碑達成！</h2>
+      <p>讀了這麼多章，實力大增——繼續往下一段路前進！</p>
+      <div class="result-stats"><div class="r-stat">＋${gained}<span>經驗值${first ? '' : '（重玩）'}</span></div></div>
+      <button class="big-btn" id="btn-ms-again">再玩一次</button>
+      <button class="ghost-btn" id="btn-continue">回路徑</button>`;
+    $('#btn-ms-again').onclick = again;
+    $('#btn-continue').onclick = () => { renderTopbar(); openBook(bookId); };
+    renderTopbar(); show('#screen-result');
+  }
+  function loseMilestone() {
+    const { bookId, again } = milestone;
+    endActionState(); sndBad();
+    $('#result-box').innerHTML = `
+      <div class="r-emoji">${mascot().emoji}💭</div>
+      <h2>差一點！</h2>
+      <p>這是加分關卡，不會有任何損失——再挑戰一次就好！</p>
+      <button class="big-btn" id="btn-ms-again">再挑戰</button>
+      <button class="ghost-btn" id="btn-continue">回路徑</button>`;
+    $('#btn-ms-again').onclick = again;
+    $('#btn-continue').onclick = () => { renderTopbar(); openBook(bookId); };
+    renderTopbar(); show('#screen-result');
+  }
+  function startMilestone(bookId, pos, idx) {
+    const g = MILESTONE_GAMES[((idx % MILESTONE_GAMES.length) + MILESTONE_GAMES.length) % MILESTONE_GAMES.length];
+    const doneChs = (state.done[bookId] || []).slice().sort((a, b) => a - b);
+    milestone = { bookId, pos, idx, again: () => startMilestone(bookId, pos, idx) };
+    g.run(currentBook, doneChs);
+  }
+  function msDrive(S) { // rAF 驅動；測試可用 S.tick 手動逐格推進
+    let last = performance.now();
+    const step = (now) => {
+      if (!action || action.state !== S) return;
+      S.tick(Math.min(50, now - last)); last = now;
+      if (S.phase === 'play') S.raf = requestAnimationFrame(step);
+    };
+    S.raf = requestAnimationFrame(step);
+  }
+  function msRenderQuiz(container, q, onAnswer) { // 快答題（fill/next 四選一、tf 兩鈕）
+    const stem = q.type === 'fill' ? q.display.replace('____', '<span class="blank">？</span>')
+      : q.type === 'next' ? `${escapeHtml(q.head)}<span class="blank">……</span>`
+      : '這句經文正確嗎？<br>' + escapeHtml(q.statement);
+    container.innerHTML = `<div class="q-ref">${q.ref || ''}</div><div class="q-passage sprint-passage">${stem}</div>`;
+    const box = document.createElement('div');
+    box.className = q.type === 'tf' ? 'tf-row' : 'choices';
+    const opts = q.type === 'tf' ? [{ label: '⭕ 正確', val: true }, { label: '❌ 有錯', val: false }] : shuffleArr(q.options).map((o) => ({ label: o, val: o }));
+    for (const o of opts) {
+      const b = document.createElement('button');
+      b.className = q.type === 'tf' ? 'tf-btn tf-mini' : 'choice';
+      b.textContent = o.label;
+      b.onclick = () => onAnswer(o.val === q.answer);
+      box.appendChild(b);
+    }
+    container.appendChild(box);
+  }
+
+  const MILESTONE_GAMES = [
+    // ⚡ 極速問答：限時內答對 8 題（四選一／是非混合）
+    { emoji: '⚡', title: '極速問答', run(book, doneChs) {
+      const NEED = 8, LIMIT = 45000;
+      const S = { phase: 'play', correct: 0, t: 0, qs: [], qi: 0, raf: 0 };
+      const area = startAction('⚡ 極速問答', book.id, () => cancelAnimationFrame(S.raf));
+      action.state = S;
+      for (const c of msPickChapters(book, doneChs, 6)) S.qs.push(...QuestionFactory.generateQuickQuestions(book, c, 5));
+      S.qs = shuffleArr(S.qs);
+      area.innerHTML = `
+        <div class="act-row"><span>✅ 答對</span><div class="act-track"><div class="act-fill" id="mq-bar"></div></div><b id="mq-count">0/${NEED}</b></div>
+        <div class="act-row"><span>⏱️ 時間</span><div class="act-track"><div class="act-fill act-foe" id="mq-time"></div></div></div>
+        <div id="mq-area"></div>
+        <p class="fr-tip">限時 45 秒，答對 ${NEED} 題就過關——答錯不扣分，快答下一題！</p>`;
+      const nextQ = () => {
+        if (S.qi >= S.qs.length) { S.qi = 0; S.qs = shuffleArr(S.qs); }
+        const q = S.qs[S.qi++];
+        if (!q) { S.phase = 'done'; loseMilestone(); return; }
+        msRenderQuiz($('#mq-area'), q, (ok) => {
+          if (S.phase !== 'play') return;
+          if (ok) { S.correct++; sndGood(); $('#mq-count').textContent = `${S.correct}/${NEED}`; $('#mq-bar').style.width = `${S.correct / NEED * 100}%`;
+            if (S.correct >= NEED) { S.phase = 'done'; winMilestone(); return; } }
+          else sndBad();
+          nextQ();
+        });
+      };
+      nextQ();
+      S.tick = (dt) => { if (S.phase !== 'play') return; S.t += dt; $('#mq-time').style.width = `${Math.min(100, S.t / LIMIT * 100)}%`; if (S.t >= LIMIT) { S.phase = 'done'; loseMilestone(); } };
+      msDrive(S);
+    } },
+    // ⭕❌ 是非快判：限時內答對 10 題是非
+    { emoji: '⭕', title: '是非快判', run(book, doneChs) {
+      const NEED = 10, LIMIT = 40000;
+      const S = { phase: 'play', correct: 0, t: 0, qs: [], qi: 0, raf: 0 };
+      const area = startAction('⭕❌ 是非快判', book.id, () => cancelAnimationFrame(S.raf));
+      action.state = S;
+      for (const c of msPickChapters(book, doneChs, 8)) for (const q of QuestionFactory.generateQuickQuestions(book, c, 8)) if (q.type === 'tf') S.qs.push(q);
+      S.qs = shuffleArr(S.qs);
+      area.innerHTML = `
+        <div class="act-row"><span>✅ 答對</span><div class="act-track"><div class="act-fill" id="mt-bar"></div></div><b id="mt-count">0/${NEED}</b></div>
+        <div class="act-row"><span>⏱️ 時間</span><div class="act-track"><div class="act-fill act-foe" id="mt-time"></div></div></div>
+        <div id="mt-area"></div>
+        <p class="fr-tip">限時 40 秒，判斷經文對錯——答對 ${NEED} 句就過關！</p>`;
+      const nextQ = () => {
+        if (!S.qs.length) { S.phase = 'done'; loseMilestone(); return; }
+        if (S.qi >= S.qs.length) { S.qi = 0; S.qs = shuffleArr(S.qs); }
+        msRenderQuiz($('#mt-area'), S.qs[S.qi++], (ok) => {
+          if (S.phase !== 'play') return;
+          if (ok) { S.correct++; sndGood(); $('#mt-count').textContent = `${S.correct}/${NEED}`; $('#mt-bar').style.width = `${S.correct / NEED * 100}%`;
+            if (S.correct >= NEED) { S.phase = 'done'; winMilestone(); return; } }
+          else sndBad();
+          nextQ();
+        });
+      };
+      nextQ();
+      S.tick = (dt) => { if (S.phase !== 'play') return; S.t += dt; $('#mt-time').style.width = `${Math.min(100, S.t / LIMIT * 100)}%`; if (S.t >= LIMIT) { S.phase = 'done'; loseMilestone(); } };
+      msDrive(S);
+    } },
+    // ⌨️ 打字快填：連續填對 5 個缺字（打字），3 次錯過就失敗
+    { emoji: '⌨️', title: '打字快填', run(book, doneChs) {
+      const NEED = 5;
+      const S = { phase: 'play', done: 0, miss: 0, qs: msCollect(book, doneChs, 'typefill', NEED + 3), qi: 0 };
+      const area = startAction('⌨️ 打字快填', book.id, null);
+      action.state = S;
+      area.innerHTML = `
+        <div class="act-row"><span>✍️ 填對</span><div class="act-track"><div class="act-fill" id="mf-bar"></div></div><b id="mf-count">0/${NEED}</b></div>
+        <div class="act-row"><span>💔 填錯</span><b id="mf-miss">—</b></div>
+        <div id="mf-area"></div>`;
+      const nextQ = () => {
+        const q = S.qs[S.qi++];
+        if (!q) { S.phase = 'done'; (S.done >= NEED ? winMilestone : loseMilestone)(); return; }
+        const a = $('#mf-area');
+        a.innerHTML = `<div class="q-ref">${q.ref || ''}</div>
+          <div class="q-passage">${escapeHtml(q.display)}</div>
+          <input class="ms-type-input" id="mf-in" inputmode="text" placeholder="打出缺的字…" autocomplete="off">
+          <button class="big-btn" id="mf-go">送出</button>
+          <p class="fr-tip">缺 ${q.answer.length} 個字，把它打出來！</p>`;
+        const inp = $('#mf-in');
+        setTimeout(() => inp.focus(), 50);
+        const submit = () => {
+          if (S.phase !== 'play') return;
+          const val = inp.value.replace(/[^一-鿿㐀-䶿]/g, '');
+          if (val === q.answer) {
+            S.done++; sndGood();
+            $('#mf-count').textContent = `${S.done}/${NEED}`; $('#mf-bar').style.width = `${S.done / NEED * 100}%`;
+            if (S.done >= NEED) { S.phase = 'done'; winMilestone(); return; }
+          } else {
+            S.miss++; sndBad(); $('#mf-miss').textContent = '💔'.repeat(S.miss);
+            if (S.miss >= 3) { S.phase = 'done'; loseMilestone(); return; }
+          }
+          nextQ();
+        };
+        $('#mf-go').onclick = submit;
+        inp.onkeydown = (e) => { if (e.key === 'Enter') submit(); };
+      };
+      nextQ();
+    } },
+    // 🔀 語塊排序：把打散的經文語塊「依序點回來」，做對 3 節；3 次點錯就失敗
+    { emoji: '🔀', title: '語塊排序', run(book, doneChs) {
+      const NEED = 3;
+      const S = { phase: 'play', done: 0, miss: 0, verses: [] };
+      const area = startAction('🔀 語塊排序', book.id, null);
+      action.state = S;
+      // 蒐集 3~5 個語塊、且各塊不重複的節
+      let guard = 0;
+      while (S.verses.length < NEED + 2 && guard++ < 200) {
+        const c = doneChs[Math.floor(Math.random() * doneChs.length)];
+        const vs = book.chapters[c - 1] || [];
+        const vi = Math.floor(Math.random() * vs.length);
+        if (!vs[vi] || /[〔〕]/.test(vs[vi])) continue;
+        const cl = msSplitClauses(vs[vi]);
+        if (cl.length >= 3 && cl.length <= 5 && new Set(cl).size === cl.length && !S.verses.some((v) => v.ref === `${book.name} ${c}:${vi + 1}`)) {
+          S.verses.push({ ref: `${book.name} ${c}:${vi + 1}`, clauses: cl });
+        }
+      }
+      area.innerHTML = `
+        <div class="act-row"><span>🧩 排好</span><div class="act-track"><div class="act-fill" id="mo-bar"></div></div><b id="mo-count">0/${NEED}</b></div>
+        <div class="act-row"><span>💔 排錯</span><b id="mo-miss">—</b></div>
+        <div id="mo-area"></div>
+        <p class="fr-tip">照經文原本的順序，把語塊一塊一塊點回來！</p>`;
+      let vIdx = 0;
+      const renderVerse = () => {
+        const v = S.verses[vIdx++];
+        if (!v) { S.phase = 'done'; (S.done >= NEED ? winMilestone : loseMilestone)(); return; }
+        S.cur = v; // 測試用
+        let at = 0;
+        const a = $('#mo-area');
+        a.innerHTML = `<div class="q-ref">${v.ref}</div><div class="ms-order-slot" id="mo-slot"></div><div class="ms-order" id="mo-pool"></div>`;
+        const pool = $('#mo-pool'), slot = $('#mo-slot');
+        for (const cl of shuffleArr(v.clauses)) {
+          const b = document.createElement('button');
+          b.className = 'ms-order-chip'; b.textContent = cl;
+          b.onclick = () => {
+            if (S.phase !== 'play' || b.disabled) return;
+            if (cl === v.clauses[at]) {
+              at++; b.disabled = true; b.classList.add('used');
+              slot.textContent = v.clauses.slice(0, at).join('');
+              sndGood();
+              if (at >= v.clauses.length) {
+                S.done++; $('#mo-count').textContent = `${S.done}/${NEED}`; $('#mo-bar').style.width = `${S.done / NEED * 100}%`;
+                if (S.done >= NEED) { S.phase = 'done'; winMilestone(); return; }
+                setTimeout(renderVerse, 500);
+              }
+            } else {
+              S.miss++; sndBad(); $('#mo-miss').textContent = '💔'.repeat(S.miss);
+              b.classList.remove('shake'); void b.offsetWidth; b.classList.add('shake');
+              if (S.miss >= 3) { S.phase = 'done'; loseMilestone(); }
+            }
+          };
+          pool.appendChild(b);
+        }
+      };
+      renderVerse();
+    } },
+    // 🃏 翻牌配對：把 6 對上下句翻牌配起來（記憶），60 秒內完成
+    { emoji: '🃏', title: '翻牌配對', run(book, doneChs) {
+      const LIMIT = 60000;
+      const S = { phase: 'play', matched: 0, sel: null, lock: false, t: 0, pairs: 0, raf: 0 };
+      const area = startAction('🃏 翻牌配對', book.id, () => cancelAnimationFrame(S.raf));
+      action.state = S;
+      let pairs = [];
+      for (const c of shuffleArr(doneChs)) { pairs = QuestionFactory.generatePairs(book, c, 6); if (pairs.length >= 4) break; }
+      S.pairs = pairs.length;
+      if (!S.pairs) { S.phase = 'done'; loseMilestone(); return; }
+      const cards = shuffleArr(pairs.flatMap((p, i) => [{ key: i, text: p.left }, { key: i, text: p.right }]));
+      S.cards = cards; // 測試用（不顯示於畫面）
+      area.innerHTML = `
+        <div class="act-row"><span>🃏 配對</span><div class="act-track"><div class="act-fill" id="mm-bar"></div></div><b id="mm-count">0/${S.pairs}</b></div>
+        <div class="act-row"><span>⏱️ 時間</span><div class="act-track"><div class="act-fill act-foe" id="mm-time"></div></div></div>
+        <div class="ms-flip" id="mm-grid"></div>
+        <p class="fr-tip">翻開兩張，把「上句」和「下句」配成一對！限時 60 秒。</p>`;
+      const grid = $('#mm-grid');
+      cards.forEach((c) => {
+        const card = document.createElement('button');
+        card.className = 'ms-card';
+        card.innerHTML = `<span class="ms-card-in"><span class="ms-face ms-front">📜</span><span class="ms-face ms-back">${escapeHtml(c.text)}</span></span>`;
+        card.onclick = () => {
+          if (S.phase !== 'play' || S.lock || card.classList.contains('open') || card.classList.contains('done')) return;
+          card.classList.add('open');
+          if (!S.sel) { S.sel = { c, card }; return; }
+          const a = S.sel; S.sel = null;
+          if (a.c.key === c.key && a.card !== card) {
+            a.card.classList.add('done'); card.classList.add('done'); S.matched++; sndGood();
+            $('#mm-count').textContent = `${S.matched}/${S.pairs}`; $('#mm-bar').style.width = `${S.matched / S.pairs * 100}%`;
+            if (S.matched >= S.pairs) { S.phase = 'done'; winMilestone(); }
+          } else {
+            S.lock = true; sndBad();
+            setTimeout(() => { a.card.classList.remove('open'); card.classList.remove('open'); S.lock = false; }, 700);
+          }
+        };
+        grid.appendChild(card);
+      });
+      S.tick = (dt) => { if (S.phase !== 'play') return; S.t += dt; $('#mm-time').style.width = `${Math.min(100, S.t / LIMIT * 100)}%`; if (S.t >= LIMIT) { S.phase = 'done'; loseMilestone(); } };
+      msDrive(S);
+    } },
+    // 🎯 準心打靶：準星左右擺盪，掃進綠色靶心的瞬間按下，命中 6 次；靶心越來越窄，3 次落空失敗
+    { emoji: '🎯', title: '準心打靶', run(book, doneChs) {
+      const NEED = 6;
+      const S = { phase: 'play', hit: 0, miss: 0, marker: 0, dir: 1, raf: 0 };
+      const area = startAction('🎯 準心打靶', book.id, () => cancelAnimationFrame(S.raf));
+      action.state = S;
+      area.innerHTML = `
+        <div class="act-row"><span>🎯 命中</span><div class="act-track"><div class="act-fill" id="ma-bar"></div></div><b id="ma-count">0/${NEED}</b></div>
+        <div class="act-row"><span>💔 落空</span><b id="ma-miss">—</b></div>
+        <div class="dv-aim" style="height:34px"><div class="dv-zone" id="ma-zone"></div><div class="dv-marker" id="ma-marker"></div></div>
+        <button class="big-btn act-tap" id="ma-btn">🎯 放手命中！</button>
+        <p class="fr-tip">橘色準星掃進綠色靶心的瞬間按下去——命中 ${NEED} 次就過關，越後面靶心越窄！</p>`;
+      const zoneHalf = () => Math.max(6, 15 - S.hit * 1.6);
+      const placeZone = () => { const z = $('#ma-zone'); z.style.left = `${50 - zoneHalf()}%`; z.style.width = `${zoneHalf() * 2}%`; };
+      placeZone();
+      $('#ma-btn').onclick = () => {
+        if (S.phase !== 'play') return;
+        if (Math.abs(S.marker - 50) <= zoneHalf()) {
+          S.hit++; sndGood(); $('#ma-count').textContent = `${S.hit}/${NEED}`; $('#ma-bar').style.width = `${S.hit / NEED * 100}%`;
+          if (S.hit >= NEED) { S.phase = 'done'; winMilestone(); return; }
+          placeZone();
+        } else {
+          S.miss++; sndBad(); $('#ma-miss').textContent = '💔'.repeat(S.miss);
+          if (S.miss >= 3) { S.phase = 'done'; loseMilestone(); }
+        }
+      };
+      S.tick = (dt) => {
+        if (S.phase !== 'play') return;
+        S.marker += S.dir * (1.8 + S.hit * 0.3) * (dt / 16.7);
+        if (S.marker >= 100) { S.marker = 100; S.dir = -1; }
+        if (S.marker <= 0) { S.marker = 0; S.dir = 1; }
+        const el = $('#ma-marker'); if (el) el.style.left = `${S.marker}%`;
+      };
+      msDrive(S);
+    } },
+  ];
+
   // ===== 📖 書卷故事小遊戲（對決引擎：答對推進我方、答錯讓威脅逼近，先滿者定勝負）=====
   // 加一款遊戲＝在這裡加一份設定，章節頁入口與雲端同步都會自動長出來
   const MINIGAMES = {
@@ -5891,6 +6240,13 @@
       stats: mergeStats(local.stats, cloud.stats),
       story: { JON: [...new Set([...((local.story || {}).JON || []), ...((cloud.story || {}).JON || [])])] },
       minigames: Object.assign({}, cloud.minigames, local.minigames), // 任一裝置通關就算通關
+      milestones: (() => { // 路徑里程碑：每卷各取聯集
+        const out = {};
+        for (const k of new Set([...Object.keys(local.milestones || {}), ...Object.keys(cloud.milestones || {})])) {
+          out[k] = [...new Set([...((local.milestones || {})[k] || []), ...((cloud.milestones || {})[k] || [])])].sort((a, b) => a - b);
+        }
+        return out;
+      })(),
       friends: [...new Set([...(local.friends || []), ...(cloud.friends || [])])], // 好友清單取聯集
       // 愛心：兩邊各算到「現在」，取較多者（不苛扣跨裝置玩家）
       ...(() => { const a = effHearts(local), b = effHearts(cloud); return a.hearts >= b.hearts ? a : b; })(),
@@ -6399,7 +6755,7 @@
   };
 
   // 測試用鉤子（自動化驗證流程時讀取關卡狀態）
-  window.__bd = { get lesson() { return lesson; }, get state() { return state; }, get sprint() { return sprint; }, get flip() { return flip; }, get mg() { return mg; }, get action() { return action; }, get rankReward() { return rankReward; }, mergeStates, renderBoard, renderQuestion, renderCustomPanel, refreshRankReward, applyRewardLocks, similarity };
+  window.__bd = { get lesson() { return lesson; }, get state() { return state; }, get sprint() { return sprint; }, get flip() { return flip; }, get mg() { return mg; }, get action() { return action; }, get rankReward() { return rankReward; }, get milestone() { return milestone; }, get MILESTONE_GAMES() { return MILESTONE_GAMES; }, startMilestone, mergeStates, renderBoard, renderQuestion, renderCustomPanel, refreshRankReward, applyRewardLocks, similarity };
 
   // ===== 啟動 =====
   (async function init() {

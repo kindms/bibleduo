@@ -514,6 +514,45 @@ main, header { position: relative; z-index: 1; }
 .chapter-node:nth-child(odd):active { transform: translateX(-46px) translateY(3px); }
 .chapter-node:nth-child(even):active { transform: translateX(46px) translateY(3px); }
 
+/* 🏁 路徑上的小遊戲節點：圓形但繽紛，明顯跟每章不同（置中、不跟著蜿蜒） */
+.mg-node {
+  width: 86px; height: 86px; border-radius: 50%; margin: 16px 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  font-weight: bold; cursor: pointer; border: 3px dashed rgba(255, 255, 255, .8); font-size: 1.9rem;
+  color: #fff; background: linear-gradient(135deg, #a855f7, #ec4899 55%, #f59e0b);
+  box-shadow: 0 5px 0 rgba(120, 40, 140, .5), 0 0 0 4px rgba(236, 72, 153, .22), 0 8px 18px rgba(0, 0, 0, .18);
+}
+.mg-node:active { transform: translateY(3px); }
+.mg-node .mg-label { font-size: .56rem; font-weight: bold; opacity: .95; margin-top: 1px; }
+.mg-node.locked { background: var(--node-locked); border-color: var(--card-line); box-shadow: 0 5px 0 var(--node-locked-shadow); color: var(--text-light); cursor: not-allowed; }
+.mg-node.cleared { box-shadow: 0 5px 0 rgba(120, 40, 140, .5), 0 0 0 4px rgba(250, 204, 21, .7), 0 8px 18px rgba(0, 0, 0, .18); } /* 保留繽紛漸層＋金圈，跟金色的「已讀章節」區別 */
+.mg-node.next { animation: mg-pulse 1.5s ease-in-out infinite; }
+@keyframes mg-pulse {
+  0%, 100% { box-shadow: 0 5px 0 rgba(120, 40, 140, .5), 0 0 0 0 rgba(236, 72, 153, .45); }
+  50% { box-shadow: 0 5px 0 rgba(120, 40, 140, .5), 0 0 0 13px rgba(236, 72, 153, 0); }
+}
+/* 招牌關：更大、實線金邊、金紫紅漸層 */
+.mg-node.sig-node { width: 98px; height: 98px; border-style: solid; border-color: #fde68a; font-size: 2.1rem;
+  background: linear-gradient(135deg, #f43f5e, #a855f7 50%, #facc15);
+  box-shadow: 0 6px 0 rgba(120, 30, 80, .5), 0 0 0 5px rgba(250, 204, 21, .3), 0 10px 22px rgba(0, 0, 0, .2); }
+.mg-node.sig-node.locked { background: var(--node-locked); border-color: var(--card-line); box-shadow: 0 6px 0 var(--node-locked-shadow); color: var(--text-light); }
+.mg-node.sig-node.cleared { background: linear-gradient(135deg, #fbbf24, #f59e0b, #d97706); }
+
+/* 里程碑小遊戲用的小元素 */
+.ms-type-input { width: 100%; font-size: 1.3rem; text-align: center; padding: 10px; border: 2px solid var(--card-line); border-radius: 12px; margin: 10px 0; box-sizing: border-box; }
+.ms-order-slot { min-height: 2.2em; background: var(--card); border: 2px dashed var(--card-line); border-radius: 12px; padding: 10px; margin: 8px 0; font-weight: bold; color: var(--text); line-height: 1.6; }
+.ms-order { display: flex; flex-wrap: wrap; gap: 8px; }
+.ms-order-chip { padding: 10px 12px; background: var(--card); border: 2px solid var(--card-line); border-radius: 12px; font-size: 1rem; color: var(--text); cursor: pointer; font-weight: bold; }
+.ms-order-chip.used { opacity: .3; pointer-events: none; }
+.ms-flip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 8px 0; }
+.ms-card { aspect-ratio: 3 / 2.3; border: none; background: none; cursor: pointer; padding: 0; perspective: 600px; }
+.ms-card-in { position: relative; display: block; width: 100%; height: 100%; transition: transform .3s; transform-style: preserve-3d; }
+.ms-card.open .ms-card-in, .ms-card.done .ms-card-in { transform: rotateY(180deg); }
+.ms-face { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; border-radius: 12px; -webkit-backface-visibility: hidden; backface-visibility: hidden; padding: 4px; font-size: .74rem; font-weight: bold; text-align: center; overflow: hidden; }
+.ms-front { background: linear-gradient(135deg, #a855f7, #ec4899); color: #fff; font-size: 1.5rem; }
+.ms-back { background: var(--card); border: 2px solid var(--primary); color: var(--text); transform: rotateY(180deg); }
+.ms-card.done .ms-back { border-color: #16a34a; background: #dcfce7; }
+
 /* ===== 關卡進行中 ===== */
 #screen-lesson { display: flex; flex-direction: column; min-height: calc(100vh / var(--z, 1) - 60px); }
 .lesson-top { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
