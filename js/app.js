@@ -628,11 +628,16 @@
     area.innerHTML = `
       <div class="q-type">🎤 開口讀經：大聲唸出這節經文</div>
       <div class="q-ref">${q.ref}</div>
-      <div class="q-passage">${escapeHtml(q.text)}</div>
+      <div class="q-passage no-copy" id="read-passage">${escapeHtml(q.text)}</div>
       <div class="read-box" id="read-box"></div>`;
     $('#lesson-bottom').classList.add('hidden'); // 自動判分，不用確定鈕
     currentAnswerGetter = () => null;
     const box = $('#read-box');
+
+    // 防作弊：正解經文禁止選取/複製/剪下/右鍵，避免打字模式時被反白複製去刷相似度
+    const passage = $('#read-passage');
+    ['copy', 'cut', 'contextmenu', 'selectstart', 'dragstart'].forEach(ev =>
+      passage.addEventListener(ev, e => e.preventDefault()));
 
     // 打字備援：環境不便朗讀、不支援語音、或權限被拒時
     function typingMode(msg) {
@@ -644,6 +649,8 @@
       input.className = 'type-input read-textarea';
       input.rows = 3;
       input.placeholder = '在這裡輸入經文…';
+      // 防作弊：禁止貼上，逼使用者真的一字一字打
+      ['paste', 'drop'].forEach(ev => input.addEventListener(ev, e => e.preventDefault()));
       const btn = document.createElement('button');
       btn.className = 'big-btn';
       btn.textContent = '送出';
@@ -6249,7 +6256,13 @@
       })(),
       friends: [...new Set([...(local.friends || []), ...(cloud.friends || [])])], // 好友清單取聯集
       // 愛心：兩邊各算到「現在」，取較多者（不苛扣跨裝置玩家）
-      ...(() => { const a = effHearts(local), b = effHearts(cloud); return a.hearts >= b.hearts ? a : b; })(),
+      // 但雲端沒存過愛心（舊資料/從沒同步）時只信本機，否則登出再登入會被假的滿血蓋回 5 顆
+      ...(() => {
+        const a = effHearts(local);
+        if (typeof cloud.hearts !== 'number') return a;
+        const b = effHearts(cloud);
+        return a.hearts >= b.hearts ? a : b;
+      })(),
     };
   }
   // 計數器合併：每個欄位取較大值（兩邊各玩各的都不吃虧）

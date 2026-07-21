@@ -52,6 +52,8 @@ const CloudSync = (function () {
       db.collection(COLLECTION).doc(user.uid).set({
         xp: state.xp, streak: state.streak, lastPlay: state.lastPlay,
         done: state.done, scene: state.scene, mascot: state.mascot,
+        hearts: typeof state.hearts === "number" ? state.hearts : 5, // 愛心跨裝置同步；沒存雲端會導致登出再登入被合併回滿血
+        heartsTs: state.heartsTs || Date.now(),
         nickname: state.nickname || "", weekXp: state.weekXp || 0, weekKey: state.weekKey || "", weekCh: state.weekCh || 0,
         lastWeekXp: state.lastWeekXp || 0, lastWeekKey: state.lastWeekKey || "",
         review: state.review || [],

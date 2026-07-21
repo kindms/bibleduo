@@ -584,6 +584,11 @@ main, header { position: relative; z-index: 1; }
   display: inline-block; min-width: 64px; border-bottom: 3px solid var(--select);
   text-align: center; color: var(--select); font-weight: bold; margin: 0 2px;
 }
+/* 朗讀題正解經文：禁止選取/複製，避免打字模式被反白複製去刷相似度 */
+.q-passage.no-copy {
+  -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none;
+  -webkit-touch-callout: none; /* iOS Safari 長按不跳選單 */
+}
 
 /* 選項按鈕 */
 .choices { display: flex; flex-direction: column; gap: 10px; }
