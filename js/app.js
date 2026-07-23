@@ -1107,9 +1107,9 @@
     if (lesson.puzzleCorrect) {
       const got = puzzleGot();
       if (!got.includes(i)) got.push(i);
-      state.xp += 20;
+      state.xp += 80; // 2026-07-21 八福拼圖每片經驗 ×4（原 20）
       ensureWeek();
-      state.weekXp += 20;
+      state.weekXp += 80;
       bumpStreak();
       store.save(state);
       sndWin();
@@ -1224,7 +1224,7 @@
     stopSprintTimer();
     const s = sprint;
     sprint = null;
-    const gained = Math.min(40, s.correct * 2); // 封頂避免刷分
+    const gained = Math.min(160, s.correct * 8); // 2026-07-21 金句衝刺經驗 ×4；封頂避免刷分
     state.xp += gained;
     ensureWeek();
     state.weekXp += gained;
@@ -1313,7 +1313,7 @@
   function endFlip() {
     const moves = flip.moves;
     flip = null;
-    const gained = 20;
+    const gained = 80; // 2026-07-21 經文翻牌經驗 ×4（原 20）
     state.xp += gained;
     ensureWeek();
     state.weekXp += gained;
@@ -1426,7 +1426,7 @@
     const moves = noah.moves;
     noah = null;
     const first = !state.minigames.noah;
-    const gained = first ? 60 : 10; // 2026-07-18 小遊戲經驗加倍（原 30/5）
+    const gained = first ? 240 : 40; // 2026-07-21 小遊戲經驗 ×4（原 60/10）
     if (first) state.minigames.noah = true;
     state.xp += gained;
     ensureWeek();
@@ -1476,7 +1476,7 @@
   function winAction(id, book, win, again) {
     endActionState();
     const first = !state.minigames[id];
-    const gained = first ? 60 : 10; // 2026-07-18 小遊戲經驗加倍（原 30/5）
+    const gained = first ? 240 : 40; // 2026-07-21 小遊戲經驗 ×4（原 60/10）
     if (first) state.minigames[id] = true;
     state.xp += gained;
     ensureWeek();
@@ -4467,7 +4467,7 @@
     const arr = state.milestones[bookId] || (state.milestones[bookId] = []);
     const first = !arr.includes(pos);
     if (first) arr.push(pos);
-    const gained = first ? 20 : 5;
+    const gained = first ? 80 : 20; // 2026-07-21 里程碑小遊戲經驗 ×4（原 20/5）
     state.xp += gained; ensureWeek(); state.weekXp += gained; bumpStreak();
     store.save(state); sndWin(); throwConfetti();
     $('#result-box').innerHTML = `
@@ -5821,7 +5821,7 @@
     const cfg = mg.cfg, id = mg.id;
     mg = null;
     const first = !state.minigames[id];
-    const gained = first ? 60 : 10; // 2026-07-18 小遊戲經驗加倍（原 30/5）
+    const gained = first ? 240 : 40; // 2026-07-21 小遊戲經驗 ×4（原 60/10）
     if (first) state.minigames[id] = true;
     state.xp += gained;
     ensureWeek();
@@ -6081,9 +6081,9 @@
     const first = !done.includes(chIdx);
     if (first) {
       done.push(chIdx);
-      state.xp += 60; // 2026-07-18 約拿故事經驗加倍（原 30）
+      state.xp += 240; // 2026-07-21 約拿故事經驗 ×4（原 60）
       ensureWeek();
-      state.weekXp += 60;
+      state.weekXp += 240;
       bumpStreak();
       store.save(state);
       sndWin();
