@@ -88,7 +88,7 @@
       CloudSync.save(d); // 有登入就同步到雲端（沒登入時是空操作）
     },
   };
-  let state = Object.assign({ xp: 0, streak: 0, lastPlay: '', done: {}, scene: 'meadow', mascot: 'dove', nickname: '', weekXp: 0, weekKey: '', muted: false, review: [], puzzles: { beatitudes: [] }, hearts: MAX_HEARTS, heartsTs: Date.now(), lastWeekXp: 0, lastWeekKey: '', milestones: {} }, store.load());
+  let state = Object.assign({ xp: 0, streak: 0, lastPlay: '', done: {}, scene: 'meadow', mascot: 'dove', nickname: '', weekXp: 0, weekKey: '', muted: false, review: [], puzzles: { beatitudes: [] }, hearts: MAX_HEARTS, heartsTs: Date.now(), lastWeekXp: 0, lastWeekKey: '', milestones: {}, admBump: 0 }, store.load());
   if (!state.puzzles) state.puzzles = { beatitudes: [] }; // 舊存檔補欄位
   if (!state.stats) state.stats = {}; // 各種計數器（衝刺最高分、翻牌次數、複習次數、朗讀成功數…），徽章用
   if (!state.minigames) state.minigames = {}; // 書卷故事小遊戲通關紀錄 { gameId: true }
@@ -6227,16 +6227,20 @@
     const cloudWeek = cloud.weekKey === wk ? (cloud.weekXp || 0) : 0;
     const localCh = local.weekKey === wk ? (local.weekCh || 0) : 0;
     const cloudCh = cloud.weekKey === wk ? (cloud.weekCh || 0) : 0;
+    // 管理員強制校正：當雲端 admBump 比本機大，代表 Burger 在後台調過分數（含「調低」）
+    // → 分數改成「以雲端為準」而非取較大值，否則本機的舊高分會把調低的結果又拉回去
+    const adminOverride = (cloud.admBump || 0) > (local.admBump || 0);
     return {
-      xp: Math.max(local.xp || 0, cloud.xp || 0),
-      streak: Math.max(local.streak || 0, cloud.streak || 0),
+      admBump: Math.max(local.admBump || 0, cloud.admBump || 0),
+      xp: adminOverride ? (cloud.xp || 0) : Math.max(local.xp || 0, cloud.xp || 0),
+      streak: adminOverride ? (cloud.streak || 0) : Math.max(local.streak || 0, cloud.streak || 0),
       lastPlay: (local.lastPlay || '') > (cloud.lastPlay || '') ? local.lastPlay : (cloud.lastPlay || ''),
       done,
       scene: cloud.scene || local.scene,
       mascot: cloud.mascot || local.mascot,
       nickname: cloud.nickname || local.nickname || '', // 換裝置時保留自己取的排行榜名字
       weekKey: wk,
-      weekXp: Math.max(localWeek, cloudWeek),
+      weekXp: adminOverride ? cloudWeek : Math.max(localWeek, cloudWeek),
       weekCh: Math.max(localCh, cloudCh),
       // 上週分數：取「上週鑰匙較新」那份（跨裝置時保留真正上週的成績）
       ...((local.lastWeekKey || '') >= (cloud.lastWeekKey || '')

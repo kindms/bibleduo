@@ -54,6 +54,8 @@ const CloudSync = (function () {
         done: state.done, scene: state.scene, mascot: state.mascot,
         hearts: typeof state.hearts === "number" ? state.hearts : 5, // 愛心跨裝置同步；沒存雲端會導致登出再登入被合併回滿血
         heartsTs: state.heartsTs || Date.now(),
+        admBump: state.admBump || 0, // 管理員校正版本號：後台調分數時 +1，客戶端才會「以雲端為準」而不是取較大值
+
         nickname: state.nickname || "", weekXp: state.weekXp || 0, weekKey: state.weekKey || "", weekCh: state.weekCh || 0,
         lastWeekXp: state.lastWeekXp || 0, lastWeekKey: state.lastWeekKey || "",
         review: state.review || [],
