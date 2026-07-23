@@ -6768,7 +6768,10 @@
   };
 
   // 測試用鉤子（自動化驗證流程時讀取關卡狀態）
-  window.__bd = { get lesson() { return lesson; }, get state() { return state; }, get sprint() { return sprint; }, get flip() { return flip; }, get mg() { return mg; }, get action() { return action; }, get rankReward() { return rankReward; }, get milestone() { return milestone; }, get MILESTONE_GAMES() { return MILESTONE_GAMES; }, startMilestone, mergeStates, renderBoard, renderQuestion, renderCustomPanel, refreshRankReward, applyRewardLocks, similarity };
+  // 只在本機開發環境掛載，避免正式站被使用者從 console 一鍵讀寫遊戲狀態（防作弊 Tier 1.5）
+  if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+    window.__bd = { get lesson() { return lesson; }, get state() { return state; }, get sprint() { return sprint; }, get flip() { return flip; }, get mg() { return mg; }, get action() { return action; }, get rankReward() { return rankReward; }, get milestone() { return milestone; }, get MILESTONE_GAMES() { return MILESTONE_GAMES; }, startMilestone, mergeStates, renderBoard, renderQuestion, renderCustomPanel, refreshRankReward, applyRewardLocks, similarity };
+  }
 
   // ===== 啟動 =====
   (async function init() {
