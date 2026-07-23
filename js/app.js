@@ -93,7 +93,7 @@
   if (!state.stats) state.stats = {}; // 各種計數器（衝刺最高分、翻牌次數、複習次數、朗讀成功數…），徽章用
   if (!state.minigames) state.minigames = {}; // 書卷故事小遊戲通關紀錄 { gameId: true }
   if (!state.friends) state.friends = []; // 好友 uid 清單（雲端同步取聯集）
-  // review: 錯題間隔複習佇列 [{key, q, book, due, stage}]；答錯隔天到期，答對依 1→3→7 天延後，對滿三次畢業移除
+  // review: 錯題間隔複習佇列 [{key, q, book, due, stage, exp}]；答錯隔天到期，答對依 1→3→7 天延後，對滿三次畢業移除；exp＝建立後三天到期，過了就自動移除不再出現
   // done: { MRK: [1,2,3] } 已完成章
 
   const mascot = () => MASCOTS[state.mascot] || MASCOTS.dove;
@@ -1009,13 +1009,19 @@
     for (const q of lesson.wrongQs) {
       const key = reviewKey(q);
       if (review.some(r => r.key === key)) continue;
-      review.push({ key, q, book: currentBook.id, due: addDaysStr(1), stage: 0 });
+      review.push({ key, q, book: currentBook.id, due: addDaysStr(1), stage: 0, exp: addDaysStr(3) }); // exp：錯題只保留三天，過了就不再出現
     }
     while (review.length > 50) review.shift(); // 佇列上限，太舊的先淘汰
   }
   function dueReviews() {
     const t = today();
-    return (state.review || []).filter(r => r.due <= t);
+    const all = state.review || [];
+    // 錯題只保留三天：補上到期日（舊資料沒有 exp）→ 移除過期的 → 之後不再出現
+    let changed = false;
+    for (const r of all) if (!r.exp) { r.exp = addDaysStr(3); changed = true; }
+    const alive = all.filter(r => r.exp >= t);
+    if (changed || alive.length !== all.length) { state.review = alive; store.save(state); }
+    return alive.filter(r => r.due <= t);
   }
   // 答對進下一階段（1→3→7 天後再考），對滿三次畢業移除；答錯退回明天再考
   function bumpReviewItem(item, ok) {
