@@ -219,6 +219,10 @@ main, header { position: relative; z-index: 1; }
   padding: 4px 8px; border-radius: 10px;
 }
 .icon-btn:active { background: var(--card-line); }
+/* 聖經旅行團外連圖示（連續天數右邊） */
+.bch-link { display: inline-flex; align-items: center; padding: 2px; border-radius: 8px; line-height: 0; }
+.bch-link svg { display: block; }
+.bch-link:active { background: var(--card-line); }
 
 /* ===== 共用畫面 ===== */
 .screen { width: 100%; max-width: 520px; padding: 16px; flex: 1; }
