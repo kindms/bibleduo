@@ -1518,6 +1518,289 @@
     show('#screen-result');
   }
 
+  // ============================================================
+  //  🎮 憤怒鳥式動作小遊戲（2026-07-21，取代 5 款讀經對決）
+  //  全 DOM＋rAF；物理款用 S.tick(dt) 可手動逐格驅動（測試用 window.__bd.action.state）
+  //  gameId 沿用原對決（elijah/keep_faith/gideon/ruth/dry_bones），徽章不變、對決版保留為備援
+  // ============================================================
+  function runActionLoop5(S) { // 共用 rAF 驅動：單幀上限 50ms，切背景不跳關
+    let last = performance.now();
+    const step = (now) => {
+      if (!action || action.state !== S) return;
+      S.tick(Math.min(50, now - last));
+      last = now;
+      if (S.phase === 'play') S.raf = requestAnimationFrame(step);
+    };
+    S.raf = requestAnimationFrame(step);
+  }
+
+  // —— 🔥 迦密山降火：準星在祭壇上空來回掃，抓準時機求火降下（王上 18）——
+  ACTION_GAMES.elijah = function startElijah2() {
+    const S = { phase: 'play', hits: 0, calls: 6, x: 5, dir: 1, speed: 1.1, altarX: 50, half: 11, raf: 0 };
+    const area = startAction('🔥 迦密山降火', '1KI', () => cancelAnimationFrame(S.raf));
+    action.state = S;
+    area.innerHTML = `
+      <div class="act-row"><span>🔥 點著</span><div class="act-track"><div class="act-fill" id="ej-prog"></div></div><b id="ej-hits">0/3</b></div>
+      <div class="ej-stage" id="ej-stage">
+        <div class="ej-sky">☁️　☁️　☁️</div>
+        <div class="ej-cross" id="ej-cross">🎯</div>
+        <div class="ej-altar" id="ej-altar">💧🪨💧</div>
+      </div>
+      <button class="big-btn act-tap" id="ej-fire">🙏 求火降下！（剩 <b id="ej-calls">6</b>）</button>
+      <p class="fr-tip">準星掃到澆濕的祭壇 🪨 正上方時，立刻按下——火就從天降下！集滿 3 次得勝。</p>`;
+    const placeAltar = () => { S.altarX = 25 + Math.random() * 50; const a = $('#ej-altar'); if (a) a.style.left = `${S.altarX}%`; };
+    placeAltar();
+    $('#ej-fire').onclick = () => {
+      if (S.phase !== 'play') return;
+      const hit = Math.abs(S.x - S.altarX) <= S.half;
+      S.calls--;
+      const altar = $('#ej-altar');
+      if (hit) {
+        S.hits++; sndGood();
+        altar.textContent = '🔥🔥🔥'; altar.classList.add('ej-burn');
+        setTimeout(() => { if (S.phase === 'play' && altar) { altar.textContent = '💧🪨💧'; altar.classList.remove('ej-burn'); placeAltar(); } }, 500);
+        S.speed += 0.35; S.half = Math.max(7, S.half - 1.2);
+      } else { sndBad(); const st = $('#ej-stage'); st.classList.remove('jr-shake'); void st.offsetWidth; st.classList.add('jr-shake'); }
+      $('#ej-hits').textContent = `${S.hits}/3`;
+      $('#ej-prog').style.width = `${(S.hits / 3) * 100}%`;
+      $('#ej-calls').textContent = Math.max(0, S.calls);
+      if (S.hits >= 3) { S.phase = 'done'; winAction('elijah', '1KI', { emoji: '🔥', title: '耶和華是神！', text: '於是，耶和華降下火來，燒盡燔祭、木柴、石頭、塵土，又燒乾溝裏的水。眾民看見了，就俯伏在地說：「耶和華是神！」（王上 18:38-39）' }, ACTION_GAMES.elijah); return; }
+      if (S.calls <= 0) { S.phase = 'done'; loseAction('1KI', '火還沒完全降下——以利亞在迦密山也是專心禱告才見神蹟。穩住呼吸，再求一次！', ACTION_GAMES.elijah); }
+    };
+    S.tick = (dt) => {
+      if (S.phase !== 'play') return;
+      const f = dt / 16.7;
+      S.x += S.dir * S.speed * f;
+      if (S.x >= 95) { S.x = 95; S.dir = -1; }
+      if (S.x <= 5) { S.x = 5; S.dir = 1; }
+      const c = $('#ej-cross'); if (c) c.style.left = `${S.x}%`;
+    };
+    runActionLoop5(S);
+  };
+
+  // —— 🏰 真道堡壘：拉彈弓瞄準，真理石塊拋物線砸倒假教訓的塔（猶大書）——
+  ACTION_GAMES.keep_faith = function startKeepFaith2() {
+    const GROUND = 86, OX = 14, OY = 60, GRAV = 0.9, KVX = 0.30, KVY = 0.22;
+    const S = { phase: 'play', stones: 6, towers: [], stone: null, dragging: false, aim: null, raf: 0 };
+    const area = startAction('🏰 真道堡壘', 'JUD', () => cancelAnimationFrame(S.raf));
+    action.state = S;
+    area.innerHTML = `
+      <div class="act-row"><span>🪨 真理石</span><div class="act-track"><div class="act-fill" id="kf-prog"></div></div><b id="kf-stones">5</b></div>
+      <div class="kf-stage" id="kf-stage">
+        <div class="kf-sling" id="kf-sling">🪃</div>
+        <div class="kf-aim hidden" id="kf-aim"></div>
+      </div>
+      <p class="fr-tip">在畫面上「往後下方拉」再放開，把真理石往前上方拋出去，砸倒假教訓的塔！</p>`;
+    const stage = $('#kf-stage');
+    const LABELS = ['假道', '謬論', '異端'];
+    S.towers = [50, 66, 84].map((x, i) => ({ x, alive: true, label: LABELS[i] }));
+    function renderTowers() {
+      stage.querySelectorAll('.kf-tower').forEach(e => e.remove());
+      S.towers.forEach((t, i) => {
+        if (!t.alive) return;
+        const el = document.createElement('div');
+        el.className = 'kf-tower'; el.id = 'kf-tower-' + i; el.style.left = `${t.x}%`;
+        el.innerHTML = `<span>🧱</span><span>🧱</span><span class="kf-tlabel">${t.label}</span>`;
+        stage.appendChild(el);
+      });
+    }
+    renderTowers();
+    const pct = (e) => { const r = stage.getBoundingClientRect(); return { x: ((e.clientX - r.left) / r.width) * 100, y: ((e.clientY - r.top) / r.height) * 100 }; };
+    stage.onpointerdown = (e) => { if (S.phase !== 'play' || S.stone) return; S.dragging = true; $('#kf-aim').classList.remove('hidden'); stage.onpointermove(e); };
+    stage.onpointermove = (e) => {
+      if (!S.dragging) return;
+      const p = pct(e);
+      const dx = OX - p.x, dy = OY - p.y;
+      const aim = $('#kf-aim');
+      const len = Math.min(34, Math.hypot(dx, dy));
+      aim.style.left = `${OX}%`; aim.style.top = `${OY}%`; aim.style.width = `${len}%`;
+      aim.style.transform = `rotate(${Math.atan2(dy, dx) * 180 / Math.PI}deg)`;
+      S.aim = { dx, dy };
+    };
+    stage.onpointerup = () => {
+      if (!S.dragging) return;
+      S.dragging = false; $('#kf-aim').classList.add('hidden');
+      const a = S.aim || { dx: 0, dy: 0 };
+      launch(Math.max(0.4, a.dx * KVX), a.dy * KVY);
+    };
+    function launch(vx, vy) {
+      if (S.stone || S.stones <= 0) return;
+      S.stones--; $('#kf-stones').textContent = S.stones;
+      const el = document.createElement('div'); el.className = 'kf-stone'; el.textContent = '🪨'; stage.appendChild(el);
+      S.stone = { x: OX, y: OY, vx, vy, el };
+    }
+    function endStone() { if (S.stone) { S.stone.el.remove(); S.stone = null; } }
+    function checkState() {
+      const left = S.towers.filter(t => t.alive).length;
+      $('#kf-prog').style.width = `${((3 - left) / 3) * 100}%`;
+      if (left === 0) { S.phase = 'done'; winAction('keep_faith', 'JUD', { emoji: '🏰', title: '真道堡壘屹立不搖！', text: '要為從前一次交付聖徒的真道竭力地爭辯；你們卻要在至聖的真道上造就自己，在聖靈裏禱告，保守自己常在神的愛中。（猶 1:3,20-21）' }, ACTION_GAMES.keep_faith); return; }
+      if (S.stones <= 0 && !S.stone) { S.phase = 'done'; loseAction('JUD', '還有假教訓的塔沒倒——別灰心，真道值得竭力爭辯。瞄準一點、拉大力道，再來一次！', ACTION_GAMES.keep_faith); }
+    }
+    S.tick = (dt) => {
+      if (S.phase !== 'play' || !S.stone) return;
+      const f = dt / 16.7, s = S.stone;
+      s.vy += GRAV * f; s.x += s.vx * f; s.y += s.vy * f;
+      s.el.style.left = `${s.x}%`; s.el.style.top = `${s.y}%`;
+      for (let i = 0; i < S.towers.length; i++) {
+        const t = S.towers[i];
+        if (t.alive && Math.abs(s.x - t.x) <= 5.5 && s.y >= GROUND - 18) {
+          t.alive = false; sndGood();
+          const te = $('#kf-tower-' + i); if (te) { te.classList.add('kf-fall'); setTimeout(() => te.remove(), 400); }
+          endStone(); checkState(); return;
+        }
+      }
+      if (s.y >= GROUND || s.x >= 100) { endStone(); checkState(); }
+    };
+    runActionLoop5(S);
+  };
+
+  // —— 🔥 火把夜襲：蓄力錶抓準力道，火把拋物線飛向米甸帳篷（士 7）——
+  ACTION_GAMES.gideon = function startGideon2() {
+    const S = { phase: 'play', torches: 6, tents: [], power: 0, dir: 1, flying: null, raf: 0 };
+    const area = startAction('🔥 火把夜襲', 'JDG', () => cancelAnimationFrame(S.raf));
+    action.state = S;
+    area.innerHTML = `
+      <div class="act-row"><span>⛺ 燒營</span><div class="act-track"><div class="act-fill" id="gd-prog"></div></div><b id="gd-torch">🔥×6</b></div>
+      <div class="gd-stage" id="gd-stage"><div class="gd-thrower">🙌</div></div>
+      <div class="act-row"><span>力道</span><div class="act-track"><div class="act-fill" id="gd-power"></div></div></div>
+      <button class="big-btn act-tap" id="gd-throw">🔥 打破瓶子、擲火把！</button>
+      <p class="fr-tip">力道錶左右擺動，估好帳篷 ⛺ 的距離、力道對了就按下——火把劃過夜空飛出去！</p>`;
+    const stage = $('#gd-stage');
+    S.tents = [40, 60, 82].map(d => ({ d, burned: false }));
+    function renderTents() {
+      stage.querySelectorAll('.gd-tent').forEach(e => e.remove());
+      S.tents.forEach((t, i) => { const el = document.createElement('div'); el.className = 'gd-tent'; el.id = 'gd-tent-' + i; el.textContent = t.burned ? '🔥' : '⛺'; el.style.left = `${t.d}%`; stage.appendChild(el); });
+    }
+    renderTents();
+    $('#gd-throw').onclick = () => {
+      if (S.phase !== 'play' || S.flying) return;
+      const landX = 20 + (S.power / 100) * 75;
+      S.torches--; $('#gd-torch').textContent = `🔥×${S.torches}`;
+      const el = document.createElement('div'); el.className = 'gd-torch-fly'; el.textContent = '🔥'; stage.appendChild(el);
+      S.flying = { t: 0, from: 8, to: landX, el };
+    };
+    S.tick = (dt) => {
+      if (S.phase !== 'play') return;
+      const f = dt / 16.7;
+      if (S.flying) {
+        const fl = S.flying; fl.t += 0.04 * f;
+        const p = Math.min(1, fl.t);
+        const x = fl.from + (fl.to - fl.from) * p;
+        const y = 74 - Math.sin(p * Math.PI) * 58;
+        fl.el.style.left = `${x}%`; fl.el.style.top = `${y}%`;
+        if (p >= 1) {
+          fl.el.remove(); S.flying = null;
+          let hit = -1; S.tents.forEach((t, i) => { if (!t.burned && Math.abs(t.d - x) <= 7) hit = i; });
+          if (hit >= 0) { S.tents[hit].burned = true; sndGood(); renderTents(); }
+          else { sndBad(); stage.classList.remove('jr-shake'); void stage.offsetWidth; stage.classList.add('jr-shake'); }
+          const burned = S.tents.filter(t => t.burned).length;
+          $('#gd-prog').style.width = `${(burned / S.tents.length) * 100}%`;
+          if (burned === S.tents.length) { S.phase = 'done'; winAction('gideon', 'JDG', { emoji: '🔥', title: '全營潰亂，得勝！', text: '三隊的人就都吹角，打破瓶子，左手拿着火把，右手拿着角，喊叫說：「耶和華和基甸的刀！」全營的人都亂竄逃跑。（士 7:20-21）' }, ACTION_GAMES.gideon); return; }
+          if (S.torches <= 0) { S.phase = 'done'; loseAction('JDG', '還有帳篷沒燒著——基甸靠的不是人多，是神。抓準力道，再夜襲一次！', ACTION_GAMES.gideon); return; }
+        }
+        return;
+      }
+      S.power += S.dir * 1.6 * f;
+      if (S.power >= 100) { S.power = 100; S.dir = -1; }
+      if (S.power <= 0) { S.power = 0; S.dir = 1; }
+      const el = $('#gd-power'); if (el) el.style.width = `${S.power}%`;
+    };
+    runActionLoop5(S);
+  };
+
+  // —— 🌾 田間拾穗：移動竹籃接落下的麥穗、閃開石頭，波阿斯還會多撒幾把（得 2）——
+  ACTION_GAMES.ruth = function startRuth2() {
+    const GOAL = 3000, TIME_MS = 60000;
+    const S = { phase: 'play', got: 0, t: 0, basketX: 50, items: [], spawnMs: 0, bonusMs: 8000, raf: 0 };
+    const area = startAction('🌾 田間拾穗', 'RUT', () => cancelAnimationFrame(S.raf));
+    action.state = S;
+    area.innerHTML = `
+      <div class="act-row"><span>🌾 收成</span><div class="act-track"><div class="act-fill" id="rt-got"></div></div><b id="rt-count">0</b></div>
+      <div class="act-row"><span>☀️ 天光</span><div class="act-track"><div class="act-fill act-foe" id="rt-time"></div></div></div>
+      <div class="rt-stage" id="rt-stage"><div class="rt-basket" id="rt-basket">🧺</div></div>
+      <p class="fr-tip">左右拖動竹籃接 🌾 麥穗；🪨 石頭別接。波阿斯有時會慷慨多撒一把！</p>`;
+    const stage = $('#rt-stage');
+    const move = (e) => { const r = stage.getBoundingClientRect(); S.basketX = Math.max(6, Math.min(94, ((e.clientX - r.left) / r.width) * 100)); $('#rt-basket').style.left = `${S.basketX}%`; };
+    stage.onpointerdown = move;
+    stage.onpointermove = (e) => { if (e.buttons || e.pressure > 0) move(e); };
+    function spawn(kind) {
+      const el = document.createElement('div'); el.className = 'rt-item';
+      const k = kind || (Math.random() < 0.18 ? { e: '🪨', v: -250 } : { e: '🌾', v: 200 });
+      el.textContent = k.e; stage.appendChild(el);
+      S.items.push({ k, el, x: 8 + Math.random() * 84, y: 6 });
+    }
+    S.tick = (dt) => {
+      if (S.phase !== 'play') return;
+      S.t += dt; S.spawnMs += dt; S.bonusMs -= dt;
+      if (S.spawnMs >= 720) { S.spawnMs = 0; spawn(); }
+      if (S.bonusMs <= 0) { S.bonusMs = 9000 + Math.random() * 6000; for (let i = 0; i < 4; i++) spawn({ e: '🌾', v: 200 }); }
+      for (let i = S.items.length - 1; i >= 0; i--) {
+        const it = S.items[i]; it.y += dt * 0.05;
+        it.el.style.left = `${it.x}%`; it.el.style.top = `${it.y}%`;
+        if (it.y >= 84) {
+          if (Math.abs(it.x - S.basketX) <= 11) {
+            S.got = Math.max(0, S.got + it.k.v);
+            if (it.k.v > 0) sndGood(); else { sndBad(); stage.classList.remove('jr-shake'); void stage.offsetWidth; stage.classList.add('jr-shake'); }
+          }
+          it.el.remove(); S.items.splice(i, 1);
+        }
+      }
+      $('#rt-got').style.width = `${Math.min(100, (S.got / GOAL) * 100)}%`;
+      $('#rt-count').textContent = S.got;
+      $('#rt-time').style.width = `${Math.min(100, (S.t / TIME_MS) * 100)}%`;
+      if (S.got >= GOAL) { S.phase = 'done'; winAction('ruth', 'RUT', { emoji: '🌾', title: '滿載而歸！', text: '波阿斯吩咐：「要從捆裏抽出些來，留在地下任她拾取。」願耶和華照你所行的賞賜你——你來投靠耶和華的翅膀下，必滿得他的賞賜。（得 2:16,12）' }, ACTION_GAMES.ruth); return; }
+      if (S.t >= TIME_MS) { S.phase = 'done'; loseAction('RUT', `天色晚了，還差 ${GOAL - S.got} 就滿了——忠心的人必不落空，再拾一趟！`, ACTION_GAMES.ruth); }
+    };
+    runActionLoop5(S);
+  };
+
+  // —— 🦴 枯骨復生：把散落的骸骨拖到骨架輪廓上，六塊到齊，氣息一吹就站起成軍（結 37）——
+  ACTION_GAMES.dry_bones = function startDryBones2() {
+    const S = { phase: 'play', placed: 0, drag: null, raf: 0 };
+    const area = startAction('🦴 枯骨復生', 'EZK', () => {});
+    action.state = S;
+    const SLOTS = [
+      { id: 'skull', e: '💀', x: 50, y: 14 }, { id: 'ribs', e: '🦴', x: 50, y: 38 },
+      { id: 'armL', e: '🦴', x: 30, y: 40 }, { id: 'armR', e: '🦴', x: 70, y: 40 },
+      { id: 'legL', e: '🦴', x: 42, y: 72 }, { id: 'legR', e: '🦴', x: 58, y: 72 },
+    ];
+    area.innerHTML = `
+      <div class="act-row"><span>🦴 復原</span><div class="act-track"><div class="act-fill" id="db-prog"></div></div><b id="db-count">0/6</b></div>
+      <div class="db-stage" id="db-stage"></div>
+      <p class="fr-tip">把散落的骸骨拖到淡淡的骨架輪廓上；六塊到齊，氣息就吹進來，站起成為極大的軍隊！</p>`;
+    const stage = $('#db-stage');
+    SLOTS.forEach(s => { const g = document.createElement('div'); g.className = 'db-slot'; g.id = 'db-slot-' + s.id; g.textContent = s.e; g.style.left = `${s.x}%`; g.style.top = `${s.y}%`; stage.appendChild(g); });
+    shuffleArr(SLOTS.slice()).forEach((s, i) => {
+      const b = document.createElement('div'); b.className = 'db-bone'; b.id = 'db-bone-' + s.id; b.textContent = s.e; b.dataset.target = s.id;
+      b.style.left = `${Math.min(88, 10 + (i % 3) * 30 + Math.random() * 6)}%`; b.style.top = `${i < 3 ? 84 : 92}%`;
+      stage.appendChild(b);
+    });
+    const pct = (e) => { const r = stage.getBoundingClientRect(); return { x: ((e.clientX - r.left) / r.width) * 100, y: ((e.clientY - r.top) / r.height) * 100 }; };
+    stage.onpointerdown = (e) => {
+      const bone = e.target.closest && e.target.closest('.db-bone');
+      if (!bone || bone.classList.contains('db-set')) return;
+      S.drag = { bone, id: bone.dataset.target }; bone.classList.add('db-grab');
+    };
+    stage.onpointermove = (e) => {
+      if (!S.drag) return;
+      const p = pct(e);
+      S.drag.bone.style.left = `${Math.max(2, Math.min(94, p.x))}%`;
+      S.drag.bone.style.top = `${Math.max(2, Math.min(94, p.y))}%`;
+    };
+    const drop = () => {
+      if (!S.drag) return;
+      const { bone, id } = S.drag; S.drag = null; bone.classList.remove('db-grab');
+      const slot = SLOTS.find(s => s.id === id);
+      if (Math.abs(parseFloat(bone.style.left) - slot.x) <= 11 && Math.abs(parseFloat(bone.style.top) - slot.y) <= 11) {
+        bone.style.left = `${slot.x}%`; bone.style.top = `${slot.y}%`; bone.classList.add('db-set'); sndGood();
+        S.placed++; $('#db-count').textContent = `${S.placed}/6`; $('#db-prog').style.width = `${(S.placed / 6) * 100}%`;
+        if (S.placed >= 6) { S.phase = 'done'; stage.classList.add('db-breath'); setTimeout(() => winAction('dry_bones', 'EZK', { emoji: '🦴', title: '骸骨成為極大的軍隊！', text: '於是我遵命說預言，氣息就進入骸骨，骸骨便活了，並且站起來，成為極大的軍隊。（結 37:10）神的靈一到，枯乾的也能復活！' }, ACTION_GAMES.dry_bones), 650); }
+      } else { sndBad(); }
+    };
+    stage.onpointerup = drop; stage.onpointerleave = drop;
+    S.tick = () => {}; // 純拖曳無物理迴圈；保留空 tick 供測試鉤子一致
+  };
+
   // —— 🗿 大衛甩石：開場 1 題 → 快速連點蓄力 → 準星晃進額頭區的瞬間放手 ——
   ACTION_GAMES.david = function startDavid2() {
     const S = { phase: 'quiz', stones: 5, dist: 4, power: 0, marker: 0, dir: 1, zoneHalf: 0, raf: 0, easier: false };
@@ -6780,7 +7063,7 @@
   // 測試用鉤子（自動化驗證流程時讀取關卡狀態）
   // 只在本機開發環境掛載，避免正式站被使用者從 console 一鍵讀寫遊戲狀態（防作弊 Tier 1.5）
   if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
-    window.__bd = { get lesson() { return lesson; }, get state() { return state; }, get sprint() { return sprint; }, get flip() { return flip; }, get mg() { return mg; }, get action() { return action; }, get rankReward() { return rankReward; }, get milestone() { return milestone; }, get MILESTONE_GAMES() { return MILESTONE_GAMES; }, startMilestone, mergeStates, renderBoard, renderQuestion, renderCustomPanel, refreshRankReward, applyRewardLocks, similarity };
+    window.__bd = { get lesson() { return lesson; }, get state() { return state; }, get sprint() { return sprint; }, get flip() { return flip; }, get mg() { return mg; }, get action() { return action; }, get rankReward() { return rankReward; }, get milestone() { return milestone; }, get MILESTONE_GAMES() { return MILESTONE_GAMES; }, get ACTION_GAMES() { return ACTION_GAMES; }, startMilestone, mergeStates, renderBoard, renderQuestion, renderCustomPanel, refreshRankReward, applyRewardLocks, similarity };
   }
 
   // ===== 啟動 =====

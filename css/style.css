@@ -878,6 +878,40 @@ main, header { position: relative; z-index: 1; }
 
 /* 🎮 動作小遊戲 2.0 */
 #action-area { padding: 4px 2px; }
+
+/* ===== 🎮 憤怒鳥式動作小遊戲（2026-07-21）===== */
+.ej-stage, .kf-stage, .gd-stage, .rt-stage, .db-stage {
+  position: relative; width: 100%; height: 300px; border-radius: 16px;
+  overflow: hidden; margin: 10px 0; border: 2px solid var(--card-line); touch-action: none;
+}
+.ej-stage { background: linear-gradient(#1b2a4a, #3a5a8a); }
+.ej-sky { position: absolute; top: 8px; width: 100%; text-align: center; font-size: 1.4rem; opacity: .6; letter-spacing: 4px; }
+.ej-cross { position: absolute; top: 42%; left: 5%; transform: translate(-50%, -50%); font-size: 1.9rem; }
+.ej-altar { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); font-size: 2.2rem; transition: left .18s ease; }
+.ej-altar.ej-burn { filter: drop-shadow(0 0 12px #ff8a00); animation: ejpulse .3s infinite alternate; }
+@keyframes ejpulse { to { transform: translateX(-50%) scale(1.28); } }
+.kf-stage { background: linear-gradient(#bfe0ff, #eaf6ff); }
+.kf-sling { position: absolute; left: 14%; top: 60%; transform: translate(-50%, -50%); font-size: 1.9rem; }
+.kf-aim { position: absolute; height: 4px; background: #ff6a3d; border-radius: 2px; transform-origin: left center; pointer-events: none; }
+.kf-tower { position: absolute; bottom: 12%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; font-size: 1.6rem; line-height: 1.05; }
+.kf-tlabel { font-size: .68rem; background: #b23b3b; color: #fff; border-radius: 6px; padding: 1px 6px; margin-top: 3px; white-space: nowrap; }
+.kf-fall { animation: kffall .4s forwards; }
+@keyframes kffall { to { transform: translateX(-50%) translateY(46px) rotate(72deg); opacity: 0; } }
+.kf-stone { position: absolute; transform: translate(-50%, -50%); font-size: 1.5rem; pointer-events: none; }
+.gd-stage { background: linear-gradient(#12142e, #2a2350); }
+.gd-thrower { position: absolute; left: 9%; bottom: 8%; transform: translate(-50%, 50%); font-size: 1.9rem; }
+.gd-tent { position: absolute; bottom: 12%; transform: translateX(-50%); font-size: 2rem; transition: left .1s; }
+.gd-torch-fly { position: absolute; transform: translate(-50%, -50%); font-size: 1.6rem; pointer-events: none; filter: drop-shadow(0 0 6px #ffae42); }
+.rt-stage { background: linear-gradient(#eaf6c8, #c9e08a); }
+.rt-basket { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); font-size: 2.1rem; }
+.rt-item { position: absolute; transform: translate(-50%, -50%); font-size: 1.5rem; pointer-events: none; }
+.db-stage { background: linear-gradient(#26262c, #45412f); }
+.db-slot { position: absolute; transform: translate(-50%, -50%); font-size: 2rem; opacity: .2; pointer-events: none; }
+.db-bone { position: absolute; transform: translate(-50%, -50%); font-size: 2rem; cursor: grab; touch-action: none; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .45)); }
+.db-bone.db-grab { cursor: grabbing; transform: translate(-50%, -50%) scale(1.22); }
+.db-bone.db-set { filter: drop-shadow(0 0 7px #7fd4ff); }
+.db-breath { animation: dbbreath .6s; }
+@keyframes dbbreath { 50% { filter: brightness(1.7); } }
 .act-hint { text-align: center; color: var(--text); margin: 8px 0 12px; line-height: 1.6; }
 .act-row { display: flex; align-items: center; gap: 10px; margin: 10px 0; color: var(--text-light); font-size: .9rem; }
 .act-track { flex: 1; height: 14px; background: var(--card-line); border-radius: 8px; overflow: hidden; }
