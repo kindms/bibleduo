@@ -983,18 +983,21 @@
   function awardWin() {
     if (lesson.awarded) return;
     lesson.awarded = true;
+    bumpStreak(); // 先更新連續天數，讓「連續天數加成」用含今天的天數
     lesson.perfect = lesson.wrong === 0;
     const bonus = lesson.perfect ? 20 : 0;
     const base = lesson.xp + bonus;
     // 好友組隊加成：只加在章節過關與錯題複習（小遊戲/衝刺不加，防刷分）
     lesson.friendPct = friendBonus.pct || 0;
+    // 連續天數加成：連 5 天 +5%，每多 5 天再 +5%，上限 +30%（鼓勵天天讀）
+    lesson.streakPct = Math.min(30, Math.floor((state.streak || 0) / 5) * 5);
     lesson.friendXp = Math.round(base * lesson.friendPct / 100);
-    lesson.gained = base + lesson.friendXp;
+    lesson.streakXp = Math.round(base * lesson.streakPct / 100);
+    lesson.gained = base + lesson.friendXp + lesson.streakXp;
     state.xp += lesson.gained;
     ensureWeek();
     state.weekXp += lesson.gained;
     state.weekCh = (state.weekCh || 0) + 1; // 本週完成章數（好友週任務進度）
-    bumpStreak();
     const done = state.done[currentBook.id] || (state.done[currentBook.id] = []);
     if (!done.includes(lesson.chapterNum)) done.push(lesson.chapterNum);
     queueReview(); // 答錯的題排進間隔複習佇列
@@ -6449,6 +6452,7 @@
     if (lesson.perfect) throwConfetti();
     const notes = [];
     if (lesson.perfect) notes.push('完美 +20');
+    if (lesson.streakXp) notes.push(`🔥連續 +${lesson.streakPct}%`);
     if (lesson.friendXp) notes.push(`👥組隊 +${lesson.friendPct}%`);
     const xpNote = notes.length ? `（含${notes.join('、')}）` : '';
     $('#result-box').innerHTML = `
@@ -7063,7 +7067,7 @@
   // 測試用鉤子（自動化驗證流程時讀取關卡狀態）
   // 只在本機開發環境掛載，避免正式站被使用者從 console 一鍵讀寫遊戲狀態（防作弊 Tier 1.5）
   if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
-    window.__bd = { get lesson() { return lesson; }, get state() { return state; }, get sprint() { return sprint; }, get flip() { return flip; }, get mg() { return mg; }, get action() { return action; }, get rankReward() { return rankReward; }, get milestone() { return milestone; }, get MILESTONE_GAMES() { return MILESTONE_GAMES; }, get ACTION_GAMES() { return ACTION_GAMES; }, startMilestone, mergeStates, renderBoard, renderQuestion, renderCustomPanel, refreshRankReward, applyRewardLocks, similarity };
+    window.__bd = { get lesson() { return lesson; }, get state() { return state; }, get sprint() { return sprint; }, get flip() { return flip; }, get mg() { return mg; }, get action() { return action; }, get rankReward() { return rankReward; }, get milestone() { return milestone; }, get MILESTONE_GAMES() { return MILESTONE_GAMES; }, get ACTION_GAMES() { return ACTION_GAMES; }, startMilestone, mergeStates, renderBoard, renderQuestion, renderCustomPanel, refreshRankReward, applyRewardLocks, similarity, awardWin };
   }
 
   // ===== 啟動 =====
