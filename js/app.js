@@ -6625,13 +6625,17 @@
     let rows = [];
     let pendingOut = new Set(); // 我已送出、對方還沒回覆的邀請（排行榜顯示「等待中」，2026-07-17 Burger 回饋）
     const reqP = CloudSync.isLoggedIn() ? CloudSync.fetchRequests().catch(() => null) : Promise.resolve(null);
-    try { rows = await CloudSync.fetchBoard(boardMode, weekKeyOf()); }
+    try {
+      rows = boardMode === 'lastweek'
+        ? (await CloudSync.fetchLastWeekTop(lastWeekKeyOf())).slice(0, 20)
+        : await CloudSync.fetchBoard(boardMode, weekKeyOf());
+    }
     catch (e) { console.warn('排行榜載入失敗', e); list.innerHTML = '<p class="board-hint">排行榜載入失敗，請檢查網路後再試。</p>'; return; }
     const req = await reqP; // 邀請清單抓失敗不影響排行榜，只是不顯示等待標記
     if (req) pendingOut = new Set(req.outgoing.map((r) => r.to));
     list.innerHTML = '';
     if (!rows.length) {
-      list.innerHTML = '<p class="board-hint">榜上還空無一人——快去闖一關搶頭香！</p>';
+      list.innerHTML = `<p class="board-hint">${boardMode === 'lastweek' ? '上週還沒有人上榜～下週換你！' : '榜上還空無一人——快去闖一關搶頭香！'}</p>`;
     } else {
       const my = CloudSync.uid();
       const medals = ['🥇', '🥈', '🥉'];
@@ -6648,7 +6652,7 @@
         row.innerHTML = `<span class="b-rank">${medals[i] || i + 1}</span>
           <span class="b-mascot">${m.emoji}</span>
           <span class="b-nick">${escapeHtml(r.nick || '無名小卒')}${isMe ? ' <span class="b-editme">✏️改名</span>' : ''}</span>
-          <span class="b-xp">⭐ ${boardMode === 'week' ? (r.weekXp || 0) : (r.xp || 0)}</span>${frCell}`;
+          <span class="b-xp">⭐ ${boardMode === 'week' ? (r.weekXp || 0) : boardMode === 'lastweek' ? (r.score || 0) : (r.xp || 0)}</span>${frCell}`;
         if (isMe) row.onclick = openNameEditor; // 點自己那一列即可改名
         const addBtn = row.querySelector('.b-addfr');
         if (addBtn) addBtn.onclick = async (e) => {

@@ -108,8 +108,8 @@ const CloudSync = (function () {
       db.collection(BOARD).where("lwKey", "==", lastWeekKey).get(),
     ]));
     const rows = [];
-    q1.forEach((d) => { const x = d.data(); if ((x.weekXp || 0) > 0) rows.push({ uid: d.id, nick: x.nick, score: x.weekXp }); });
-    q2.forEach((d) => { const x = d.data(); if ((x.lwXp || 0) > 0) rows.push({ uid: d.id, nick: x.nick, score: x.lwXp }); });
+    q1.forEach((d) => { const x = d.data(); if ((x.weekXp || 0) > 0) rows.push({ uid: d.id, nick: x.nick, score: x.weekXp, mascot: x.mascot }); });
+    q2.forEach((d) => { const x = d.data(); if ((x.lwXp || 0) > 0) rows.push({ uid: d.id, nick: x.nick, score: x.lwXp, mascot: x.mascot }); });
     // 同一人不會同時落在兩個查詢（weekKey 與 lwKey 不會都等於上週），但保險去重取較高分
     const best = {};
     for (const r of rows) if (!best[r.uid] || r.score > best[r.uid].score) best[r.uid] = r;
